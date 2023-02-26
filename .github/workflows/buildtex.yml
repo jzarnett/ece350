@@ -10,7 +10,7 @@ jobs:
         uses: jzarnett/get-changed-files@v1.2
       - run: |
           cp lectures/compiled/* lectures
-          for changed_file in ${{ steps.files.outputs.added_modified }}; do
+          for changed_file in ${{ steps.files.outputs.all }}; do
             touch ${changed_file}
           done
       - name: Compile
