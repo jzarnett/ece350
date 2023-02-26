@@ -7,6 +7,9 @@
 *.out
 *.toc
 
+*.pdf
+makefileDependencies/
+
 ## Intermediate documents:
 *.dvi
 *-converted-to.*
@@ -14,6 +17,7 @@
 # *.ps
 # *.eps
 # *.pdf
+notebook.tex
 
 ## Bibliography auxiliary files (bibtex/biblatex/biber):
 *.bbl
@@ -108,5 +112,4 @@ sympy-plots-for-*.tex/
 # xindy
 *.xdy
 
-# MacOS
-.DS_Store
+makefileDependencies/

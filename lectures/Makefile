@@ -15,18 +15,6 @@ notebook:
 	@pdflatex -interaction=batchmode notebook.tex > /dev/null;
 	@pdflatex -interaction=batchmode notebook.tex > /dev/null;
 
-prereqs: 
-	@echo building pthreads
-	@pdflatex -interaction=batchmode  pthreads.tex > /dev/null;
-	@bibtex pthreads > /dev/null;
-	@pdflatex -interaction=batchmode pthreads.tex > /dev/null;
-	@pdflatex -interaction=batchmode pthreads.tex > /dev/null;
-	@echo building synchronization
-	@pdflatex -interaction=batchmode synchronization.tex > /dev/null;
-	@bibtex synchronization > /dev/null;
-	@pdflatex -interaction=batchmode synchronization.tex > /dev/null;
-	@pdflatex -interaction=batchmode synchronization.tex > /dev/null;
-
 clean:
 	rm -f *~ *.aux *.log *.bbl *.blg *.brf *.cb *.ind *.idx *.ilg *.pdfsync *.xdv  \
 		*.inx *.ps *.dvi *.toc *.out *.nav *.snm *.d *.bak _region* *.vrb *.fls *.fdb_latexmk \
