@@ -1,0 +1,136 @@
+\input{../common/header}
+
+\begin{document}
+
+\lecture{ 12 --- Scheduling in Linux}{\term}{Jeff Zarnett}
+
+\section*{Commercial OS Scheduling, Continued}
+
+We will now continue the discussion of commercial (real-world) operating system scheduling with a much more in-depth examination of Linux.
+
+Linux has two scheduling modes: Real-Time and Non-Real-Time (or perhaps we should call that the ``normal'' one). It is not necessary to use the real-time scheduler, strictly speaking, and if the real-time scheduler is used, the system can still have non-real-time threads which will be scheduled according to the normal scheduler routine.
+
+\subsubsection*{Linux Real-Time Scheduler}
+
+The Linux scheduler operates based on \textit{scheduling classes}, which are very much like the categories above. There are three classes into which priorities can be assigned~\cite{osi}:
+
+\begin{itemize}
+	\item \texttt{SCHED\_FIFO}: First-In, First-Out Real-Time threads
+	\item \texttt{SCHED\_RR}: Round-Robin Real-Time threads
+	\item \texttt{SCHED\_OTHER}: Other (non-real-time) threads.
+\end{itemize}
+
+In each class, threads may have different priorities relative to one another. Lower numbers indicate higher priorities. Real-time priorities are in the range [0-99] and the other priorities are [100-139].
+
+The rules for \texttt{SCHED\_FIFO} are as follows~\cite{osi}:
+
+\begin{enumerate}
+	\item The system will only interrupt a FIFO thread if one of the following is true:
+	\begin{enumerate}
+		\item Another FIFO thread of higher priority becomes ready.
+		\item The current FIFO thread gets blocked (e.g., on I/O).
+		\item The current FIFO thread yields the CPU with \texttt{sched\_yield}.
+	\end{enumerate}
+	\item If a FIFO thread is interrupted, it is placed in the queue associated with its priority.
+	\item If a FIFO thread becomes ready and that thread has higher priority than the currently-executing thread, the currently-executing thread is preempted in favour of the highest priority ready FIFO thread. If two or more threads are at the highest priority, the one that has been waiting the longest is chosen.
+\end{enumerate}
+
+The policy is the same for Round-Robin real-time scheduling, except time slicing is implemented. So if a Round-Robin thread has executed for a full time slice it is suspended and the scheduler will select a real-time thread of equal or higher priority (which could certainly be the same thread, but is not necessarily). The difference is illustrated in the diagram below:
+
+\begin{center}
+	\includegraphics[width=0.55\textwidth]{images/linux-rts.png}\\
+	Real-Time scheduling in Linux comparing FIFO to Round-Robin (RR)~\cite{osi}.
+\end{center}
+
+One of the threads in the \texttt{SCHED\_OTHER} category can execute only if there are no threads in the Round-Robin or FIFO queues that are ready at the moment.
+
+\subsubsection*{Linux Non-Real-Time Schedulers}
+In Linux 2.4 and earlier (shockingly late, now that I think of it), the Linux kernel used something like the traditional algorithm. Then they introduced a scheduling algorithm that was commonly called the $O(1)$ scheduler, because it executed in constant time ($O(1)$) under all circumstances. This was a big improvement over the previous scheduling algorithm which ran in $O(n)$ time. It also worked a lot better for SMP systems, because it introduced processor affinity and load balancing. Since version 2.6.23 of the kernel, however, a new scheduling algorithm has replaced the $O(1)$ scheduler; it is called the \textit{Completely Fair Scheduler} (CFS).
+
+Let us start by looking at the $O(1)$ scheduler. The traditional UNIX scheduler fell down on a couple of fronts: it was not very good at handling very large numbers of processes; it was an $O(n)$ algorithm, so its performance got worse as more processes appeared in the system. It also had significant difficulty with SMP systems due to its design, notably~\cite{osi}:
+
+\begin{enumerate}
+	\item A single run queue;
+	\item A single run queue lock; and
+	\item An inability to pre-empt running processes.
+\end{enumerate}
+
+The single run queue means a task can and will be scheduled on any processor (good for load balancing), but there is no implementation of processor affinity. Thus, a task running on CPU-0 could be easily reassigned to CPU-1 resulting in lots of cache misses.
+
+The single run queue lock means there is one mutual exclusion construct protecting manipulation of the run queue. Thus, when one processor wants to modify it (enqueueing or dequeueing a task, for example), all other processors have to wait until it is unlocked (which can take non-trivial time as an $O(n)$ operation for sufficiently large values of $n$). Thus, processors may be waiting for something to do.
+
+Finally, pre-emption was not possible; lower priority tasks would continue to execute while higher priority tasks were waiting. Only something getting blocked, a time slice expiration, or an interrupt might cause the scheduler to re-evaluate what process should run next.
+
+So now that we know the problem with the traditional scheduler, we can see how the $O(1)$ scheduler is designed to address these problems. The kernel would maintain two data structures for the processor in the system~\cite{osi}:
+
+\begin{verbatim}
+struct prio_array {
+  int nr_active; /* number of tasks in this array */
+  unsigned long bitmap[BITMAP_SIZE]; /* priority bitmap */
+  struct list_head queue[MAX_PRIO]; /* priority queues */
+}
+\end{verbatim}
+
+There is one queue for each priority level, thus \texttt{MAX\_PRIO} (140) is both the highest priority and the number of queues. The bitmap array is of a size to provide one bit per priority level, so with 140 levels and 32 bit words, \texttt{BITMAP\_SIZE} is 5. The purpose of the bitmap is to indicate which queues are empty. There is an active queue structure as well as an expired queue structure.
+
+Initially, there are no tasks in any queues and all the bits in the bitmap are zero. If a process is created and enters the ready queue, it is put in the queue corresponding to its priority value. If that queue was previously empty, then its bit in the bitmap is set to 1 to indicate that queue is no longer empty. See the diagram below:
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/linux-o1-struct.png}\\
+	Linux $O(1)$ scheduler internal structures~\cite{osi}.
+\end{center}
+
+If a process does not complete its full time slice before it is preempted, then it goes back in the ready queue. If it does run to the end of the time slice, it is placed in the expired queue instead. All scheduling takes place from the active queues. The highest priority queue is chosen; if there are multiple tasks in that queue, they are scheduled in Round-Robin fashion. This continues until the active queue structure is empty. When that happens, the active and expired queues change places, and execution (scheduling) continues~\cite{osi}.
+
+Part of the difficulty with the $O(1)$ scheduler is that it does not provide very good performance for interactive processes, notably the ones you work with on your desktop computer. Given that the Linux folks always claim that this year or next year is ``the year of the Linux desktop'' (... still waiting for that) a new scheduler was needed. Hence, the relatively rapid replacement with the Completely Fair Scheduler.
+
+The CFS, written by Ingo Moln\'ar, is not $O(1)$, unfortunately. It uses a red-black tree to model the ready queue, where processes are inserted based on a linear ordering of execution time. The leftmost node in this tree is therefore the task that has spent the least amount of time executing and that is what will be scheduled next. Because a red-black tree remains balanced, the time to access the leftmost node will be $O($ln$(n))$, though caching could be used to make access to the next task faster. If a task gets blocked it will not end up in the queue again, but if it reaches the end of a timeslice or gets preempted, then it will be inserted into the tree with its updated execution time, which is very likely not the same place it was taken from (which might require rebalancing the tree (a $O($ln$(n))$ operation)~\cite{mte241}.
+
+\begin{center}
+	\includegraphics[width=0.45\textwidth]{images/cfs.png}\\
+	The Completely Fair Scheduler's red-black tree structure of ready tasks~\cite{osc}.
+\end{center}
+
+Rather than using a strict rule, the CFS scheduler assigns a proportion of CPU processing time to each task based on the nice value. A nice value may be in the range -20 to +19 (lower priority is still higher priority). The CFS does not use a particular length of time slice, but instead has a \textit{target latency} which is an interval of time in which all ready tasks should get to run at least once. The CPU time is then doled out based on the targeted latency. There are usually default and minimum values, but targeted latency can increase if there is a big increase in the number of tasks to be executed~\cite{osc}.
+
+The linear ordering of execution time, called \texttt{vruntime} in the earlier diagram, is also called the \textit{virtual run time}. This is a way of keeping track of how much time a task has been executing. As with a lot of history keeping, there is a decay factor  so that more recent history is more highly weighed in the calculation. Higher priority processes' history decays faster; lower priority processes' history decays more slowly. For tasks at a normal priority (nice value of zero), the virtual run time equals the physical run time. If the physical run time is, say, 50~ms, a process with a nice value of 0 will have a virtual runtime of 50. If the process has a positive nice value, the virtual runtime will be larger than 50; if a negative nice value, the virtual runtime will be less than 50~\cite{osc}.
+
+Tasks that spend a lot of time using the CPU will, under this system, normally get a lower priority than a task that spends a lot of time waiting for I/O (e.g., sleeping). So a process that is user-interactive and waiting for user input will get to execute fairly quickly, making the system seem responsive to the user. Which users, of course, like.
+
+Another thing that is noteworthy in the CFS is the addition of group scheduling: we may designate a number of processes as belonging to a group. This is useful when a process spawns lots of threads or lots of new processes. Instead of treating every thread or process totally equally, a multithreaded program's threads can all be pooled together so that the group is equal to other processes. Within the group, the scheduler will try to treat the threads or processes fairly, too.
+
+\subsection*{A Decade of Wasted Cores}
+
+In 2016, researchers published a paper, exposing serious problems in the Linux scheduler, with the dramatic title: ``The Linux Scheduler: a Decade of Wasted Cores''~\cite{wastedcores}. The authors found four significant bugs in Linux multicore scheduling such that there were threads waiting to run even when cores were sitting idle. Performance degradation is in the range of 13-24\%, but may be as much as 138 times when looking at some corner cases. 
+
+There are four different problems but they all cause the same behaviour: cores are left idle for a long time when runnable threads are waiting to execute. If it is brief, it is not a problem; but if it goes on for longer then it will be more of an issue. Suppose there are 4 CPUs, each of which is busy, and there is one thread waiting in the queue for CPU 0. If the thread in CPU 3 terminates, it may take a moment for the thread waiting on CPU 0 to move there; moving it takes some ``effort'' on the part of the scheduler (notice this situation, decide to do something about it, actually carry out the move) and potentially results in a few more cache misses. It may be better to leave it alone, But if that thread is waiting an unreasonably long time (in the few hundred milliseconds) then it is a problem.
+
+Recall from earlier the completely fair scheduler we have discussed. There will be multiple run queues, one for each core. The simplest case for load balancing means two CPUs. If CPU 0 has one low priority thread and CPU 1 has three high priority threads, some sort of balancing will be needed, otherwise the high priority threads will run less than the low priority thread. Linux will periodically try to keep the queues balanced.
+
+Unfortunately, load balancing is expensive and will run periodically but not often. But a completely idle core will result in emergency load balancing. There's a problem and we need to do something about it! And you might imagine that load balancing is just look at how busy each of the cores is and move things from the most busy to the least busy core (... which is what most people do in the ECE 459 load balancing assignment!). That oversimplifies the solution because it does not consider cache locality or non-uniform memory access.
+
+Thus, above the level of each core is a larger unit, a scheduling domain. Scheduling domains are configured by what hardware they have in common (e.g., level 2 cache). See the image below:
+
+\begin{center}
+	\includegraphics[width=0.3\textwidth]{images/wastedcores.png}\\
+	A machine with 32 cores, 4 groups, and SMT-sharing amongst pairs of cores~\cite{wastedcores}.
+\end{center}
+
+In this image we have multiple levels: three groups are reachable from the first core (CPU 0) in one hop and the rest reachable in two hops. The scheduler will avoid duplicating work by making sure that one core is responsible for load balancing within that schedule domain. This is the lowest numbered idle core, or the lowest number overall if all are busy. The only way a core can get woken up is for another one to wake it up, and so a core that is busy and notices a lazy one sleeping nearby will wake it up and tell it to do load balancing~\cite{wastedcores2}.
+
+So what are the four bugs that caused this problem? The summary of these bugs from~\cite{wastedcores2}: (1) the group imbalance bug, (2) the scheduling group construction bug, (3) the overload on wakeup bug, and (4) the missing scheduling domains bug.
+
+\paragraph{The Group Imbalance Bug} Cores would attempt to steal work from other cores if the average load of the victim scheduling group is higher than the average load of the one doing the stealing. But averages can be misleading! The fix is to use the minimum load of the group, meaning the load of the least loaded core of the group. This means cores will steal more often, but this is better than leaving them idle. This can result in a 13\% decrease in the runtime of \texttt{make}.
+
+\paragraph{Scheduling Group Construction} The Linux \texttt{taskset} command allows applications to be pinned to specific cores. If the groups are two hops apart, the load balancing thread might not steal them... This problem arises because all groups are constructed from the perspective of core 0. If, therefore, the load balancing is running on core 31 it might not steal from a neighbouring core because it thinks it is too far away because it is two hops from core 0.
+
+\paragraph{Overload on Wakeup} We have already discussed the idea of processor affinity, but sometimes, too much of a good thing is a problem. If a thread goes to sleep on group 1, when it and it gets unblocked later by some other thread, the scheduler will try to put it on one of the cores in group 1... even if other groups are not busy. This will reduce the number of cache misses, sure, but it means sometimes a thread gets in a queue that's busy rather than one that's free.
+
+\paragraph{Missing Scheduling Domains}
+The last bug appears to have been caused by an error during refactoring. When a core was removed and re-added a step was skipped after the refactoring changes which could cause all threads of an application to run on a single core instead of all of them. 
+
+In conclusion: scheduling is by no means a solved problem. A simple scheduling algorithm that worked reasonably well in a single core environment was not adequate to the multiple core world. Averages can be misleading and optimizations sometimes do more harm than good. 
+
+\input{bibliography.tex}
+
+\end{document}
