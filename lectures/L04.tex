@@ -6,7 +6,7 @@
 
 
 \section*{Concurrency Control Construct Implementation}
-Previous discussion covered ideas about how concurrency control might actually be achieved. There were some solutions that did not work, but where we landed was that for the mutex (binary semaphore) we could use the test-and-set instruction. Remember this?
+In at the concurrency course and the content just reviewed, we discussed at length the need for concurrency-control constructs and their purpose in ensuring the correct execution of the user program. Still, the introduction to the subject covered ideas about how concurrency control might actually be achieved. There were some solutions that did not work about flags and such, but where we landed was that for the mutex (binary semaphore) we could use the test-and-set instruction. Remember this?
 
 \paragraph{Test-and-Set.}
 The Test-and-Set instruction is a special machine instruction that is performed in a single instruction cycle and is therefore not interruptible. It is therefore an atomic read and write. The idea is that the Test-and-Set instruction returns a boolean value. When run, it will examine the flag variable (in this example, \texttt{i}) and if it is zero, it will set it to 1 and return true. If \texttt{i} is currently set to 1, it will return false. The meaning of the return value is clear: if it is true, it is the current thread's turn to enter the critical section. The Test-and-Set instruction is not actually implemented like this, but a description of its functionality in C is:
@@ -57,6 +57,7 @@ while (true) {
     old = actual;
   }
 }
+/* WAIT FOR OUR TURN */
 /* critical section */
 while (true) {
   int actual = compare_and_swap( sem, old, old + 1 );
@@ -70,11 +71,11 @@ while (true) {
 
 The CAS routine will change the value of the integer \texttt{value} from \texttt{old\_value} to \texttt{new\_value} if it succeeds and make no change if it did not succeed. Why might it fail? It might fail if some other thread has modified the value in the meantime. That's why we get the actual value back as the return statement of the function: so we can update the old value in the current thread. If we wanted to change it from 1 to 0 and we find it's already 0, then we just need to try again changing it from 0 to -1. That might also fail, but we will eventually succeed, even if it takes an arbitrary amount of time. It might be possible for a thread to be so unlucky it never gets a turn, but let's just say that this does not happen. And we could prevent that risk entirely if we use an alternative approach below.
 
-The initial guess for \texttt{old} can certainly be wrong; the initial attempt to set it will fail and we'll get the correct value. Take note also the need to do the compare-and-swap operation to increment the value as well -- otherwise we'll have race conditions there.
+The initial guess for \texttt{old} can certainly be wrong; the initial attempt to set it will fail and we'll get the correct value. Take note also the need to do the compare-and-swap operation to increment the value as well -- otherwise we'll have race conditions there. That wasn't a concern for the test-and-set approach because in that case because the only thread trying to change it from 1 to 0 was the one that got in, but this still relies on busy-waiting.
 
-Alternative: if there is appropriate hardware support, you could use a simpler version of this where you just attempt to do an atomic increment or atomic decrement. That prevents the scenario where multiple attempts are necessary to get the value. Just make sure to choose the correct atomic primitive that returns the \textit{new} value, since that will determine whether the calling thread should get blocked or not.
+Alternative: if there is appropriate hardware support, you could use a simpler version of this where you just attempt to do an atomic increment or atomic decrement. That prevents the scenario where multiple attempts are necessary to get the value. Just make sure to choose the correct atomic primitive that returns the \textit{new} value, since that will determine whether the calling thread should get blocked or not. 
 
-Okay, but where we left things off in ECE~252 was that sometimes we don't get the result that we want. Initial attempts and what we see here involve busy-waiting, but then we said it's better if the operating system blocks the process. That sort of hand-waving really just put off handling this scenario to later, except later is now.
+Regardless of whether we use the atomic decrement approach or the compare-and-swap, there is the big~\texttt{WAIT FOR OUR TURN} comment there. How? That part's the job of the operating system. Where we left things off in ECE~252 was that sometimes we don't get the result that we want and if it's not our turn, then the operating system blocks the process. No real details were provided as to how that happens. That sort of hand-waving of OS magic really just put off handling this scenario to later, except later is now.
 
 \subsection*{Blocking and Unblocking}
 
@@ -86,19 +87,22 @@ If the thread is supposed to be blocked, that's exactly what the operating syste
 
 We will need some way of knowing that this thread is blocked on the particular semaphore or mutex -- hence, an implementation of blocking and unblocking will require perhaps that the concurrency control construct has an associated queue of the threads waiting for it. Or maybe when a thread is blocked there's somewhere in its PCB that says what it's waiting for. 
 
-Eventually, whichever thread did lock the mutex will want to unlock it or some thread will post on a semaphore. If it's a counting semaphore, we always increase its internal counter by 1 and will unblock a waiting thread. For the mutex, we'll only change the internal counter from 0 to 1 if there is no thread waiting; otherwise the only thing to do is unblock a waiting thread.
-
-That particular implementation is not the only way to go about it, but it's important not to just set the mutex back to unlocked and forget about whatever threads are waiting -- or worse, set it back to unlocked AND unblock one of the threads and allow it to proceed. Either one of those outcomes would ruin the mutual exclusion behaviour we want.
+Eventually, whichever thread did lock the mutex will want to unlock it or some thread will post on a semaphore. If it's a counting semaphore, we always increase its internal counter by 1 and will unblock a waiting thread. For the mutex, we'll only change the internal counter from 0 to 1 if there is no thread waiting; otherwise the only thing to do is unblock a waiting thread. That particular implementation is not the only way to go about it, but it's important not to just set the mutex back to unlocked and forget about whatever threads are waiting -- or worse, set it back to unlocked AND unblock one of the threads and allow it to proceed. Either one of those outcomes would ruin the mutual exclusion behaviour we want.
 
 This prompts immediately the question of what thread should be woken up when an unlock or post event occurs. Again, that's a scheduling decision, but you could choose a simple and ``fair'' approach of just taking the first thread in the queue is the one that's chosen. This might not be optimal because it ignores things like thread priorities, but it does work. 
 
 When a thread is unblocked after waiting for the mutex or semaphore, it resumes its execution and will proceed as expected. So it turns out, the actual implementation of blocking and unblocking to have concurrency control is rather straightforward. 
 
 \subsection*{Condition Variables}
-Condition variables have a lot of similarities but need no such internal counter or associated logic.
+Condition variables have a lot of similarities, but their semantics are different. Remember that we can have the lost-wakeup problem, but also that the condition variable is always paired with a mutex.
 
+When a thread waits on a condition variable, it must be holding the mutex to call the wait function. This releases the mutex or unblocks some thread that was waiting for it. But the current thread always will get blocked and will be waiting in the condition variable's queue. 
 
+If a thread signals on the condition variable, if any one thread is waiting, it is removed from the blocked queue of the condition variable, but it goes into the blocked queue for the mutex. If a thread broadcasts on the condition variable, then all the threads waiting in the condition variable queue are moved to be waiting for the mutex. Whether it's one thread or many, waiting on the condition to be fulfilled doesn't mean that they execute immediately. That would actually be bad.
 
+Notice that no manipulation of the internal counter takes place as there really is no internal counter to speak of: the behaviour of the conditional variable as described has no need for one. In a condition variable scenario, if no thread was waiting when a signal takes place then no thread gets woken up. Hence, the lost-wakeup problem: if things happen in the wrong order somehow, then the signal is not received by any thread and a thread could be waiting forever. That might not be what you want. 
+
+So, the functionality as described here does not require a counter, and in fact, it would be incorrect to have one. In a semaphore, if the call to post takes place first it increments the counter and the thread that calls wait doesn't get blocked. So we cannot just use the semaphore implementation as the basis for the condition variable implementation. But that's okay, this is simpler anyway.
 
 \input{bibliography.tex}
 
