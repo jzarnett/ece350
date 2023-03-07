@@ -6,11 +6,11 @@
 
 
 \section*{Concurrency Control Construct Implementation}
-In the concurrency course and the content just reviewed, we discussed at length the need for concurrency-control constructs and their purpose in ensuring the correct execution of the user program. Still, the introduction to the subject covered ideas about how concurrency control might actually be achieved. There were some solutions that did not work about flags and such.
+In the concurrency course and the content just reviewed, we discussed at length the need for concurrency-control constructs and their purpose in ensuring the correct execution of the user program. Still, the introduction to the subject covered ideas about how concurrency control might actually be achieved. There were some solutions that did not work: strict alternation, using flags to indicate whose turn it is next, and more. They all failed for various reasons, usually because the resulting scheme did not provide mutual exclusion, or was vulnerable to deadlock or starvation. Inclusive or.
 
-One possible solution that works in an embedded system or very simple OS is disabling interrupts. This is pretty crude, but it does get the job done -- if there are no interrupts, then we don't have process switches as a result of hardware operations completing, or the timer interrupt for switching between threads. That does permit certain bad behaviour, though, where one thread can disable interrupts and then just never re-enable them, guaranteeing that it can monopolize the CPU time. Or maybe it just accidentally exits before re-enabling interrupts and the whole system is stuck. And, of course, if there's an emergency situation, the system can't respond to that either. So disabling interrupts is dangerous even if it might sometimes be effective.
+One possible solution that works in an embedded system or very simple OS is disabling interrupts. This is pretty crude, but it does get the job done -- if there are no interrupts, then we don't have process switches as a result of hardware operations completing, or the timer interrupt for switching between threads, for example. That does permit certain bad behaviour, though, where one thread can disable interrupts and then just never re-enable them, guaranteeing that it can monopolize the CPU time. Or maybe it just accidentally exits before re-enabling interrupts and the whole system is stuck. And, of course, if there's an emergency situation, the system can't respond to that either. So disabling interrupts is dangerous even if it might sometimes be effective.
 
-But as we saw, even if every process behaves in a very thoughtful and considerate way, if we have multiple processors, then disabling interrupts will not be sufficient~\cite{osi}. Where we landed was that for the mutex (binary semaphore) we could use the test-and-set instruction. Remember this?
+But as we saw, even if every process behaves in a very thoughtful and considerate way, if we have multiple processors, then disabling interrupts will not be sufficient~\cite{osi}. It is pretty easy to establish a scenario where Thread A executes on CPU 2 and Thread B executes on CPU 5 and each of them ends up in the critical section at the same time. Where we landed was that for the mutex (binary semaphore) we could use the test-and-set instruction.
 
 \paragraph{Test-and-Set.}
 The Test-and-Set instruction is a special machine instruction that is performed in a single instruction cycle and is therefore not interruptible. It is therefore an atomic read and write. The idea is that the Test-and-Set instruction returns a boolean value. When run, it will examine the flag variable (in this example, \texttt{i}) and if it is zero, it will set it to 1 and return true. If \texttt{i} is currently set to 1, it will return false. The meaning of the return value is clear: if it is true, it is the current thread's turn to enter the critical section. The Test-and-Set instruction is not actually implemented like this, but a description of its functionality in C is:
@@ -35,6 +35,8 @@ while ( !test_and_set( busy ) ) {
 /* critical section */
 busy = 0;
 \end{lstlisting}
+
+So, no matter how many threads are executing the code above concurrently, only one will succeed in actually setting the value to 1 and will break out of the while-loop. And when the thread is finished, it sets the variable back to zero which should allow the next spinning thread to continue.
 
 You will notice here that the assignment of \texttt{busy = 0} doesn't use something like a test-and-clear instruction or similar. If you wanted to use one it would make sense, but you don't really need it: if only one thread is ever in that critical section at a time, only that thread will be modifying the variable \texttt{busy}. Because the other access are atomic they will either succeed or fail in one step -- and either the value is 0 or 1 (it won't be somewhere in between) -- so this is grudgingly okay. That doesn't work for all scenarios, of course, and an analysis tool like Helgrind might call this out as being a possible race condition. So probably we shouldn't do that in reality.
 
@@ -96,12 +98,52 @@ Marking a thread as blocked or moving it to a ``blocked'' queue is insufficient,
 
 Eventually, whichever thread did lock the mutex will want to unlock it or some thread will post on a semaphore. If it's a counting semaphore, we always increase its internal counter by 1 and will unblock a waiting thread. For the mutex, we'll only change the internal counter from 0 to 1 if there is no thread waiting; otherwise the only thing to do is unblock a waiting thread. That particular implementation is not the only way to go about it, but it's important not to just set the mutex back to unlocked and forget about whatever threads are waiting -- or worse, set it back to unlocked AND unblock one of the threads and allow it to proceed. Either one of those outcomes would ruin the mutual exclusion behaviour we want.
 
-This prompts immediately the question of what thread should be unblocked when an unlock or post event occurs. Again, that's a scheduling decision, but you could choose a simple and ``fair'' approach of just taking the first thread in the queue. This might not be optimal, because it ignores things like thread priorities, but it does work. A more advanced system could consider thread priorities, to be sure, but could also even consider things like whether a deadlock is possible or more likely. Just keep in mind that even commercial operating systems don't do this, so the simple approach to dealing with deadlock of ignoring it is the most popular one. 
+This prompts immediately the question of what thread should be unblocked when an unlock or post event occurs. Again, that's a scheduling decision, but you could choose a simple and ``fair'' approach of just taking the first thread in the queue. This might not be optimal, because it ignores things like thread priorities, but it does work. 
+
+The first-come-first-served approach does prevent the possibility of starvation, as each thread will eventually get a turn. A more advanced system could consider thread priorities, to be sure, but cannot be based solely on thread priority, because that would introduce the risk that threads with lower priorities never get a chance. A really advanced system could even consider things like whether a deadlock is possible or more likely. Just keep in mind that even commercial operating systems don't do this, so the simple approach to dealing with deadlock of ignoring it is the most popular one. 
 
 The thread that's unblocked is marked as ready to run again (moved to the ready queue, perhaps?). And at this point it is again a scheduling decision as to which thread continues execution. But we knew that from doing all this from the application developer point of view.
 
 When a thread is unblocked after waiting for the mutex or semaphore, it resumes its execution at the return of the system call and will proceed as expected. So it turns out, the actual implementation of blocking and unblocking of the various threads to have concurrency control is rather straightforward for both the semaphore and the mutex scenarios.
 
+
+\subsection*{Readers-Writers Locks}
+
+As you know, the readers-writers lock allows for multiple read-threads to execute concurrently, but only one writer and when the writer is in the critical section, no readers. We built up the concept of the readers-writers problem using just the basic semaphore and mutex constructs, but it's probably more efficient to just have a self-contained construct that meets the goal.
+
+A simple counter showing the number of threads in the critical section would not really get the job done. Why not? Well, if the counter is currently 1, is that a reader or a writer thread? We don't know. So let's have two counters, shall we? One for readers and one for writers. But things get interesting depending on whether you care about writer priority. 
+
+Let's imagine a scenario where we do not care about priority for writers. So if a writer wants to enter and there's a writer or $n$ readers, the writer is blocked; otherwise it can proceed. If a reader wants to enter and there's a writer, then the reader is blocked, but if there are readers then there's no other issue.
+
+At first we might consider two counters; one for readers and one for writers. This may not be ideal, though, because if the readers counters is 7, is that seven readers currently in the room or seven readers waiting to enter? It's hard to know and we'll need some more accounting.
+
+Since we talked about the light bulb analogy for the way of understanding the reader-writer lock, then maybe the best thing is to have a boolean variable that says whether the lights are on. Then a counter could be used to keep track of the number of readers currently in the room. The reader-writers lock can have associated reader and writer queues. 
+
+If a reader wants to enter the room, try to change the light switch from 0 to 1 with a test-and-set instruction. If this thread succeeds, it is the first reader and may proceed, increment the reader counter, and will not get blocked. If the thread fails, maybe there's a writer in the room? The way to know that would be to consider the state of the reader counter: if the counter is zero then there's a writer and the reader should get blocked. Otherwise, increment the counter of readers and proceed without getting blocked.
+
+When a reader is done, decrement the count of readers. If the reader count falls to zero when this reader is done, unblock a writer if one is waiting, or otherwise set the light switch to 0.
+
+If a writer wants to enter the room, try to change the light switch from 0 to 1. If the writer succeeds, it can proceed. If it fails, block the writer. When the writer is done, unblock either all waiting readers or a writer. Note that it's \textit{all} the readers, because any number of them might be waiting at this point.
+
+As we can see, there's some ability to give priority to writers based on what happens when a writer exits, if we always prioritize writers. That might be slightly impractical since there is a risk for readers to starve in that scenario, but readers-writers locks work best in scenarios where writes are less common than reads so it's unlikely to happen in practice.  
+
+With that said, the thing we actually wanted to see for writers to have priority is that when a writer is waiting, no new readers are allowed to enter the room. How would we go about that? It's easy enough: when a reader wants to enter the room, take a look at the state of the waiting queue for writers. If there is one, even if we would normally let the reader proceed, block the reader thread.
+
+You've no doubt noticed that things have become complicated here, because the logic requires us to try to change the light switch and also to maybe modify the counter and then decide based on that. This is not atomic, so we'll need some other things that provide atomicity guarantees. So it might actually make sense to use a mutex before modifying flag and counter, but just don't forget to unlock that mutex internally before blocking the thread.
+
+In the previous course, we discussed the idea of the spinlock and the variant of it, the readers-writers spinlock. We discussed the implementation as looking something like this:
+
+\begin{center}
+	\begin{tabular}{l|l|l}
+		\textbf{Counter} & \textbf{Flag} & \textbf{Interpretation}                                     \\\hline
+		0                & 1             & The spinlock is released and available.                     \\
+		0                & 0             & The spinlock has been acquired for writing.                 \\
+		$n$ ($n > 0$)    & 0             & The spin lock has been acquired for reading by $n$ threads. \\
+		$n$ ($n > 0$)    & 1             & Invalid state.                                              \\
+	\end{tabular}
+\end{center}
+
+I think we could say that this validates the idea of how to implement we've discussed is plausible. In this case, flag being 1 indicates the lights are off and flag being 0 means the lights are on. This, like the side of the road we drive on, is one of those choices where you could choose either convention and it would be fine. It's not what I would choose (or did choose in the earlier example) but it doesn't mean this is wrong.
 
 \subsection*{Condition Variables}
 Condition variables have a lot of similarities, but their semantics are different. Remember that we can have the lost-wakeup problem, but also that the condition variable is always paired with a mutex.
