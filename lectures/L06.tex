@@ -2,148 +2,99 @@
 
 \begin{document}
 
-\lecture{ 6 --- Uniprocessor Scheduling }{\term}{Jeff Zarnett}
+\lecture{ 6 --- Memory }{\term}{Jeff Zarnett}
 
-\section*{Uniprocessor Scheduling}
+\section*{Main Memory}
 
-As you may imagine, processor scheduling can be very complex when we have multiple threads and multiple processors. So, to keep things simple, we will start with single processor systems (uniprocessor scheduling) and then build on that to look into multiprocessor scheduling.
+In executing a program, the CPU fetches instructions from memory, and decodes the instruction. It may be that the instruction requires fetching of operands from memory. After the operation is completed, a result may be stored back in memory. So a single simple instruction like an addition could easily result in four memory accesses. Executing a program therefore means spending a lot of time interacting with memory.
 
-Scheduling is easy to define: given that we have multiple threads in the system, we are going to have to make some decisions about when different threads run. There are four types of scheduling, but one of the four is I/O scheduling which we will come back to after the scheduling topic in general. The other three bear more examination~\cite{osi}:
+Like the CPU, main memory is a resource that needs to be shared between multiple processes. The way programs are written, application developers behave as if (1) main memory is unlimited, and (2) all of main memory is at the program's disposal. Simple logic tells us that application developers are wrong: an infinite amount of data storage would require an infinite amount of physical space. Memory space is limited to the physical amount of RAM in the machine, which is a function of how much money you spent when purchasing it. Even so, why is it that program developers pretend that memory is infinite and unshared when it is not? 
 
-\begin{enumerate}
-	\item \textbf{Long-Term Scheduling}
-	\item \textbf{Medium-Term Scheduling}
-	\item \textbf{Short Term Scheduling}
-\end{enumerate}
+Certainly compared to the early days of computing, the amount of memory available is huge. The Commodore~64, introduced in 1982, had a whopping 64~KB of memory\footnote{ And now you know why it was called the Commodore~\textbf{64}.}. A 4-byte (32-bit) integer was a significant fraction of memory, and application developers had to scrimp and save to avoid wasting even a single integer's worth of memory. This historical reason is why languages like C and Java support types like \texttt{short} even though you have probably never used them outside of a programming exercise or examination.  In the meantime, memory has jumped up to 8 or 16~GB. Remember that 1~GB is 1024~MB and 1~MB is 1024~KB. Now think about the fact that we still use 32-bit integers. If a thousand integers were wasted unnecessarily, would anyone notice or care? This makes the problem better by ``kicking the can down the road'' -- we can use a lot more memory before we are in danger of running out, but it's still possible to run out. Furthermore, even though memory might be big enough for every process to have its own area, that would not work if every developer assumes memory is unshared. So we still have not solved the mystery of why application developers can be oblivious to the realities of main memory.
 
-A student-relevant analogy to explain the different levels: Long-term scheduling is deciding what courses to take in your degree (e.g., do I want to take ECON~102 as a non-technical elective?). Medium-term scheduling is about deciding what courses you are taking in a given term (do I take ECON~102 in 3B or 4A?). Short term scheduling is deciding what course you are going to study right now (I'll study SE~350 because the final exam is tomorrow!)
+The answer is that most modern operating systems manage the shared resource of memory for them. This was not always the case, and applications used to be responsible for managing all of memory. It was also not so long ago that there were various third party programs to let the user do some memory management, too. Around the time of the last versions of MS-DOS and Windows 95, there were products like QEMM 8 that you could use to move programs around in memory. But you're not here to hear old war stories about moving parts of Windows into high memory so that TIE Fighter would run.  One of the major objectives of the operating system is to manage shared resources, and that is exactly what main memory is. 
 
-\paragraph{Long-Term Scheduling.}
+\subsection*{No Memory Management}
+The simplest way to manage memory is, well, not to manage memory at all. Early mainframe computers and even personal computers into the 1980s had no memory management strategy. Programs would just operate directly on memory addresses. Memory is viewed as a linear array with addresses starting at 0 and going up to some maximum limit (e.g., 65535) depending on the physical hardware of the machine. The section of memory that is program-accessible depended a lot on the operating system, if any, and other things needed (e.g., the BASIC compiler). So to write a program, we need to know the ``start'' address (the first free location after the OS, drivers, compiler and all that) and the ``end'' address, the last available address of memory. These would differ from machine to machine, making it that much harder to write a program that ran on different computers.
 
-The long term scheduler is responsible for determining which programs are going to run at all. It controls how many jobs the system is accepting to do at once. It controls the transition from the ``new'' state into the ready to run state (where it falls in the purview of the medium or short term scheduler). When a process exits, the long term scheduler might decide to admit a new one. Ah, but which one! The first? Based on some criteria?
+A program executed an instruction directly on a memory address, such as writing 385 into memory location 1024. Suppose you wanted to have two programs running at the same time. Immediately, a problem springs to mind: if the first program writes to address 1024, and the second program writes to address 1024, the second program overwrote the first program's changes and it will probably result in errors or a crash. Alternatively, if programs are aware of one another, the first program can use memory locations less than, say, 2048 and the second uses memory locations above 2048. This level of co-ordination gets more and more difficult as more and more programs are introduced to the system and is next to impossible if we do not control (have the source code to) all the programs that are to execute concurrently.
 
-Long term scheduling does not tend to happen too much on desktop or laptop computer systems. The user controls how many processes are running at a given time. If you choose to open 50 programs, performance may suffer, but the OS will not attempt to stop you, nor will it complain.
+In theory, there is a solution: on every process switch, save the entire contents of memory to disk, and restore the memory contents of the next process to run. This kind of swapping is, to say the least, incredibly expensive -- imagine swapping out several gigabytes of memory on every process switch -- but the problem is avoided because only one process is ever in memory at a time.
 
-We do sometimes encounter long-term scheduling, but it's usually a remote service that is deciding to manager its resources. If you are trying to log into certain games on launch day, you may receive an error saying the server is busy/full. This is the server telling you that it will not start a new game for you (a new process) because it has reached a limit of how many processes (games) are currently permitted. Only when some people log out will you be allowed to log in. I used to reference here my experience with the game Diablo III, but I think that's far enough in the past that it is no longer relatable. 
+Aside from the inefficiency, there is another problem: there is no protection for the operating system, either. The operating system is typically placed in either low memory (the start of addresses) or high memory (from the end of addresses), or in some cases, a bit of both. An errant memory access might result in overwriting a part of the OS in memory, which can not only lead to crashes, but could also result in corrupting important files on disk.
 
-Mobile operating systems, notably Android, can be more aggressive about telling you they reached their limits. If memory is running low, Android can suspend and kill processes to make way for new ones.
+We can attempt to solve the problem of protection by keeping track of some additional information. The IBM 360 solved this problem by dividing memory into 2~KB blocks and each was assigned a 4-bit protection key, held in special registers in the CPU. The Program Status Word (PSW) also contained a 4 bit key. The 360 hardware would then identify as an error an attempt to access memory with a protection code different from the PSW key. And the operating system itself was the only software allowed to change the protection keys. Thus, no program could interfere with another or with the operating system~\cite{mos}.
 
-\paragraph{Medium-Term Scheduling.}
-Medium term scheduling is a lot more interesting than long term scheduling, and it revolves around swapping processes to and from disk. A process that is swapped to disk is not going to run in the immediate future, but it is at least likely to run before a long period of time has passed. Swapping a process to disk takes it out of the realm of the short term scheduler; swapping it in to memory returns it to that domain.
-
-The medium-term scheduler doesn't serve as much of a purpose as it used to, because the era of SSDs means that disk transfer times are no longer as painful as they were when we had magnetic drives. So onward.
-
-\paragraph{Short-Term Scheduling.}
-The short term scheduler, also sometimes called the dispatcher, is where the real action is. The medium and long term scheduler are all about someday and sometime and whenever. The short term scheduler is about ``what are we going to do \textit{right now}''. The short term scheduler is something the operating system invokes frequently and it can make the difference between an excellent user experience and a miserable one. The short term scheduler runs when there's a need, and we'll go over a few different situations that might cause it.
-
-If we have co-operative multitasking, short term scheduling will only take place in one of two circumstances: the currently executing threads yields the CPU or the currently executing thread/process terminates (voluntarily or with an error). We saw previously that yielding is possible but rare. Some ancient operating systems (e.g., Mac OS 9) required processes to yield to make the best use of the CPU. If the process \textit{does} yield or terminate, then the short term scheduler will run.
-
-For reasons that are presumably obvious (hint: some people are jerks), co-operative multitasking is problematic. What we will discuss from here on out is pre-emptive multitasking; the operating system, and not the running thread, is responsible for deciding when it's time to switch threads, with the exception of when a process or thread decides to voluntarily terminate.
-
-The dispatcher will certainly run when a thread becomes blocked, such as on an I/O operation. If a thread requested a write to the network and is blocked, now the short term scheduler needs to decide what thread runs next. If it gets blocked on a semaphore or mutex, that is also an occasion to switch to another thread. Page faults are also a great occasion to find something else to do.
-
-Another time to make a scheduling decision is after handling an interrupt, whether from an I/O device or otherwise. After the interrupt is handled, we can return to execution exactly where we left off, or we can go somewhere else (the original thread is suspended already so why not leave it in that state?). 
-
-System calls like \texttt{fork} and even posting on a semaphore may also provide good opportunities to switch from one thread to another. Again, by invoking the operating system through the system call, the calling thread is suspended (the trap handler runs and the OS takes over). So it is necessary to decide what thread executes next. We acknowledged this in the discussion of \texttt{fork}, by saying it was not known if the parent or child would execute next. In the case of semaphores, we do not even know which of the threads waiting on the semaphore will be the one to receive the signal, and even then, which of the signalling thread and waiting thread will resume.
-
-Finally, there is also time slicing. If time slices are defined as $t$ units, if a thread executes for $t$ time units, there will be an interrupt generated by the clock. The whole purpose of the interrupt handler in that case is to run the short term scheduler to choose a thread to run, so that different threads run (seemingly-)concurrently.
-
-\subsection*{Thread Behaviour: Rate Limiting Step}
-
-Threads tend to alternate periods of computing with input/output requests. A typical program exhibiting this pattern would be one that loads some data and processes it, before going on to the next part of the data. That means the program will do a lot of I/O to start with, and we call the waiting period an \textit{I/O Burst}; after that we have a period of time where the CPU does a lot of work, called a \textit{CPU Burst}. Then these steps repeat. Not every thread follows this alternation pattern, and the time spent on each is rarely exactly 50-50, but instead a spectrum. How much of CPU or I/O burst a thread does allows for classification of the thread into one of two categories.
-
-Threads that spend most of their time computing are called \textit{CPU-Bound} and the limiting factor in their execution is how fast the CPU executes the code. Complex mathematical equations, for example, require a lot of CPU time. They can speed up significantly if you get a faster CPU, or access to more CPUs. The alternative is a thread that spends most of its time waiting for I/O, which we call \textit{I/O-Bound}. In this case, having a faster CPU will not make the difference in how long it takes to execute the program. See the diagram below:
+We can generalize this solution by having two values maintained: the \textit{base} and \textit{limit} addresses. These define the start and end addresses of the program's memory. Every memory access is then compared to the base address as well as the [base + limit] address. If an attempted memory access falls outside that acceptable range, this is an error. As this operation is likely to be executed approximately infinity times, to make the operation as fast as possible, the base and limit variables are usually registers and this comparison is done using hardware. The flow chart below describes the operation (keeping in mind that both comparisons can be done in parallel).
 
 \begin{center}
-\includegraphics[width=0.75\textwidth]{images/cpu-io-bound.png}\\
-CPU usage diagram showing (a) a CPU-Bound thread and (b) an I/O-Bound thread~\cite{mos}.
+\includegraphics[width=0.7\textwidth]{images/memory-baselimit.png}\\
+Hardware address protection with base and limit registers~\cite{osc}.
 \end{center}
 
-Studies have been done to examine the durations of CPU bursts. An I/O-Bound program will tend to have short CPU bursts, of course. Over time, CPUs have gotten faster at a rate much higher than the rate of I/O speedup. This is probably not surprising to you: a new CPU comes out every few months and the one you can get today is measurably better (in benchmarking tests) than the one from six months ago. I/O standards like Serial-ATA and USB and such change very slowly, over the course of years. When there \textit{is} a jump forward in I/O speed, like USB-2 to USB-3, it's often a large jump. So it makes sense that, over time, programs tend towards being I/O-Bound. The results of the study are shown below:
+
+This, unfortunately, does not solve the problem. Imagine we have two programs numbered simply 1 and 2, each 16~KB in size. Suppose then we will load them into memory in different consecutive areas, as in the figure below:
 
 \begin{center}
-\includegraphics[width=0.65\textwidth]{images/cpu-burst-histogram.png}\\
-CPU-Burst histogram~\cite{osc}.
+\includegraphics[width=0.70\textwidth]{images/os360.png}\\
+(a) Program 1. (b) Program 2. (c) Programs 1 and 2 loaded into memory consecutively.~\cite{mos}.
 \end{center}
 
-But what does this have to do with scheduling? There are two ways we could make use of this. The long-term scheduler may attempt to keep a balance between CPU- and I/O-Bound tasks to get the best resource utilization. This requires that the long-term scheduler have some idea about which threads are which.
+Program 1 will execute as expected. The problem is immediately obvious when Program 2 runs. The instruction at address 16384 is executed: \texttt{JMP 28} takes execution to memory address 28 (an \texttt{ADD} instruction and not the expected address of 16412 and the \texttt{CMP} comparison). The problem is that both programs reference absolute physical locations. 
 
-Another is that if the disk is the slowest device and the one for which we spend the most time waiting, when the disk has nothing to do, the short term scheduler should immediately schedule a thread that is likely to issue a disk request. This ensures that we do not waste any of the disk's time.
+The IBM 360's stopgap solution to this was to do static relocation: if a program was being loaded to a base address 16384 the constant 16384 was added to every program address during the load process. While slow, if every address is updated correctly, the program works~\cite{mos}.
 
-\subsection*{Scheduling Criteria}
+This is, unfortunately, not as easy as it sounds. A command like \texttt{JMP 28} must be relocated, but the 28 in a command like \texttt{ADD R1,28} (add 28 to register R1 and store the result in R1) is a constant and should not be changed. How do we know which is an address and which is a constant? It gets worse: in C a pointer contains an address, but addresses are just numbers, so in theory we could just dereference any integer variable and it would take us to a memory address (whether it's valid or not is not the point here). That makes it even harder to know if a number is just a number or an address.
 
-The goals of scheduling depend significantly on the objectives of the system. If the system is supposed to respond to events within a certain period of time (real-time system), that's something you'd like to know when choosing what scheduling algorithm to implement. Perhaps the goal is for the CPU to be used maximally (as in a supercomputer). Or maybe the most important thing is for users to feel like the system answers them quickly when they issue a command.
-
-As usual, when making a decision, we could just decide randomly, but we know that's silly here. So let's come up with some criteria to evaluate scheduling algorithms. Our goal is not to choose the one and only best algorithm, but to understand the strengths and weaknesses of each so we can choose what makes sense for our situation. We will examine the following scheduling criteria~\cite{osi}:
+When we are writing a program, unless it's in assembly, we do not usually refer to variables by their memory locations. The command we write looks something like \texttt{x = 5;} and although we know that variable \texttt{x} is stored in memory, the question arises: when is the variable assigned a location in memory? There are three obvious times to do it~\cite{osc}:
 
 \begin{enumerate}
-	\item Turnaround time.
-	\item Response time.
-	\item Deadlines.
-	\item Predictability.
-	\item Throughput.
-	\item Processor utilization.
-	\item Fairness.
-	\item Enforcing priorities.
-	\item Balancing resources.
+	\item \textbf{Compile time}: the solution we saw first with commands like \texttt{JMP 28}. If we are certain where the process will be loaded into memory, at compile time we can convert those variables to address locations. This is what happens in assembly, and in the MS-DOS .COM format (like \texttt{command.com}).
+	\item \textbf{Load time}: the IBM 360 solution; at the time when the code is to be loaded into memory, the addresses are updated. This requires that the compiler indicate what numbers are addresses and should be updated when the program is loaded into memory.
+	\item \textbf{Execution time}: if programs can move around in memory during execution (something we have not yet examined), then we need to do the binding at run-time. For this to work, though, we will need help from the hardware developers...
 \end{enumerate}
 
-\paragraph{Turnaround Time.} The turnaround time is the amount of time between starting a thread and when it finishes. This is the execution time plus the amount of time waiting for resources (processor, I/O, etc). So, wall-clock time matters here. This is important to users; all things being equal the users would like their task to complete as fast as possible. If I ask my computer to convert a file from FLAC format to mp3 format so I can import it to my phone, I care about the turnaround time: how long will it take to convert this file?
+\subsection*{Address Space}
+It is clear that having no memory management system leaves us with a number of problems in memory. What we would like to do is introduce an abstraction; a layer of indirection. We do this with a concept called \textit{address space}. An address space is a set of addresses that a process can use; each process has its own address space, independent of other processes' address spaces (except when we create shared memory).
 
-\paragraph{Response Time.} Assuming a process is not a background process (daemon), this is the time between putting in a request and getting some answers back. A process can often start producing output while still doing the request. If I am searching for a file on disk, while the search continues to run, any results found so far can be shown in the results list. Response time is very important to users; if they click a button and it takes a long time to acknowledge the command, users get frustrated and sometimes issue the command more than once. Like the time I accidentally bought two train tickets via an Android app. Fortunately, this was a single ride ticket, so it was only a 5 Euro mistake and not a monthly ticket, which could have easily been a 100+ Euro mistake.
+Telephone numbers in Canada and the USA take the form of NNN-NNNN, a seven digit number. In theory, any number in the range 000-0000 to 999-9999 could be issued, but in practice certain numbers are reserved (like the 000 or 555 prefixes). Given the number of telephones in the countries, seven digits could not possibly be enough (10 million numbers for a population around 350 million?!). In fact, many readers probably looked at this and thought it was wrong that phone numbers are seven digits; phone numbers are ten digits! Those three additional digits are the area code, after all, and they relate to a geographic area. The number 416-555-1234 is identifiable by its area code as being located in Toronto (or at least a cell phone registered there), and the number 212-555-1234 is in New York City. Although ten digit dialing is mandatory in Toronto (and presumably NYC), if you live in a district where ten digit dialing is not mandatory, you can dial 555-1234 and it will connect you to the number 555-1234 in your local area code. This is the idea we want to apply to memory: let each process have its own area code. So process can write to location 1024 and process 2 can write to location 1024 and these are two distinct locations, perhaps 21024 and 91024 respectively.
 
-\paragraph{Deadlines.} This is more of a concern for real-time systems that have specific deadlines. If I am watching a movie with a Blu-Ray player, the player needs to read data from the disk, decrypt and decode it, and display it to the screen within a certain period of time, otherwise the video quality is degraded. Meeting the deadlines may be the most important thing in the system.
+Now, instead of altering the addresses in memory, we will effectively prefix every memory access with an area code. The address that is generated by the CPU, e.g., the 28 in \texttt{JMP 28}, is the \textit{logical address}. We then add the area code to it to produce the \textit{physical address} (the actual location in memory and the address that it sent over the bus). In practice, to speed this up, it is done via some hardware, and the ``area code'' is a register called the \textit{relocation register} as below:
 
-\paragraph{Predictability.} It is desirable if a given job runs in a fairly consistent amount of time. If a task normally takes $x$ minutes and right now it is taking $2x$ minutes, somewhere between $x$ and $2x$ minutes, the user may fear the process is stuck and might terminate it. Users are very impatient.
+\begin{center}
+\includegraphics[width=0.5\textwidth]{images/relocation-register.png}\\
+Dynamic translation of logical addresses to physical addresses with a relocation register~\cite{osc}.
+\end{center}
 
-\paragraph{Throughput.} Scheduling policy should try to maximize the number of threads that complete in a given amount of time. This is our way of figuring out how much work is being accomplished. Much will depend here on the nature of the threads, but we would always like to get more done in the same amount of time. If I am in line to renew my drivers' license, if the Service Ontario office has a high throughput, more people will get their requests finished in the day. If it has a low throughput, I may be waiting there all day. Which would never happen. Oh no.
+The process itself does not know the physical address (14346 in the above example); it knows only the logical address (346). This is a run-time mapping of variables to memory.  We get some protection between processes, though we would get more protection if we brought back the limit register and compared the physical address to the base and [base + limit] values again. 
 
-\paragraph{Processor Utilization.} This is, obviously, how much of the time the CPU is busy. As already mentioned, supercomputers are really expensive to build and maintain. Processing time on supercomputers is sold (leased?) to various organizations like research labs and universities. Any time the supercomputer is not in use is wasted, because that's money that we could be earning. So we may give a lot of priority to keeping it busy.
+This scheme also gives us something new: we can relocate a process in memory if we change the relocation register's value accordingly. A process that is currently loaded into memory with a relocation register value of 14000 can easily be moved to another location. Copy all the memory from relocation register to the limit to a new location, such as 90000, and then update the relocation register to the new starting location (90000). After that, the old location of the process's memory can be marked as available or used by another process.
 
-\paragraph{Fairness.} Who could be against fairness? Humans have a lot of inbuilt notions about fairness, but we are not necessarily expecting a perfectly fair routine for scheduling. What we do expect, however, is that threads should get at least a basic level of fairness, e.g., no starvation. There is a story, possibly apocryphal, about a system being shut down in 1972 that had a yet-unexecuted batch job that had been submitted some five years earlier. I think we can safely call that unfair.
+These benefits do not come for free. Every memory access now includes an addition (or two if the limit register comes into play). Comparisons are pretty quick for the CPU, but addition can be quite a bit slower, because of carry propagation time\footnote{If you are the sort of person who is really only interested in software and you have been wondering why the program has made you learn all sorts of details about hardware, this is a good example of why. You will have noticed in this section that the hardware developers have bailed the software developers out of various problems by taking operations that would be painfully slow and doing them a lot faster. In the case of the CPU addition carry propagation problem, if you don't understand the hardware, the software you write will be slow or problematic and you will not know why.}. So every memory access has a penalty associated with it to do the addition of the relocation register value to the issued CPU address. 
 
-\paragraph{Priorities.} Processes and threads can be assigned priorities: a way of saying that this process or thread is more or less important compared to others. Scheduling should respect this, within reasonable limits. One example of priority with reasonable limits is something like priority boarding when flying: those who get priority boarding get to get on the plane first. This has some advantages -- if overhead bin space (a resource!) is limited, getting on first helps in getting that -- but everyone who has a seat on the plane will eventually get to board and arrive at the destination.  The highest priority process/thread should probably run most often or first, but probably it should not always be the one selected, as that would violate the principle of fairness.
+\subsection*{Swapping}
 
-\paragraph{Balancing Resources.} We will get a better outcome if we balance resource usage. The example mentioned above applies: we would like to choose some CPU-Bound and I/O-Bound threads so both the CPU and I/O are kept busy. If we have more information about what sort of I/O the threads will need, so much the better: we can choose a thread that will use the printer if run, when we know the printer is idle, and avoid choosing a thread that will use the network if we know the network is busy.
+To run, a process must be in main memory. Given enough processes, or processes sufficiently demanding on the memory of the system, it will not be possible to keep all of them in memory at the same time. Processes that are blocked may be taking up space in memory and it might be logical to make room for processes that are ready to run by moving blocked processes out of memory. The process of moving a process from memory to disk or vice-versa is called \textit{swapping}.
 
-\subsubsection*{Scheduling Algorithm Goals}
+\begin{center}
+\includegraphics[width=0.5\textwidth]{images/swapping1.png}\\
+Swapping processes (1) from memory to disk and (2) from disk to memory~\cite{osc}.
+\end{center}
 
-The priorities of these different goals depend significantly on the kind of system it is. The following list gives some idea about what is important in different kinds of systems~\cite{mos}:
+Unfortunately, swapping a process to disk is very painful. If the process is using 1~GB of memory, to swap a process out to disk, we need to write 1~GB of memory to disk. To load that process back later, it means reading another 1~GB from disk and putting it into main memory. If 1~GB strikes you as ridiculous in size, according to the Mac OS~X system utilities, with five PDF documents (whose combined file size on disk is 80.6~MB) open, the ``Preview'' application is consuming 2.05~GB as I write this. So, swapping is something we would like to do as little as possible, but it will be necessary eventually. 
 
-\paragraph{All Systems.}
-\begin{itemize}
-	\item Fairness
-	\item Priorities
-	\item Balancing Resources
-\end{itemize}
+Modern operating systems do not perform this kind of swapping because it is simply too slow. Too much time would be wasted swapping processes to and from disk. A modified form of swapping is used, but this is a subject we will return to later on in the examination of memory~\cite{osc}.
 
-\paragraph{Batch Systems.}
-\begin{itemize}
-	\item Throughput
-	\item Turnaround time
-	\item CPU Utilization
-\end{itemize}
+When swapping a process back in from disk it is not necessary to put it back in exactly the same place as it originally was. This works because the relocation register will be updated with the new location of the process when it is moved back to memory. See the diagram below showing the state of memory after seven swap operations.
 
-\paragraph{Interactive Systems.}
-\begin{itemize}
-	\item Response time.
-	\item Predictability.
-\end{itemize}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{images/swapping2.png}\\
+A view of memory over time, swapping processes in and out as needed~\cite{mos}.
+\end{center}
 
-\subsection*{The (Ab)use of Priorities}
+In (a), the only process in memory is $A$. In (b), process $B$ is added and in (c) process $C$ starts and is loaded into memory. When process $D$ would like to run, there is insufficient free space for it, so a process will need to be swapped out. In (d), process $A$ is chosen by the OS and is swapped out so that in (e) process $D$ may be in memory. If $A$ is ready to run again, space must be made for it, so $B$ is swapped out in (f) and then when $A$ is loaded the state of memory is as shown in (g).
 
-Okay, so we've said that processes (and threads) have priorities and we've repeatedly referenced priority as being an important consideration in various operations like scheduling and page allocation and so on. We have not yet actually talked much about priorities.
-
-Each process or thread's priority is typically an integer. Whether higher numbers are higher priority or lower numbers are higher priority is a question of system design. As is typical, if there are two ways to do something, some people will choose one way and some will choose the other. In UNIX, a lower number is higher priority; Windows is the opposite. Picking a convention and sticking to it would be nice, but in England they drive on the left and in Canada we drive on the right.
-
-With a priority value assigned, it can be used to make decisions about resources. If $P_{1}$ wants resource $R_{1}$ and $P_{2}$ wants that same resource, where the priority of $P_{1}$ is greater than that of $P_{2}$, choose to assign the resource to $P_{1}$. This might come in to play, for example, when two threads are waiting on a semaphore. If process $P_{3}$ posts (signals) on the semaphore, the resource of that ``signal'' may be sent to the higher priority process $P_{1}$, allowing it to proceed first.
-
-The operating system or the program author may each be partially responsible for assigning a priority to each of the threads. These priorities may change over time and when certain conditions are fulfilled (e.g., a process that uses a lot of CPU in a short period of time might be reassigned a lower priority by the operating system temporarily).
-
-System administrators can usually change the priority of a thread or process. Regular users may have a say in the priority of their own threads/processes, in a limited way. In Windows, for example, as a user it may be possible to set a task to a higher or lower priority. Giving this to users was probably a bad idea, because users often do it wrong. If you have a long, CPU-Bound task, the right thing to do is to give it a low priority and not a high one. You might expect that the high priority will get the task done faster, but it hurts the performance of the system and makes users unhappy (even though that's what they explicitly asked for).
-
-In some systems, the highest priority non-blocked thread will always run. This is a great way of making sure that higher priority threads have right-of-way, but a terrible way of ensuring fairness and preventing starvation. We could easily have a situation where low priority threads never get a chance to run, because there are too many threads of middle or high priority. So, scheduling is not necessarily as easy as just finding the highest priority thing to do...
-
+Thus far we have considered process memory as a large, fixed-sized block. A process gets a big section of memory and operates in that area. As you know from previous programming experience, use of the \texttt{new} keyword in some languages, or \texttt{malloc()} in C, will result in dynamic memory allocation. We will have to deal with this next.
 
 \input{bibliography.tex}
 

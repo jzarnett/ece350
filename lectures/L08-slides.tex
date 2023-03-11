@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 8 --- Scheduling: Idling, Priorities, Multiprocessor }
+\title{Lecture 8 --- Memory: Segmentation \& Paging }
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -18,738 +18,644 @@
 
 
 \begin{frame}
-\frametitle{Scheduling Algorithms, Continued}
+\frametitle{Memory Segmentation}
+
+You've been repeatedly told that memory is a linear array of bytes. 
+
+You have also been told that there's the stack and the heap, libraries and instructions.
 
 \begin{center}
-	\includegraphics[width=0.3\textwidth]{images/theresmore.jpg}
+	\includegraphics[width=\textwidth]{images/pov.jpg}
 \end{center}
 
-Carrying on from last time, we will examine some more scheduling algorithms.
+ \end{frame}
 
-\end{frame}
+
 
 \begin{frame}
-\frametitle{Highest Response Ratio Next}
+\frametitle{Memory Segmentation}
+
+Both are true; they are views of memory at different levels of abstraction. 
+
+Each of the elements such as the stack, the heap, the standard C library, et cetera, are known as \alert{segments}.
 
 \begin{center}
-	\includegraphics[width=0.8\textwidth]{images/responsive.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Highest Response Ratio Next}
-
-We will introduce a new measure: \alert{normalized turnaround time}. 
-
-This is the ratio of the turnaround time (the time waiting plus the amount of time taken to execute) to the service time (the time it takes to execute). 
-
-We can tolerate longer processes waiting a comparatively longer period of time. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Highest Response Ratio Next}
-
-Goal: minimize not only the normalized turnaround time for each process, but to minimize the average over all processes.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{HRRN}
-
-Calculate $R = \frac{w + s}{s}$ 
-where $w$ is the waiting time and $s$ is the service time. 
-
-The service time is, as always, a guess. 
-
-When it is time to select the next process to run, choose the process with the highest $R$ value. 
-
-A new process will have a value of 1.0 at the beginning, because it has spent no time waiting (yet). Thus it is not that likely to get selected.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{HRRN}
-
-Jobs with a small $s$, i.e., short jobs, are likely to get scheduled quickly. 
-
-The HRRN approach introduces something important: age of the process. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{HRRN}
-
-A process that has spent a long time waiting rises in priority until it gets a turn. 
-
-So processes will not starve, because even a process that is expected to have a very long $s$ will eventually have a high enough $R$ due to the growth of $w$.
-
-We still need to estimate $s$, which may or may not be simple guessing. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/levels1.jpg}
-	\includegraphics[width=0.6\textwidth]{images/levels2.jpg}
+	\includegraphics[width=0.4\textwidth]{images/segfault.png}
 \end{center}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
+\frametitle{Memory Segmentation}
 
-For the most part, until now, we have treated processes more or less equally (except when we have taken the highest priority process). 
+Programmers do not necessarily give much thought to whether variables are allocated on the stack or the heap.
 
-While it might seem very fair, it may not be ideal for a situation where processes behave differently. 
+Or where program instructions appear in memory. 
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
-
-A desktop or laptop has many processes running (foreground/background). 
-
-We can apply different scheduling algorithms to different types of process.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
-
-The multilevel queue takes the ready queue and breaks it up into several. 
-
-A process can be in one (but only one) of the queues. 
-
-It is assigned to the queue based on some attribute of the process (priority, memory needs, foreground/background, et cetera). 
+In many cases it does not matter, though C programmers are well advised to know the difference.
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
+\frametitle{Memory Segments}
 
-\begin{center}
-	\includegraphics[width=\textwidth]{images/choice-sweat.jpg}
-\end{center}
-
-The foreground queue, for example, could be scheduled by Round Robin, and the background by First-Come, First-Served.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multilevel Queue (Feedback)}
-
-When there are multiple queues, we also need a way of choosing which of the queues to take from next. 
-
-We might say some queues have absolute priority over others, or we might have time slicing amongst the queues. 
-
-This could be balanced evenly (rotate through each) or give more time slices to some queues at the expense of others.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{MLQ Example: CTSS}
-
-An example of this was the Compatible TimeSharing System on the IBM~7094. 
-
-Give CPU-Bound processes longer blocks of time to execute so they would not have to spend so much time swapping. 
-
-In the highest priority class, a process got 1 time slice; in the next one down, a process got 2 time slices; the third class meant 4 time slices, and so on. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{MLQ Example: CTSS}
-
-If a process ran up against the limit of a time slice it was moved down a class. 
-
-So it got a lower priority, but when it did get selected to run, it was able to run with a lower chance of being interrupted.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CTSS: Ratchet}
-
-Like a few schemes we have seen so far, this is a ratchet. 
-
-A process can move down in the priority list, but there does not appear to be a way for it to move up. 
-
-A process that needed a lot of CPU early on was going to be punished ``forever''.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CTSS: Meddling Users}
-
-If the user pressed the Enter key, it might be a sign the process was likely to become interactive (and therefore should move up in priority). 
-
-Some genius user (there's always one), figured out that by pressing the enter button repeatedly, his long running processes would finish faster. 
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/meddling.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CTSS: Meddling Users}
-
-This was a bit unfair; his processes got priority over the others. 
-
-Things really broke down when this individual decided to be nice:\\
-\quad ... He told all his friends. 
-
-Suddenly everyone was doing it and the benefit of the system was lost.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{MLQ/Feedback}
-
-This scheduling algorithm may also be referred to as \alert{feedback}. 
-
-We do not have any information in advance about how long processes will be. 
-
-Assign priority based on the amount of CPU time assigned so far. 
-
-A process that has used a lot of CPU so far gets lower priority.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Guaranteed Scheduling}
-
-\begin{center}
-	\includegraphics[width=\textwidth]{images/guarantee.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Guaranteed Scheduling}
-
-Promise the users something and then fulfill that promise. 
-
-If there are $n$ users, each gets an equal share (1/$n$) of the CPU time. 
-
-Or with $m$ processes, each process gets 1/$m$ of the CPU time.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Guaranteed Scheduling}
-
-The system must keep track of how much CPU time each process has received. 
-
-It then considers the how this value compares to the ideal. 
-
-If a process has a value of 0.5, it had only half the CPU it ``should'' have received. 
-
-If it has a value of 2.0, it has had double. 
-
-So the scheduling algorithm is then to run the process with the lowest score, trying to keep all values as close to 1.0 as we can
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-The lottery is a system to give predictable results with a simple implementation. 
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/lottery.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-The premise is that every process gets some number of ``lottery tickets'' for each resource (e.g., CPU). 
-
-When a decision has to be made, a lottery ticket is selected at random. 
-
-The process that holds that ticket gets that resource.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-This system provides clarity; if a process has priority $p$, what does that mean? 
-
-If a process has a fraction $f$ of the total tickets, then we can expect that process to get about $f$\% of the resource. 
-
-When a process is created or terminates this may increase or decrease the number of tickets, or result in their redistribution.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-More important processes get more tickets \& have a higher chance of winning. 
-
-If there are 100 tickets outstanding, if a process has 25 of them, it has a 25\% chance of winning any given draw. 
-
-To increase a process's chance of winning, give it more tickets.\\
-\quad To decrease it, give it fewer. 
-
-Unlike in the real lottery, though, there is always a winner.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-Co-operating processes may be permitted to exchange tickets. 
-
-A client that sends a request to a server might then give its tickets to the server.
-
-This increases the chance the server gets the resources to run next and respond.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Lottery}
-
-This is a lot less overhead than guaranteed scheduling. 
-
-We do not keep track of how much of the resource a process has received. 
-
-Assuming that the lottery system is sufficiently random, over time the resource allocation will tend towards the proportions of the tickets each process holds. 
-
-If process $A$ has 20\% of the tickets, $B$ has 30\%, and $C$ has 50\%, then the CPU will be given to the processes in approximately a 20:30:50 ratio, as expected.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{The Idle Task}
-
-Sometimes our scheduling algorithm cannot produce a new process to run next because there is, quite frankly, nothing to do. 
-
-\begin{center}
-	\includegraphics[width= \textwidth]{images/bored.jpg}
-\end{center}
-
-The actual implementation of the idle thread may vary across different systems. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{The Idle Task}
-
-In some cases it is just repeatedly invoking the scheduler.\\
-\quad In others it does a bit of useless addition.\\
-\quad Or it might just be a whole bunch of \texttt{NOP} instructions. 
-
-The CPU can be told to halt/switch to a low power state. 
-
-Whatever it actually ``does'', the idle thread never has any dependencies on anything else and is always ready to run.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{The Idle Task}
-
-Since the idle task does not necessarily do much, why have it? 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{The Idle Task}
-
-It prevents having special cases in the scheduler, first of all. 
-
-It also provides accounting information about how much of the time the CPU is not doing anything. 
-
-In fact, a lot of the time on the desktop or laptop, task manager will tell you that ``System Idle Process'' is taking up a large percentage of the CPU. 
-
-You will recognize that this just means the CPU is not doing anything;\\
-\quad It does not mean that some system process is using up all your CPU's time.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Making Use of The Time}
-
-Saving power by shutting down (parts of) the processor seems like a nice savings of energy (and potentially increases battery life). 
-
-But: time when the CPU is doing nothing might potentially be put to use.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Making Use of The Time}
-
-
-There are usually some accounting and housekeeping tasks that the CPU can be doing when it has nothing else. 
- 
-For example, the OS could collect statistical data, or defragment the hard drive.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Bumping the Priority}
-
-Sometimes we get into a situation called a \alert{priority inversion}. 
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/upsidedown.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Bumping the Priority}
-
-
-A high priority process is waiting for a low priority process. 
-
-$P_{1}$ is high priority and is blocked on a semaphore, while $P_{2}$ is in a critical section. 
-
-As $P_{2}$ is low priority, it might be a long time before $P_{2}$ is selected again to run and can finish and exit the critical section. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Priority Inversion}
-
-$P_{1}$ cannot run, because it is blocked, and it could be blocked for a long time. 
-
-In the meantime, other processes with lower priority than $P_{1}$ (but higher than $P_{2}$) carry on execution. 
-
-Having $P_{1}$ waiting for the lower priority processes is rather undesirable.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Priority Inheritance}
-
-The solution is \alert{priority inheritance}. 
-
-The right thing to do is to bump up the priority of $P_{2}$, temporarily, to be equal to that of $P_{1}$, so that $P_{1}$ can be unblocked as quickly as possible. 
-
-To generalize, a lower priority process should inherit the higher priority if a higher priority process is waiting for a resource the lower priority process holds. 
-
-So $P_{2}$ will get selected, will execute and exit the critical section. 
-
-Its priority then falls, meaning $P_{1}$ will be selected and may continue.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Priority Inheritance}
-
-A famous case of priority inversion took place on the Mars Pathfinder rover.
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/pathfinder.jpg}
-\end{center}
-
-The solution was to enable priority inheritance.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multiprocessor Scheduling}
-
-If you thought scheduling for a single processor was complicated enough, well, things are about to get exponentially harder. 
-
-When we have more than one processor working on things at a time, then the complexity increases dramatically. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multiprocessor Systems}
-
-We can classify multiprocessor systems into three major buckets:
+A full program has a collection of different-sized segments, made by the compiler.
 
 \begin{enumerate}
-	\item \textbf{Distributed}.
-	\item \textbf{Functionally Specialized}.
-	\item \textbf{Tightly Coupled}.
+	\item The code (instructions).
+	\item Global variables.
+	\item The heap.
+	\item The stack (one per thread).
+	\item The standard C library.
 \end{enumerate}
 
-The third is our focus here.
+\end{frame}
+
+\begin{frame}
+\frametitle{Segments from the Programmer's Perspective}
+
+\begin{center}
+\includegraphics[width=0.55\textwidth]{images/segments.png}
+\end{center}
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multiprocessor: Granularity}
+\frametitle{Thinking about Segments}
 
-Then we have to worry about the interactions of various processes.
+Rather than thinking about memory as just a pure address, we can think of it as a tuple: \textit{$<$segment, offset$>$}. 
 
-Specifically, how often they plan to interact.
+Given that, we need an implementation to map these tuples into memory addresses. 
+
+The mapping has a segment table.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Thinking about Segments}
+
+Each entry in the table contains two values: the base and the limit.
+
+So there will be some addition involved as well as a comparison to see if the address lies within that range.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Segment Table: Hardware}
+
+Memory accesses are such a common operation that we will need another rescue from the hardware folks to make this not painfully slow.
 
 \begin{center}
-\begin{tabular}{l|l|l}
-	\textbf{Grain Size} & \textbf{Description} & \textbf{Interval (Instructions)}\\ \hline
-	Fine & Single instruction stream & $< 20$ \\\hline
-	Medium & Single application & $20 - 200$ \\\hline
-	Coarse & Multiple processes & $200 - 2000$ \\\hline
-	Very Coarse & Distributed computing & $2000 - 1$M \\\hline
-	Independent & Unrelated processes & N/A \\
-
-\end{tabular}
+\includegraphics[width=0.75\textwidth]{images/segmentation-hardware.png}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Granularity}
+\frametitle{Segmentation: Contiguous}
 
-The finer-grained the parallelism, the more care and attention needs to be given to how we are going to schedule a process in a multiprocessor system. 
+With segmentation, memory need no longer be contiguous. 
 
-If the processes are independent, then there is not too much to worry about. 
+We can allocate different parts of the program in different segments. 
 
-If we are taking a single process's thread and doing different instructions on different CPUs, then we have to be very careful.
+Different segments can be located in different areas of memory.
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Asymmetric vs Symmetric}
-Asymmetric multiprocessing: a boss processor and this one alone is responsible for assigning work and managing the kernel data structures. 
-
-Symmetric multiprocessing, each processor is responsible for scheduling itself. 
-
-We will need to make use of mutual exclusion and other synchronization techniques in the kernel to prevent errors.
-
-We do not want to have two processors trying to dequeue from the ready queue at the same time, after all.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Processor Affinity}
-
-Imagine that every processor has its own cache (e.g., the L1, L2, \& L3 caches).
-
-We want to have \alert{processor affinity}. 
-
-A process will have a bunch of its data in the cache of that processor. 
-
-If the process begins executing on another processor, all the data is in the ``wrong'' cache and there will be a lot more cache misses. 
-
-This desire to stick with a certain processor is called processor affinity.
+(Want to find out where something is? Use the \texttt{\&} [address-of] operator...)
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Processor Affinity}
+\frametitle{Paging}
 
-If the OS is just going to make an effort but not guarantee that a process runs on a given processor, that is called \alert{soft affinity}. 
+Fixed \& variable sized partitions suffer from fragmentation, external or internal. 
 
-A process can move from one processor to another, but will not do so if it can avoid it. 
+Divide memory up into small, fixed-size chunks of equal size, called \alert{frames}. 
 
-The alternative is \alert{hard affinity}: a process will only run on a specified processor (or set of processors). 
+Divide each process's memory into chunks the same size as a frame: \alert{pages}. 
 
-Linux, for example, has both soft and hard affinity
+Then a page can be assigned to a frame. 
 
-\end{frame}
+A frame may be empty or may have exactly one page in it. 
 
-\begin{frame}
-\frametitle{Affinity - NUMA}
-
-For the most part any memory read takes as much time as any other. 
-
-One bus connecting the CPU to all of main memory? That is a safe assumption.
-
-  If the CPU can access some parts of memory faster than others, the system has \alert{non-uniform memory access} (NUMA).
 
 \end{frame}
 
 \begin{frame}
-\frametitle{NUMA}
+\frametitle{Paging: Picture Frame}
+
+Imagine, as an analogy, a simple picture frame. 
 
 \begin{center}
-	\includegraphics[width=0.85\textwidth]{images/numa.png}
+	\includegraphics[width=0.5\textwidth]{images/pictureframe.jpg}
+\end{center}
+
+The frame may be empty or it may contain a picture. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Picture Frame}
+
+If the picture frame is empty, all that is necessary is to put a picture in it. 
+
+To put in a different picture, first, take out the picture that is already there. 
+
+Taking out the picture to empty the frame is allowed, too. 
+
+A picture is always aligned to be completely in a frame; not half in and half out. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Picture Frame}
+
+
+Now expand this scheme by having a very long row of picture frames. 
+
+Each frame can contain one picture at a time, at most. 
+
+A picture can be in at most one frame at a time. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Process Start}
+
+A process starts, is loaded into memory, and has initial memory requirements. \\
+\quad (e.g., the stack and global variables).
+
+The number of pages can \& will change over time as memory is allocated/freed. 
+
+A process may also be swapped out to disk, but to run it needs to be swapped in. 
+
+A process will take up a certain number of pages in memory at any given time.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Benefits}
+
+Pages separate the logical address from the physical address.
+
+Programmers may pretend the address space of the computer is $2^{64}$ bytes.
+
+Not just how many GB of memory are in the physical machine. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Example}
+
+\begin{center}
+\includegraphics[width=0.6\textwidth]{images/loading-pages.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Tables}
+
+Now that we have multiple segments for each process and they are no longer contiguous, it is insufficient to have a base address and a limit.
+
+Each process needs a page table, to keep track of which pages are located where in memory. 
+
+A list of free frames is also necessary
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Table Diagram}
+
+\begin{center}
+\includegraphics[width=\textwidth]{images/page-tables.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Table}
+
+The page table is used to map logical memory to physical memory.
+
+\begin{center}
+\includegraphics[width=0.65\textwidth]{images/page-table-mapping.png}
 \end{center}
 
 \end{frame}
 
+
 \begin{frame}
-\frametitle{NUMA}
+\frametitle{Page Sizes}
 
-With NUMA: choice of processor should be based on where the memory of the process is located.
+For convenience, page size is usually a power of 2.\\
+\quad (and the actual value is determined by hardware). 
 
-The memory allocation routine should also pay attention to where to allocate memory requests.
-  
-If there is data in one of the other blocks of memory, it does not mean game over, but it means slower execution.
+The selection of a power of 2 makes translating a logical address into a tuple of the page number and offset easy. 
+
+If the logical address space has size $2^{m}$ and the page size is $2^{n}$ bytes:\\
+\quad The high order $m - n$ bits of the logical address are the page number;\\
+\quad The lower $n$ bits are the page offset. 
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Load Balancing}
+\frametitle{Pages: External Fragmentation}
 
-If we have 4 processors, it is less than ideal to have one processor at 100\% utilization and 3 processors sitting around doing nothing. 
+External fragmentation is eliminated as a problem in this scheme, because pages are all the same size. 
 
-We want to keep the workload balanced between all the different systems. 
+That also means that compaction is not an issue. 
 
-The process for this is \alert{load balancing}.
+Compaction, when it's possible, is painful enough in memory. \\
+\quad It is excruciating to do on disk. 
+
+We accept some internal fragmentation because a process gets a whole page. 
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Load Balancing}
+\frametitle{Pages: Internal Fragmentation}
 
-Load balancing is typically necessary only where each processor has its own private queue of processes to run. 
+How much internal fragmentation do we have to live with? Not very much. 
 
-If there is a common ready queue then load balancing will tend to happen all on its own.
+If the memory required aligns perfectly with a multiple of the page size, then no memory is wasted. 
 
-A processor with nothing to do will simply take the next process from the queue. 
-
-But in most of the modern operating systems we are familiar with, each processor does have a private queue, so we need to do load balancing.
+If a new memory allocation comes in, then a new page is allocated and added to the logical memory space of the process. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Push and Pull Load Balancing}
+\frametitle{Pages: Internal Fragmentation}
 
-There are two, non-exclusive approaches: \alert{push} and \alert{pull} migration. 
+The last frame, however, may not be completely full. 
 
+In the worst case scenario, a full page less one byte is wasted. 
 
-Push migration: a task periodically checks how busy each processor is and then moves processes around to balance things out (to within some tolerance). 
+Internal fragmentation of one page is not very much overall.
 
-Pull migration: a processor with nothing to do ``steals'' a process from the queue of a busy processor. 
-
-The Linux and FreeBSD schedulers, for example, use both.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Balancing Affinity}
+\frametitle{Pages: Does Size Matter?}
 
-Load balancing sometimes conflicts with processor affinity. 
+How big should page sizes be? 
 
-If a process has a hard affinity for a processor, it cannot be migrated. 
+If they are smaller, then less memory is wasted in internal fragmentation. 
 
-If there is a soft affinity, it can be moved, but it is not our first choice.
+However, having a large number of pages introduces a lot of overhead. 
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Balancing Affinity}
-
-Should we always move a process despite the fact that it means a whole bunch of cache misses?
-
-Should we never do so and leave processors idle? 
-
-Perhaps the best thing to do is to put a certain ``penalty'' on moving.
-
-Only move a process from one queue to another if it would be worthwhile (i.e., the imbalance is sufficiently large).
+The size of pages has tended to grow along with the size of main memory.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multicore Processors}
+\frametitle{Page Size: Disk Size}
 
-Before the early 2000s, the only way to get multiple processors in the system was to have multiple physical chips. 
+The key factor is actually disk: the disk operates on a certain block size and it is most efficient for the size of a page to be equal to a disk read/write size. 
 
-If you open up your laptop you are likely to find one physical chip. 
+That way when a page is to be swapped into or out of memory, it can be done in a single disk read or write. 
 
-What gives? \alert{Multicore processors}. 
-
-As far as the operating system is concerned, a quad-core chip is made of four logical processors.
+In a typical modern system, pages are 4~KB, but they can be bigger.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multicore Processors}
+\frametitle{Pages: Size and Protection}
 
-On a cache miss the CPU core can spend a lot of time (50\%?) of its time waiting for that read to take place.
-
-  We might refer to periods of time where there is computation as a compute cycle, and time spent waiting for memory as a \alert{memory stall}. 
-  
-  These tend to alternate, though the length of time for each will vary. 
-  
-  A question of how often memory is accessed and how many cache misses.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Compute Cycles and Memory Stalls}
+Now we finally have a good answer to why the application developer can treat memory as if it is infinitely large and unshared. 
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/memory-stall.png}
+	\includegraphics[width=0.5\textwidth]{images/explained.png}
 \end{center}
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Memory Stall}
-
-During a memory stall, the processor core may have nothing to do. 
-
-You can sometimes move instructions around so that the memory read goes out ``early''.
-
-A few other instructions can be executed in the meantime. 
-
-(Take CPU design / programming for performance classes.)
+The program is scattered across physical memory, but appears to the application developer and running application as if it is all contiguous. 
 
 \end{frame}
 
+
 \begin{frame}
-\frametitle{Hyperthreading}
+\frametitle{Pages: Size and Protection}
 
-To offset this problem, the solution was originally called \alert{hyperthreading}.
+We also get protection in this scheme.
 
-Two threads are assigned to each core; if one thread does a memory access or stalls, the code can switch to another thread with a limited penalty. 
+A program cannot access any address outside of its memory space. 
+
+There is no way to make a memory request outside of the logical memory space. 
+
+No matter what address is generated, it could only be inside the page table, and the page table has only entries of that process.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Hyperthreading}
+\frametitle{Pages: The OS View}
+
+The operating system, however, can manage memory of all processes, so it will need another scheme. 
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/hyperthreading.png}
+	\includegraphics[width=0.4\textwidth]{images/frametable.png}
 \end{center}
 
-\end{frame}
+The OS will operate on the \alert{frame table}, a listing of all the frames, indicating which page of which process a frame currently holds, if any.
 
-\begin{frame}
-\frametitle{Hyper- and Multithreading}
-
-Coarse-grained multithreading: flushing the instruction pipeline. 
-
-That is expensive. 
-
-Fine-grained multithreading: alternation between 2 threads in the pipeline. 
-
-The cost of switching between these two threads is small.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Two Levels of Scheduling}
+\frametitle{Shared Pages}
 
-So now we have two different levels of scheduling.
+Another great advantage of paging is the possibility of sharing of common code. 
 
-1. Assigning a process or thread to a processor (job of the operating system)
+Users very often have multiple programs open; sometimes they are duplicates.
 
-2. When to swap between the two threads in the core (job of the hardware). 
+In a multiuser system, different users may have some of the same program open.
+
+We could reduce memory consumption if common parts of this program are shared between all instances of that program.
 
 \end{frame}
 
+
+\begin{frame}
+\frametitle{Sharing is Caring: \texttt{vi}}
+
+Imagine there are 5 users on the system, each of whom wants to use \texttt{vi}. 
+
+Let's say the program itself uses 10 pages (made up number) on its own, and then some variable number of pages based on what file is being edited. 
+
+Without sharing, each copy of \texttt{vi} that runs will consume 10 pages, so 50 pages are being used for the executable. 
+
+If we can share those 10 pages, we have saved 40 pages worth of memory space.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Sharing Code}
+
+Other programs and code can easily be shared, such as compilers, libraries, and operating system utilities. 
+
+In fact, any code can be shared as long as it is \alert{reentrant} (also sometimes called pure or stateless). 
+
+This is code that does not change when it is executed. 
+
+That means there is no state maintained by the code. 
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Non-Reentrant Code}
+
+Any function that accesses a global or static variable is non-reentrant.
+
+\begin{verbatim}
+int tmp;
+void swap( int *x, int *y ) {
+  tmp = *x;
+  *x = *y;
+  *y = tmp; 
+}
+\end{verbatim}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Table Structure}
+
+In the simplest form, the page table is just a standard table. 
+
+This structure is simple, but page tables can be very large.
+
+If the system is 32-bit, and page sizes are 4~KB ($2^{12}$), then the page table has $2^{32}/2^{12} = 2^{20}$ pages, or about 1 million entries.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Table Structure}
+
+We will examine three strategies for structuring the table:
+
+\begin{enumerate}
+	\item Hierarchical paging.
+	\item Hashed page tables.
+	\item Inverted page tables.
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hierarchical Paging}
+
+Rather than have one big table, we have multiple levels in the page table. 
+
+The page table can be broken up and need not be contiguous in memory. 
+
+Suppose we have a two level system. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hierarchical Paging}
+
+If the page number is $p$, the first $k$ bits indicate the \alert{outer page}. 
+
+The outer page contains some information about where the \alert{inner pages} are. 
+
+The remaining $p-k$ bits identify the inner page. 
+
+After the inner page is identified, the displacement $d$ is then calculated.
+
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Hashed Page Tables}
+
+Instead of the page table being an array of entries, turn it into a hash table.
+
+There is a hash function to assign pages to ``buckets'' and each bucket is implemented as a linked list. 
+ 
+Then each element of the list is examined to find the matching page.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Inverted Page Tables}
+
+For 32-bit virtual addresses, a multilevel page table can work. 
+
+But with 64-bit computers, with 4~KB pages, the page table requires $2^{52}$ entries.
+
+If an entry is 8 bytes, then the table is over 30 million gigabytes (30~PB).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Inverted Page Tables}
+
+Does your computer have that much memory?\\
+\quad ... If so, can I borrow it?
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/datacentre.png}
+\end{center}
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Inverted Page Tables}
+
+Inverted page table: one entry per frame, rather than one entry per page.
+
+The entry keeps track of the process and page number. 
+
+This saves a huge amount of space.\\
+\quad (1~GB of ram with a 4~KB page size $\rightarrow$ page table requires only $2^{18}$ entries).
+
+The drawback: no longer possible find physical pages by looking at the address.\\
+\quad Instead, searching (slow).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Hardware Support}
+
+Memory accesses are very frequent and require additions and comparisons. 
+
+Recall an operation as simple as adding two numbers requires fetching the add instruction, fetching the operands, and storing the result. 
+
+To prevent abysmal performance, modern computers have hardware support.
+
+Hardware is much, much faster than doing these operations in software.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Hardware Support}
+
+The simplest implementation is to use a set of dedicated registers.
+
+Registers are the fastest form of storage. 
+
+When a process switch takes place, these registers, just as all other registers, are replaced with those of the process to run. 
+
+The PDP-11 was an example of a system that had this architecture.\\
+\quad Addresses were 16 bits and the page size was 8~KB.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Paging: Hardware Support}
+
+The page table was therefore 8 entries and kept in fast registers. 
+
+This might work if the number of entries in the page table is small (~256 entries). 
+
+The page table can easily be something like 1 million entries.\\
+\quad Does your CPU have 1 million registers? If so...?
+
+The page table is in main memory. A single register points to the page table.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{There's Always a Catch}
+
+To access a page from memory, we need to first figure out where it is, so that requires accessing the page table in main memory. 
+
+Then after retrieving that, we can look in the page table to find the frame where the desired page is stored. 
+
+Then we can access that page. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{There's Always a Catch}
+
+So two memory accesses are required for every read or write operation. 
+
+As far as the CPU is concerned, main memory already moves at a snail's pace. 
+
+Doubling the amount of time it takes to do a read or write means it takes roughly forever. 
+
+Thus, we will need to find a way to speed this up.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hardware to the Rescue, Again}
+
+A fast cache called the \alert{translation lookaside buffer} (TLB). 
+
+You can think of the TLB as a key-value pair (think HashMap). 
+
+The key is the logical address and the value is the physical address. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Translation Lookaside Buffers}
+
+To make the search fast, the comparison is done on all items simultaneously. 
+
+To prevent this from being extremely expensive, the size of the TLB is limited.
+
+It's usually something around 32 to 1024 entries in size. 
+
+Systems have evolved from having no TLBs to having multiple levels, over time.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Check the TLB}
+
+When a memory read/write is issued, the page number is checked.
+
+If it is found in the TLB then the frame number is immediately known. 
+
+If the page number is not found in the TLB, this is what we call a \alert{TLB miss}.
+
+We must look in the full page table, which unfortunately is slower because it requires reading from memory.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{TLB Operation}
+
+\begin{center}
+\includegraphics[width=0.9\textwidth]{images/tlb-hardware.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Caching}
+
+The TLB idea is a specific instance of the strategy of caching. 
+
+Much earlier, when talking about the basics of computer hardware, we mentioned that memory comes at different levels and and different speeds. 
+
+Caching is a critical idea in computers and operating systems. 
+
+In fact, caching is such an important topic, that it will be the next topic...
+
+\end{frame}
 
 \end{document}
 

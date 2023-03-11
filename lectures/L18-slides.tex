@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 18 --- Virtual Memory II }
+\title{Lecture 18 --- Scheduling in Linux }
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -14,554 +14,559 @@
   \titlepage
 
  \end{frame}
-
-
+ 
+ 
 \begin{frame}
-\frametitle{Allocation of Frames}
-
-In a simple system with $n$ frames free in the system, demand page all of them. 
-
-
+\frametitle{Linux}
 
 \begin{center}
-	\includegraphics[width=0.3\textwidth]{images/pages-elsewhere.jpg}
+	\includegraphics[width=0.4\textwidth]{images/tux.png}
 \end{center}
 
-Initially, all frames are empty, and as needed, pages are read into those frames. 
 
  \end{frame}
+ 
+ 
+\begin{frame}
+\frametitle{Linux}
 
+
+Linux has two scheduling modes: Real-Time and Non-Real-Time (or perhaps we should call that the ``normal'' one). 
+
+It is not necessary to use the real-time scheduler, strictly speaking. 
+
+If the real-time scheduler is used, the system can still have non-real-time threads which will be scheduled according to the normal scheduler routine.
+
+\end{frame}
 
 \begin{frame}
-\frametitle{Allocation of Frames}
+\frametitle{Linux Real-Time Scheduler}
 
-Once all $n$ frames are filled with pages, page $n+1$ must replace a page already in a frame (because there is no more space). 
+The Linux scheduler operates based on \alert{scheduling classes}.
 
-When a process terminates, all its frames are marked as free. In theory, one process could fill all the frames in the system. 
+There are three classes into which priorities can be assigned:
+
+\begin{itemize}
+	\item \texttt{SCHED\_FIFO}: First-In, First-Out Real-Time threads
+	\item \texttt{SCHED\_RR}: Round-Robin Real-Time threads
+	\item \texttt{SCHED\_OTHER}: Other (non-real-time) threads.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Linux Real-Time Scheduler}
+
+In each class, threads may have different priorities relative to one another. 
+
+Lower numbers indicate higher priorities. 
+
+Real-time priorities are in the range [0-99] and the other priorities are [100-139].
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Linux Real-Time Scheduler}
+
+The FIFO scheduler has a lot of rules...
 
 \begin{center}
-	\includegraphics[width=0.3\textwidth]{images/allmine.jpg}
-\end{center}
-
-This is as simple as it can be; from there we can build on it.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Make a Reservation}
-
-We might reserve a few pages to be free at all times for performance reasons
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/reservation.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Make a Reservation}
-
-When we want to move a page into a frame, if all of the frames are full, we select a victim and write that victim out to disk if necessary. 
-
-If we keep a few frames free, the newly-read page can be read into one of the free frames, and we can write the old page out to disk at a convenient time. 
-
-The read does not need to wait for the write.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{How Many Frames?}
-
-We might want to allocate different numbers of frames to different processes.
-
-We are constrained in the number of pages we can allocate. 
-
-The maximum number of frames a process could have is the maximum number of frames in the system (obviously), but the minimum is more interesting.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Minimum Frames}
-
-The motivation behind a minimum number of frames is ostensibly performance. 
-
-More frames is usually better!
-
-But what determines the minimum?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Minimum Frames}
-
-The absolute minimum number of frames is determined by the architecture. 
-
-\begin{center}
-	\includegraphics[width=0.75\textwidth]{images/architecture.jpg}
+	\includegraphics[width=0.4\textwidth]{images/therules.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Minimum Frames}
+\frametitle{Linux Real-Time Scheduler}
 
+The policy is the same for Round-Robin real-time scheduling, except time slicing is implemented. 
 
+If a Round-Robin thread has executed for a full time slice it is suspended and the scheduler will select a real-time thread of equal or higher priority.
 
-Imagine a machine where a memory reference instruction may contain one memory address.
-
-In the worst case, the instruction and the address are in different pages, so we will need two frames to be able to complete this instruction.
-
-If the max frames for this process were 1, the instruction could never complete.
+It could certainly be the same thread, but is not necessarily. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Minimum Frames: IBM 370}
-
-The IBM 370 \texttt{MVC} instruction is an extreme example: it moves data from one storage location to another. 
-
-It takes six bytes, and the instruction itself can straddle two pages. 
-
-That requires six frames. 
-
-The worst case scenario is when the \texttt{MVC} instruction is the operand of an \texttt{EXECUTE} instruction that also straddles a page boundary. 
-
-So eight (!) frames are needed.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Minimum Fames: Infinite?}
-
-In theory, the problem could be infinitely bad if the computer architecture allows referencing of an indirect address. 
-
-The address being referenced could be on another page. 
-
-That instruction could then reference another indirect address, and it's turtles all the way down.
+\frametitle{Linux Real-Time Scheduler}
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/bargain.jpg}
+	\includegraphics[width=0.75\textwidth]{images/linux-rts.png}
 \end{center}
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Minimum Fames: Infinite?}
-
-The standard solution is to limit the levels of indirection to some value.
-
-If we limited the levels of indirection to 16, then the worst case scenario is a requirement of 17 pages.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Allocation Strategies}
-
-Assuming we do not allocate every process the minimum or maximum, there are a few allocation algorithms we might follow. 
-
-We already got a glimpse at this when we talked about local vs. global cache replacement.
-
-If there are $m$ frames in the system and the operating system reserves $k$ of them for its own use, there are $m-k$ frames available for processes.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Equal Allocation}
-
-If there are $n$ processes, each process gets $(m-k)/n$ frames. 
-
-If this division produces a remainder, the leftover frames can be kept as a pool of free frames for performance purposes as above. 
-
-But: why does a text editor get the same amount of frames as a web browser?
-
-And the same amount of frames as a game (VERY demanding on memory)?
+One of the threads in the \texttt{SCHED\_OTHER} category can execute only if there are no threads in the Round-Robin or FIFO queues that are ready at the moment.
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Proportional Allocation}
+\frametitle{Linux Non-Real-Time Schedulers}
 
-Each process should get a share of the frames based on its needs. 
+In Linux 2.4 and earlier the Linux kernel used something like the traditional algorithm. 
 
-Let the virtual memory size of a process $p_{i}$ be defined as $s_{i}$. 
+Then they introduced a scheduling algorithm that was commonly called the $O(1)$ scheduler, because it executed in constant time ($O(1)$). 
 
-Thus $S = \Sigma s_{i}$. 
-
-Then we allocate $a_{i}$ frames to a process $p_{i}$ according to the formula: 
-
-$a_{i} = s_{i} / S \times (m - k)$.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Proportional Allocation}
-
-This value of $a_{i}$ is only an estimate. 
-
-It may not divide evenly: rounding is required; minimums need to be enforced.
-
-A few of the larger processes may need to have their allocations nudged down.
+Big improvement over the previous scheduling algorithm ($O(n)$).
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Proportional Allocation}
+\frametitle{Linux Non-Real-Time Schedulers}
 
-Note that with proportional allocation, as with equal allocation, there is no regard given to the priorities of the processes. 
+It also worked a lot better for SMP systems, because it introduced processor affinity and load balancing. 
 
-We could modify the $a_{i}$ values according to process priority. 
-
-Priority matters a lot in scheduling... soon...
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local and Global Replacement}
+Since version 2.6.23 of the kernel, however, a new scheduling algorithm has replaced the $O(1)$ scheduler; it is called the \alert{Completely Fair Scheduler} (CFS).
 
 \begin{center}
-	\includegraphics[width=0.7\textwidth]{images/global-local.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local and Global Replacement}
-
-We already saw the idea of local and global replacement in the cache. 
-
-If we have chosen the LRU algorithm, in a global replacement policy, the least recently used page anywhere in the cache (memory) will be replaced. 
-
-If we chose a local page replacement policy, it is the least recently used page that belongs to the current process.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local and Global Replacement}
-
-Local is not affected much by our allocation concerns; leave that alone. 
-
-Suppose we choose global allocation. 
-
-We will see the number of pages allocated to each change over time. 
-
-Over time, a global replacement algorithm means processes that run more often will accumulate more pages in memory.
-
-They will acquire more pages than get taken from them.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Watching Frame Counts}
-
-It might make sense to watch to see how many frames each process has. 
-
-Goal: prevent a process from falling below the minimum number of pages.
-
-Or we swap completely to disk a process that no longer meets that threshold.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Thrashing}
-This topic was previously introduced, and now we'll come back to it.
-
-The quick definition of thrashing still applies.
-
-Aside from intentionally depriving the system of RAM, how can we get into this state, and how can we get out of it?
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Thrashing}
-
-In simple operating systems, the logic that controlled how many processes to run at a time would rely just on the CPU utilization. 
-
-If CPU utilization is low, the CPU needs more work to do! 
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/backtowork.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Thrashing}
-
-Assign it more work by starting or bringing more processes into memory. 
-
-The global page replacement policy is used here, so when a process gets a page fault, it takes a frame from another process. 
-
-Under most circumstances, this works just fine.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Downward Spiral}
-
-This situation can run until one process starts to have a lot of page faults. 
-
-This is not unreasonable; a compiler might be finished with reading and parsing the input files and moving to generation of binary code. 
-
-This requires a whole bunch of new instructions pages, plus pages for output. 
-
-When this process does so, it starts taking pages from other processes.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Downward Spiral}
-
-The victim processes need the pages they had, so when they get a turn to run, they too start generating page faults. 
-
-So more and more requests are queued up for memory writes and reads, so the CPU is not very busy. 
-
-Here's the fatal mistake: seeing that the CPU is not very busy, the OS schedules \textbf{more} programs to run.  
-
-\end{frame}
-
-\begin{frame}
-\frametitle{The Doom in Thrashing}
-
-A new process getting started will need at least the minimum number of pages. 
-
-These have to come from somewhere, so they will necessarily come from the pages currently belonging to other processes. 
-
-This causes more page faults, more time spent paging, lower CPU utilization...\\
-\quad Prompting the OS to start more processes. 
-\end{frame}
-
-\begin{frame}
-\frametitle{Whiplash!}
-
-No more work is getting done, because the system spends all its time moving pages into and out of memory, thrashing all around, acting like a maniac.
-
-\begin{center}
-\includegraphics[width=0.75\textwidth]{images/thrashing.png}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Breaking the Spiral}
-
-To increase CPU utilization we need to stop the thrashing...\\
-\quad which means we need \textbf{fewer} programs in memory at a time. 
-
-CPU usage alone is not a sufficient indicator of whether more or fewer processes need to be running right now. 
-
-It also matters \textit{why} the CPU utilization is low. Another reason that might cause low CPU usage is, as you may recall, deadlock. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local Replacement Instead}
-
-What if we stop using a global replacement policy and instead use local? 
-
-This limits some of the damage;\\
-\quad If $P_{1}$ is thrashing, it cannot steal pages from $P_{2}$.\\
-\quad We do not get a cascade.
-
-But $P_{2}$ is still affected.
-
-If $P_{1}$ is spending all its time paging to and from disk, any other process that wants to use the disk is going to have to spend more time waiting for the disk.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Starting and Suspending Processes}
-
-Decide whether to start or suspend programs not just based on CPU usage, but also on the number of page faults that occur in a given period of time. 
-
-If there are too many page faults, it indicates we have too much going on. 
-
-That is a reactive solution, however. 
-
-It would be better to be proactive and deal with this before thrashing has started.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{More Clairvoyance}
-
-As is typical, a bit of clairvoyance would help here: how many pages is the process going to need and when will it need them? 
-
-Unfortunately, there is no good way to know or to figure this out. So we will have to rely on (educated) guessing.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Making Our Best Guess}
-
-What do we know about process memory accesses? 
-
-They tend to obey the principle of locality, both temporal and spatial.
-
-We could think of different parts of the program as different localities, as if they were areas on a map. And localities may overlap sometimes. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Making Our Best Guess}
-
-Give a process enough frames for its locality. 
-
-It can operate in this little area without encountering (too many) page faults.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Check Assumptions}
-
-\begin{center}
-\includegraphics[width=0.55\textwidth]{images/locality.png}
+	\includegraphics[width=0.5\textwidth]{images/rankofmaster.jpg}
 \end{center}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{The Working-Set Model}
+\frametitle{Problems with the Traditional Scheduler}
 
-A potential solution is the working-set model. 
+The traditional UNIX scheduler fell down on a couple of fronts. 
 
-Retain the last $n$ pages in memory as they represent the locale of the program. 
+It was not very good at handling very large numbers of processes.
 
-Assuming that most memory accesses are local, the most recent $n$ pages will be the most frequently used.
+$O(n)$ algorithm, so its performance got worse as more processes appeared. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Problems with the Traditional Scheduler}
+
+It also had significant difficulty with SMP systems due to its design:
+
+\begin{enumerate}
+	\item A single run queue;
+	\item A single run queue lock; and
+	\item An inability to pre-empt running processes.
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Problems with the Traditional Scheduler}
+
+The single run queue means a task can and will be scheduled on any processor (good for load balancing), but there is no implementation of processor affinity. 
+
+Thus, a task running on CPU-0 could be easily reassigned to CPU-1 resulting in lots of cache misses.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Problems with the Traditional Scheduler}
+
+The single run queue lock means there is one mutual exclusion construct protecting manipulation of the run queue. 
+
+Thus, when one processor wants to modify it (enqueueing or dequeueing a task, for example), all other processors have to wait.
+
+This can take non-trivial time as an $O(n)$ operation for large values of $n$.
+
+
+Thus, processors may be waiting for something to do.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Problems with the Traditional Scheduler}
+
+Finally, pre-emption was not possible. 
+
+Lower priority tasks would continue to execute while higher priority tasks wait. 
+
+Only something getting blocked, a time slice expiration, or an interrupt might cause the scheduler to re-evaluate what process should run next.
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{The $O(1)$ Scheduler}
+
+So now that we know the problem with the traditional scheduler, we can see how the $O(1)$ scheduler is designed to address these problems. 
+
+The kernel would maintain two data structures for the processor in the system.
+
+\begin{lstlisting}[language=C]
+struct prio_array {
+  int nr_active; /* number of tasks in this array */
+  unsigned long bitmap[BITMAP_SIZE]; /* priority bitmap */
+  struct list_head queue[MAX_PRIO]; /* priority queues */
+}
+\end{lstlisting}
+
+There is one queue for each priority level; \texttt{MAX\_PRIO} (140) is both the highest priority and the number of queues. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The $O(1)$ Scheduler}
+
+Initially, there are no tasks in any queues and all the bits in the bitmap are zero. 
+
+If a process is created and enters the ready queue, it is put in the queue corresponding to its priority value. 
+
+If that queue was previously empty, then its bit in the bitmap is set to 1 to indicate that queue is no longer empty.
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{The Working-Set Model}
+\frametitle{The $O(1)$ Scheduler}
 
-In the textbook descriptions, this $n$ is usually called $\Delta$, the working set window. 
-
-Pages that have been recently used are in the working set. 
-
-If a page has not been accessed recently, it will drop out of the working set after $\Delta$ time units since its last reference. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Working Set Example}
-
-Suppose the window is defined as being ten accesses. 
-
-Any page that was accessed in the last ten requests will then be considered part of the working set. 
-
-If the next ten memory accesses are all in page $k$, then after those further ten accesses, the working set will contain only $k$. 
-
-The size of the working set will change over time; can be from 1 to $\Delta$ pages.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Choosing Delta}
-
-If $\Delta$ is too small, the working set will not encompass the entire locale. 
-
-If it is too large, it will cover multiple locales. 
-
-Underestimating the size of the locale is bad; it will mean more page faults.
-
-
-Overestimating is also bad; it means fewer processes will be allowed to run.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Sum of the Working Sets}
-
-If the working set of every process is summed up, we will get the total number of frames each process would ``like'' to have. 
-
-If this sum exceeds the $(m-k)$ available frames in the system, at least one process is going to be unhappy.
-
-It does not have as many frames as it will need. 
-
-And like unhappy workers who go on strike, unhappy process start thrashing.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Working Sets}
-
-Once a value of $\Delta$ is determined, the OS will monitor the working set of each process and use that to figure out if the system is currently overloaded. 
-
-If it is, the OS will pick a victim and suspend it to prevent thrashing. 
-
-If the system is underloaded (frame supply exceeds demand), more processes can be started to run.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Working Set}
-
-The page fault rate of a process tends to vary over time. 
-
-At the beginning, there will be a bunch of page faults as the program starts up. 
-
-Then once established in its first locale, the rate will drop. 
-
-When it come time to move to a new locale, the page fault rate rises until the program is ``settled'' in that new locale.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Working Set}
 
 \begin{center}
-	\includegraphics[width=0.75\textwidth]{images/workingset.png}
+	\includegraphics[width=0.85\textwidth]{images/linux-o1-struct.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The $O(1)$ Scheduler}
+
+If a process does not complete its full time slice before it is preempted, then it goes back in the ready queue. 
+
+If it does run to the end of the time slice, it is placed in the expired queue. 
+
+All scheduling takes place from the active queues. 
+
+The highest priority queue is chosen; if there are multiple tasks in that queue, they are scheduled in Round-Robin fashion. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The $O(1)$ Scheduler}
+
+This continues until the active queue structure is empty. 
+
+When that happens, the active and expired queues change places, and execution (scheduling) continues.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The $O(1)$ Scheduler}
+
+Part of the difficulty with the $O(1)$ scheduler is that it does not provide very good performance for interactive processes.
+
+These are the ones you work with on your desktop computer. 
+
+Hence, the relatively rapid replacement with the Completely Fair Scheduler.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The CFS}
+
+The CFS, written by Ingo Moln\'ar, is not $O(1)$, unfortunately. 
+
+It uses a red-black tree to model the ready queue, where processes are inserted based on a linear ordering of execution time. 
+
+The leftmost group in this tree is therefore the task that has spent the least amount of time executing and that is what will be scheduled next. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The CFS}
+
+Because a red-black tree remains balanced, the time to access the leftmost group will be $O($ln$(n))$.
+
+Caching could be used to make access to the next task faster.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The CFS}
+
+If a task gets blocked it will not end up in the queue again. 
+
+If it reaches the end of a timeslice or gets preempted, then it will be inserted into the tree with its updated execution time.
+
+This is very likely not the same place it was taken from (which might require rebalancing the tree (a $O($ln$(n))$ operation).
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{CFS Red-Black Tree}
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/cfs.png}
 \end{center}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Working Set Analogy}
+\frametitle{The CFS}
 
-Imagine that you have moved to a new city for a co-op term. 
+Rather than using a strict rule, the CFS scheduler assigns a proportion of CPU processing time to each task based on the nice value. 
+
+A nice value may be in the range -20 to +19 (lower priority is still higher priority).
+
+The CFS does not use a particular length of time slice, but has a \alert{target latency}.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The CFS}
+
+This is an interval of time in which all ready tasks should get to run at least once. 
+
+The CPU time is then doled out based on the targeted latency. 
+
+There are usually default and minimum values, but targeted latency can increase if there is a big increase in the number of tasks to be executed.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The \texttt{vruntime}}
+
+The linear ordering of execution time, called \texttt{vruntime} in the earlier diagram, is also called the \alert{virtual run time}.
+
+ This is a way of keeping track of how much time a task has been executing. 
+ 
+ As with a lot of history keeping, there is a decay factor so that more recent history is more highly weighed in the calculation. 
+ 
+ Higher priority processes' history decays faster; lower priority processes' history decays more slowly. 
+ 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Virtual Run Time}
+
+For tasks at a normal priority (nice value of zero), the virtual run time equals the physical run time. 
+
+If the physical run time is, say, 50~ms, a process with a nice value of 0 will have a virtual runtime of 50. 
+
+If the process has a positive nice value, the virtual runtime will be larger than 50; if a negative nice value, the virtual runtime will be less than 50.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Virtual Run Time}
+
+Tasks that spend a lot of time using the CPU will, under this system, normally get a lower priority than a task that spends a lot of time waiting for I/O.
+
+So a process that is user-interactive and waiting for user input will get to execute fairly quickly.
+
+This makes the system seem responsive to the user. Which users, of course, like.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{CFS: Group Scheduling}
+
+Another thing that is noteworthy in the CFS is the addition of group scheduling. 
+
+We may designate a number of processes as belonging to a group. 
+
+This is useful when a process spawns lots of threads or lots of new processes. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{CFS: Group Scheduling}
+
+Instead of treating every thread or process totally equally, a multithreaded program's threads can all be pooled; the group is equal to other processes. 
+
+Within the group, the scheduler will try to treat the threads or processes fairly.
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{A Decade of Wasted Cores}
+
+2016: researchers exposed serious problems in the scheduler. 
+
+The authors found four significant bugs in Linux multicore scheduling such that there were threads waiting to run even when cores were sitting idle. 
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{A Decade of Wasted Cores}
+
+Performance degradation is in the range of 13-24\%, but may be as much as 138 times when looking at some corner cases. 
 
 \begin{center}
-	\includegraphics[width=0.75\textwidth]{images/explorenearby.jpg}
+	\includegraphics[width=\textwidth]{images/yikes.jpg}
+\end{center}
+
+
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{All Roads Lead to Rome}
+
+There are four different problems but they all cause the same behaviour. \\
+\quad Cores are left idle when runnable threads are waiting to execute. 
+
+If it is brief, it is not a problem.
+
+Moving a thread takes some ``effort'' on the part of the scheduler.\\
+\quad It may be better to leave it alone. 
+
+But if that thread is waiting an unreasonably long time (in the few hundred milliseconds) then it is a problem.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Be Fair to Everyone}
+
+Recall from earlier the completely fair scheduler we have discussed. 
+
+There will be multiple run queues, one for each core. 
+
+If CPU 0 has 1 low priority thread and CPU 1 has 3 high priority threads, high priority threads will run less than the low priority thread. 
+
+Linux will periodically try to keep the queues balanced.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Do What You Must}
+
+Load balancing is expensive and will run periodically but not often.\\
+\quad A completely idle core will result in emergency load balancing.
+
+Load balancing is just look at how busy each of the cores is and move things from the most busy to the least busy core, right?
+
+That oversimplifies the solution because it does not consider cache locality or non-uniform memory access.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Multiple Groups}
+
+Thus, above the level of each core is a larger unit, a scheduling domain. 
+
+Scheduling domains are configured by what hardware they have in common.
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/wastedcores.png}\\
 \end{center}
 
 \end{frame}
 
+
+
 \begin{frame}
-\frametitle{Working Set Analogy}
-When you have just moved, you will frequently rely on Google Maps to find what you are looking for and how to get there. 
+\frametitle{The Four Bugs}
 
-You need to buy groceries, so you ask Google for directions to the nearest grocery store of choice. 
-
-Once you've been there, you know the way so you don't have to ask again. 
-
+So what are the four bugs that caused this problem?
+\begin{enumerate}
+	\item The group imbalance bug
+	\item The scheduling group construction bug
+	\item The overload on wakeup bug
+	\item The missing scheduling domains bug
+\end{enumerate}
 
 \end{frame}
 
+
+
 \begin{frame}
-\frametitle{Working Set Analogy}
+\frametitle{The Group Imbalance Bug}
 
-Not knowing where the grocery store is equals a page fault, and asking Google is like asking the operating system to bring in that page from disk. 
+Cores would steal work from other cores if the average load of the victim scheduling group is higher than the average load of the one doing the stealing. 
 
-Once you know the way to the grocery store, it is part of your working set and you do not have to ask again.
+But averages can be misleading! 
+
+\end{frame}
 
 
-... Until your next co-op term when you move somewhere else.
+
+\begin{frame}
+\frametitle{The Group Imbalance Bug}
+
+The fix is to use the minimum load of the group, meaning the load of the least loaded core of the group. 
+
+This means cores will steal more often, but this is better than leaving them idle. 
+
+This can result in a 13\% decrease in the runtime of \texttt{make}.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Scheduling Group Construction}
+
+The Linux \texttt{taskset} command allows applications to be pinned to specific cores. 
+
+If the groups are two hops apart, the load balancing thread might not steal them. 
+
+This is because all groups are constructed from the perspective of core 0. 
+
+If load balancing is running on core 31 it might not steal from a neighbour.\\
+\quad It thinks it is too far away because it is two hops from core 0.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Overload on Wakeup}
+
+We have already discussed the idea of processor affinity, but sometimes, too much of a good thing is a problem. 
+
+If a thread goes to sleep on group 1, when it and it gets unblocked later by some other thread, the scheduler will try to put it on one of the cores in group 1... 
+
+Even if other groups are not busy! 
+
+This will reduce the number of cache misses, sure, but it means sometimes a thread gets in a queue that's busy rather than one that's free.
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{Missing Scheduling Domains}
+
+The last bug appears to have been caused by an error during refactoring. 
+
+When a core was removed and re-added, an important function was no longer invoked.
+
+This could cause all threads of an application to run on a single core instead of all of them. 
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Scheduling is Hard}
+
+In conclusion: scheduling is by no means a solved problem. 
+
+A simple scheduling algorithm that worked reasonably well in a single core environment was not adequate to the multiple core world. 
+
+Averages can be misleading...\\
+\quad And optimizations sometimes do more harm than good. 
 
 \end{frame}
 

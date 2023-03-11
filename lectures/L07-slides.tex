@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 7 --- Scheduling Algorithms}
+\title{Lecture 7 --- Dynamic Memory Allocation}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -14,594 +14,671 @@
   \titlepage
 
  \end{frame}
+ 
+ 
+\begin{frame}
+\frametitle{Dynamic Memory Allocation}
+ 
+ \begin{center}
+	\includegraphics[width=0.7\textwidth]{images/chrome.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Dynamic Memory Allocation}
+
+To create a new instance of an object in Java, for example, you use the \texttt{new} keyword and the runtime will come and garbage collect it later.
+
+In C++ we have the \texttt{new} and \texttt{delete} operators. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{General Memory Allocation Interface}
+
+C works on memory at a lower level: \texttt{malloc()} and \texttt{free()}. 
+
+This level is a lot closer to the way the operating system thinks about memory: \\
+\quad Tell me how much you need and tell me when you are finished with it.
+
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Using Memory Allocation in C}
+
+To allocate an integer, you call \texttt{malloc( sizeof( int ) )}. 
+
+This creates, somewhere in memory, a new integer and returns the address of it that can be stored in a pointer.
+
+To be sure to ask for the correct amount of memory, we have \texttt{sizeof} which works out the size of its argument (integer).
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Using Memory Deallocation in C}
+
+When you \texttt{free()} that pointer, the memory is marked as available.
+
+It is not necessarily cleared or reused right away.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Using Memory Deallocation in C}
+
+This is why you can sometimes get away with dereferencing a pointer after it has been freed. 
+
+\begin{center}
+	\includegraphics[width=0.8\textwidth]{images/illegal.jpg}
+\end{center}
+
+Sometimes it takes a while for that memory to be reclaimed or reused so the old value just happens to still be there in memory. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Returning Memory when Done}
+
+Note that \texttt{free()} does not specify how much memory is being returned. 
+
+This means two things:\\ 
+\quad (1) that the operating system is keeping track of each allocated block's size\\
+\quad (2) that it is not possible to return part of a block.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fulfilling Memory Requests}
+
+The operating system will try to find some free memory to meet the request. 
+
+Running out of memory is a rare thing given the size of main memory in a modern computer.
+
+There is still the possibility that some request may not be fulfilled because no block meeting that need is available.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Arranging Blocks}
+
+Let's consider how to arrange the blocks...
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/Tetris01.png}
+	\includegraphics[width=0.4\textwidth]{images/Tetris02.png}
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Fixed Block Sizes}
+
+One possibility for how to allocate memory is in fixed block sizes. 
+
+All blocks of memory allocated are the same size. 
+
+If a request comes in for 1 byte, 1 block is allocated. 
+
+If a request comes in that is, say, 1.5 blocks, 2 blocks are allocated. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed Block Sizes: Wasteful?}
+
+It is immediately obvious when we look at this that some memory is ``wasted''. 
+
+If 1.5 blocks are requested and 2 blocks are allocated and returned, we are using up an extra 0.5 blocks. 
+
+This space cannot be used for anything useful (as it shows as allocated).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed Block Sizes: Wasteful?} 
+
+This is a problem called \alert{internal fragmentation}.
+
+The bigger each block is, the more memory will be wasted.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed: One Size of Blocks}
+
+Suppose the system has only one size of blocks, perhaps, 1~KB. 
+
+\begin{center}
+	\includegraphics[width=0.3\textwidth]{images/lego.jpg}
+\end{center}
+
+Divide up memory into blocks of this fixed size and maintain a linked list of addresses of all currently available blocks. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed: One Size of Blocks}
+
+
+When a block is allocated, remove its corresponding node from the linked list. 
+
+When a block is freed, put a node with that address into the linked list. 
+
+If the list is empty, a memory request cannot be satisfied; return null.
+
+This is definitely fast as we can allocate memory in $\Theta(1)$ time.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed: Multiple Sizes}
+
+Recognizing that some memory allocation requests are bigger than others, it might make sense to have several different block sizes.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/lego3.jpg}
+\end{center}
+
+Perhaps 1~KB, 2~KB, and 4~KB. 
+
+These can generally be allocated and deallocated in $\Theta(1)$ time if we have one linked list for each different size of block.
+
+
+\end{frame}
 
 
 
 \begin{frame}
-\frametitle{Scheduling Algorithms}
+\frametitle{Fixed: Fragmentation}
 
-Earlier we saw one example of a simple scheduling algorithm. 
+Unfortunately, fixed block sizes suffer from a lot of internal fragmentation. 
 
-Always choose the highest priority (non-blocked) task, and execute it. 
+This may be suitable for embedded systems where simplicity and speed of operations are more important than worrying about wasting memory. 
 
- \end{frame}
+This is, we can see, not how \texttt{malloc()} works.\\
+\quad 1~KB of memory is not allocated to store a 4-byte integer. 
+ 
+What we need instead is a variable block size.
 
+
+\end{frame}
 
 
 \begin{frame}
-\frametitle{Scheduling Algorithms}
+\frametitle{Variable Block Sizes}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/lego2.png}
+\end{center}
 
 
-There are many options:
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Variable Block Sizes}
+
+Variable block sizes are not that different from fixed block sizes.
+
+We just take the size of blocks down to the smallest they can be. 
+
+In a system with byte-addressable memory, the smallest block is one byte.
+
+Now a different problem: keeping track of what is allocated \& what is free.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Bitmaps}
+
+Divide memory into $M$ units of $n$ bits, and then to create a bit array of size $M$ storing the status of each of those units. 
+
+If a bit $m$ in $M$ is 0, it means that unit is unallocated.\\
+If it is 1 then that unit is allocated. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Bitmaps}
+
+
+How much memory is lost to this overhead?\\
+\quad $100/(n+1)$\% of the memory is used. 
+
+If a unit is 4 bytes, the bitmap is about 3\% of memory; \\
+If it is 16 bytes the bitmap takes about 0.8\% of memory. 
+
+Finding a block of $k$ bytes requires searching the bitmap for a run of $\frac{8k}{n}$ zeros~.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Linked Lists}
+
+The other approach, as in the case of fixed size blocks, is to use linked lists. 
+
+The info of the linked list can be stored separately from memory allocation.
+
+Or it can be stored as part of the block of memory. Either approach is workable.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Linked Lists}
+
+After startup, the linked list contains one entry.\\
+\quad  All available memory is in one contiguous block. 
+
+When a memory request is allocated the block is divided up. 
+
+Suppose we allocate the first 128 bytes.\\
+\quad A new entry is placed in the list, at 128 bytes. 
+
+The node that is added contains the start address, the length of the block, and a bit indicating it is allocated. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Linked Lists}
+
+The unallocated block's node will contain the updated entry: smaller size, new start address, and the bit indicating it is unallocated. 
+
+When a block is deallocated, we simply find that block in the linked list and set the bit to zero to indicate it is now available again.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Deallocation}
+
+In a typical system there may be a lot of allocation and deallocation of memory. 
+
+This will probably lead to breaking memory up into smaller pieces.
+
+We may end up with free blocks small and spread out:
+\begin{center}
+\includegraphics[width=0.9\textwidth]{images/checkerboard.png}
+\end{center}
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Coalescence}
+
+It may be that there is a contiguous block of free memory available of size $N$. 
+
+A request for $N$ cannot be fulfilled because the memory is logically split up. 
+
+To solve this, we need a way to recombine the split blocks; \alert{coalescence}:
+
+\begin{center}
+\includegraphics[width=0.9\textwidth]{images/checkerboard-coalesced.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Coalescence}
+
+Coalescence is just the process or merging two adjacent free blocks into one. 
+
+Dividing memory should be a reversible operation. 
+
+This solves the problem of $N$ contiguous bytes being unable to be allocated. 
+
+Coalescence can be done periodically or whenever a block of memory is freed.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Linked List \& Coalescence}
+
+Coalescence makes it a good idea to maintain the memory blocks in a doubly-linked list.
+
+When a block is freed, it may be in the middle of two free blocks. 
+
+It is convenient to have previous and next pointers so the adjacent sections can be merged efficiently.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: External Fragmentation}
+
+Even with coalescence, we may have the problem that $N$ free bytes exist in the system but spread out over many little pieces.
+
+When free memory is spread into little tiny fragments, this situation is called \alert{external fragmentation}. 
+
+It is analogous to internal fragmentation, except of course the tiny fragments are not inside any block.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{External Fragmentation}
+
+One way to reduce external fragmentation is to increase internal fragmentation. 
+
+If a request for $N$ bytes comes in and there is a block of $N+k$ available, where $k$ is very small, allocate the whole $N+k$ block for the request.
+
+We just accept that $k$ bytes are lost to internal fragmentation.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{External Fragmentation Example}
+
+If a free block contains 128 bytes and the request is for 120 bytes, it may not be worth the hassle and overhead to split this block into 120 and 8. 
+
+Some systems round up memory allocations to the nearest power of 2 (e.g., a request for 28 bytes gets moved up to 32). 
+
+Of course, this does not really help with satisfying the request for $N$ bytes of memory; it just keeps external fragmentation down.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Compaction}
+
+Another idea is \alert{compaction}, which can also be thought of as \alert{relocation}. 
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/compactor.jpg}
+\end{center}
+
+The goal is simply to move the allocated sections of memory next to one another in main memory, allowing for a large contiguous block of free space. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Compaction}
+
+This is a very expensive operation. 
+
+The Java runtime, for example, must ``stop the world'' (halt all program execution) while it reorganizes memory. 
+
+Even if we are willing to pay the cost, it might not be possible to do.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Compaction}
+
+Languages with garbage collection like Java or C\# may do memory compaction as needed when the garbage collector runs.
+
+This can work in such languages, because variables are references.
+
+References can be moved around in memory at the garbage collector or runtime's convenience; all it needs to do is update every reference.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Compaction}
+
+
+In C we operate directly on memory addresses. 
+
+Thanks to things like pointer arithmetic and using integer variables as addresses, there is no reliable way to update all references.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Allocation Strategies}
+
+Given a memory request of $N$, where do we allocate the memory? 
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/zoning.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Allocation Strategies}
+
+If there is no block of at least size $N$, the request cannot be satisfied. 
+
+If there is only one, the decision is easy.
+
+As long as memory has two free blocks of sufficient size ($N$ or more) that cannot be coalesced, a memory allocation request will require making a decision.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Allocation Strategies}
+
+We will examine the following strategies:
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/seuss.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable: Allocation Strategies}
+
+We will examine the following strategies:
+
 \begin{enumerate}
-	\item Highest Priority, Period
-	\item First-Come, First-Served
-	\item Round Robin
-	\item Shortest Process Next
-	\item Shortest Job First
-	\item Smallest Remaining Time
-	\item Highest Response Ratio Next
-	\item Multilevel Queue (Feedback)
-	\item Guaranteed Scheduling
-	\item Lottery
+	\item First fit.
+	\item Next fit.
+	\item Best fit.
+	\item Worst fit.
+	\item Quick fit.
 \end{enumerate}
 
+Let's use two linked lists: one for allocated memory and one for unallocated memory. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Scheduling Criteria}
+\frametitle{First Fit}
 
-Data about each process to be used in making decisions about scheduling:
+Start looking at the beginning of memory, and check each block. 
 
-\begin{enumerate}
-	\item The time spent waiting to run.
-	\item The time spent executing.
-	\item The total time of execution.
-\end{enumerate}
+If the block is of sufficient size, split it to allocate the memory, and return the balance to the unallocated memory list. 
 
-Desktop OSes do not ask users for estimates, but supercomputers might.
+This algorithm has a runtime of $O(n)$ where $n$ is the number of blocks. 
+
+This algorithm is simple to implement. 
+
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Highest Priority, Period}
+\frametitle{Next Fit}
+
+Modification of first fit.
+
+Keep track of where the last block was allocated, and then start the next search after that. 
+
+This prevents the situation where there are a lot of small unallocated blocks (external fragmentation) all concentrated at the start of memory. 
+
+The runtime is still $O(n)$, as with first fit.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Best Fit}
+
+We could instead try to make a more intelligent decision. 
+
+Considering all blocks, we choose the smallest block that is at least as big as $N$.
+
+This produces the smallest remaining unallocated space at the end. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Best Fit}
+
+This would require either:\\
+\quad (1) checking every available block ($\Theta(n)$ runtime); or\\
+\quad (2) keeping the blocks sorted by increasing size ($O(n)$ runtime). 
+
+If we use an AVL tree or red-black tree, then we can get best fit to run in $\Theta($ln$(n))$, possibly better runtime than first fit.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Worst Fit}
+
+The problem with best fit is that the leftover bits of memory are likely to be too small to be useful. 
+
+Rather than trying to find the smallest block that is of size $N$ or greater, choose the largest block of free memory. 
+
+When the block is split, the remaining free block is, hopefully, large enough to be useful. 
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Worst Fit}
+
+As with best fit, we must either:\\
+\quad (1) check each available block; or \\
+\quad (2) keep the block sorted by size, though decreasing size this time. 
+
+A max heap is appropriate, or a binomial or Fibonacci heap could also be appropriate.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Quick Fit}
+
+Though not a solution on its own, quick fit is an optimization. 
+
+Use if memory requests of a certain size are known to be common. 
+
+Common: requests for 1~MB.
+
+Keep a separate list of blocks that are of perhaps 1-1.1~MB in size, so that if the request for 1~MB does come in, it can be satisfied immediately and quickly. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{16 MB Allocation Example}
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/geringverdiener.jpg}
+\includegraphics[width=0.60\textwidth]{images/first-best-next.png}
 \end{center}
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Highest Priority, Period}
+\frametitle{Choosing a Strategy}
 
-Implementing this is not difficult; priority queues (one for each priority level).
+Simulations show that worst fit performs, well, worst in terms of time required to fulfill an allocation request and that it results in the most wasted space. 
+
+First (next) and best fit are about equal in how well they utilize memory, but first fit tends to be faster. 
+
+Despite this, even with optimization, given $x$ allocated blocks, another 0.5$x$ blocks may be lost to fragmentation.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Choosing a Strategy}
+
+The next fit algorithm tends to do allocations at the end of memory, so the largest block of free memory (typically at the end) is quickly broken up. 
+
+First fit tends to litter the beginning of memory with small fragments.
+
+Best fit tends to produce free blocks that are too small to be useful. 
+
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Binary Buddy}
+How about a compromise between fixed and variable allocation?
+
+There is some internal fragmentation, but it is a trade-off against how much external fragmentation we are willing to accept.
+
+System: \alert{binary buddy}.
+
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Binary Buddy}
+
+In a buddy system, memory blocks are available in powers of 2. 
+
+More formally, a block is of size $2^{K}$, where $L \leq K \leq U$.
+
+$2^{L}$ is the smallest block size that can be allocated.
+
+$2^{U}$ is the largest block size that can be allocated (full size of memory). 
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Binary Buddy}
+
+Initially, memory is treated as a single block of size $2^{U}$. 
+
+If a request of size $n$ occurs, $2^{U-1} < n \leq 2^{U}$, then the entire block is allocated. 
+
+Otherwise, the block is split into two ``buddies'', of size $2^{U-1}$. 
+
+If $2^{U-2} < n \leq 2^{U-1}$, allocate one of the blocks of $2^{U-1}$ to the request.
+
+Otherwise, subdivide again. 
  
-If the process's priority is changed, move it to its new home. 
-
-We might have a priority heap, or just one big linked list or array that we keep sorted by priority.
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Highest Priority, Period}
-
-
-The flaw in this has already been identified: it is vulnerable to starvation. 
-
-A process of relatively low priority may never get the chance to run, because there is always something better to do right now. 
-
-Software projects may have bug reports open for years on end because they are never important enough to be addressed.
+Repeat until the smallest block greater than or equal to $n$ is allocated. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Highest Priority, Period}
+\frametitle{Binary Buddy}
 
-In some systems this is a desirable property. 
+In subsequent allocations, we look through the data structure to find either:\\
+\quad (1) a block of appropriate size; or\\
+\quad (2) a block that can be subdivided to meet the allocation. 
 
-It does not fulfill all short term scheduling criteria (response time, fairness). 
-
-It may be suitable for life-and-safety-critical systems.
-
-Example: control a robot arm, to prevent a situation where the robot arm goes through the wall and the building falls down and you're dead.
-
+Whenever a pair of buddies (two blocks of equal size, split from the same ``parent'') in the list are both free, they can be coalesced.
 
 \end{frame}
 
 
 \begin{frame}
-\frametitle{First-Come, First-Served}
+\frametitle{Binary Buddy 1~MB Block}
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/dmv.jpg}
+\includegraphics[width=\textwidth]{images/binary-buddy.png}
 \end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{First-Come, First-Served}
-
-This is an obvious algorithm that is simple to implement. 
-
-Whichever process requests the CPU first gets the CPU first. 
-
-Just imagine a queue of processes in which all processes are equal. 
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{First-Come, First-Served}
-
-
-A process enters the queue at the back and whichever process is at the front will be dequeued and get to run.  
-
-If the current process finishes or is blocked for some reason, the next ready process is selected. 
-
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{First-Come, First-Served}
-
-This is actually a simplification of the highest priority, period scheme.
-
-It ignores priority altogether. 
-
-All processes get a chance to run eventually; low priority processes don't starve.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{FCFS: Wait Times}
-
-FCFS can result in some undesirable outcomes. 
-
-The average waiting time for processes might vary wildly. 
-
-Consider if we have three processes, $P_{1}$, $P_{2}$, and $P_{3}$. 
-
-$P_{1}$ needs 24 units of CPU time; $P_{2}$ and $P_{3}$ require 3 units each.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{FCFS: Wait Times}
-
-\begin{center}
-	\includegraphics[width=0.9\textwidth]{images/fcfs-1.png}
-\end{center}
-
-Total time: 30 units. Average completion time: 27 units.
-\begin{center}
-	\includegraphics[width=0.9\textwidth]{images/fcfs-2.png}
-\end{center}
-
-Total time: 30 units. Average completion time: 13 units.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{FCFS: Favouritism}
-
-FCFS also tends to favour CPU-Bound processes. 
-
-When a CPU-Bound process is running, the I/O bound processes must wait in the queue like everybody else. 
-
-This might lead to inefficient use of the resources; disk is slow so we would like to keep it busy at all times. 
-
-With FCFS, however, the I/O devices are likely to suffer idle periods.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{FCFS: Preemption}
-
-The FCFS algorithm as it is generally described, is non-preemptive.
-
-A process that gets selected from the front of the queue runs until there is a reason to make the swap. 
-
-So in theory, one process could monopolize the CPU (remember that some people are jerks). 
-
-If we modify FCFS with periodic preemption, then we get Round Robin.
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Round Robin}
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/roundrobin.jpg}
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Round Robin}
-
-The idea of time slicing has already been introduced. 
-
-Every $t$ units of time, a timer generates an interrupt that is the prompt to run the short-term scheduler. 
-
-Time slicing itself can be combined with many of the strategies for choosing the next process, but when it is combined with FCFS we get Round Robin. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{How Big of a Slice?}
-
-The principal issue is: how big should $t$ be? 
-
-If $t$ is too long, then processes may seem to be unresponsive while some other process has the CPU. 
-
-Short processes may have to wait quite a while for their turn.
-
-If $t$ is too short, the system spends a lot of time handling the clock interrupt and running the scheduling algorithm.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{How Big of a Slice?}
-
-We could decide about the size of $t$ based on the patterns of the system. 
-
-Suppose a typical process tends to run for $r$ time units before getting blocked.
-
-It would be logical to choose $t$ such that it is slightly larger than $r$. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{How Big of a Slice?}
-
-If $t$ is smaller than $r$, processes will frequently be interrupted by the time slice. 
-
-Processes that are going to use a lot of CPU will be split up over multiple time slices anyways, but it's frustrating if the process would take 1.1 time slices. 
-
-If $t$ is larger than $r$, many processes will not run up against that time slice limit.
-
-They will hopefully accomplish a useful chunk of work before getting blocked for I/O or some other reason. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Round Robin}
-
-Round Robin tends to favour CPU-Bound processes. 
-
-An I/O-Bound process spends a lot less time using the CPU. 
-
-It runs for a short time, gets blocked on I/O, then when the I/O is finished, it goes back in the ready queue. 
-
-So CPU-Bound processes are getting more of the CPU time.
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Virtual Round Robin}
-
-\begin{center}
-	\includegraphics[width=0.75\textwidth]{images/virtualrobin.jpg}
-\end{center}
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Virtual Round Robin}
-
-Round Robin can be improved to Virtual Round Robin to address this. 
-
-It works like Round Robin, but a process that gets unblocked after I/O gets higher priority.
-
-Instead of just rejoining the general queue, there is an auxiliary queue for processes that were previously blocked on I/O.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Virtual Round Robin}
-
-When the scheduler is choosing a process to run, it takes them from the auxiliary queue if possible. 
-
-If a process simply ran up against the time limit, it goes into the regular ready queue instead. 
-
-If dispatched from the auxiliary queue, it runs for up to the as-yet-unused fraction of a slice.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Virtual Round Robin}
-
-\begin{center}
-	\includegraphics[width=0.65\textwidth]{images/virtual-round-robin.png}.
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Process Next}
-
-\begin{center}
-	\includegraphics[width=0.65\textwidth]{images/quick-adventure.png}
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Process Next}
-
-If some information is available about the total length of execution then we may wish to give priority to short processes. 
-
-
-Average time to completion of a task was a lot lower when the shorter processes of $P_{2}$ and $P_{3}$ ran before $P_{1}$. 
-
-This means we will get faster turnaround times and better responsiveness, but longer processes may be waiting an unpredictable amount of time.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Shortest Process Next}
-
-This is the sort of thing that used to happen in batch job processing on mainframes. 
-
-The programmer was asked to give an estimate of the amount of time the program (e.g., compile) would run. 
-
-If the programmer's estimate was too low, the program execution would be terminated early. 
-
-If the programmer's estimate was too high, the job may never be scheduled to run, or at least, have to wait a very long time. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Shortest Process Next}
-
-
-This might work, but you have noticed that the OS does not ask you, when you start a text editor, roughly how long you expect to be. 
-
-Your boss on co-op may not be so accommodating. 
-
-This is also a global assessment: how long the whole process takes. 
-
-It might be better to worry about the length of CPU bursts and make decisions somewhat more locally...
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Job First}
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/quick-update.jpg}
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Job First}
-
-This strategy, unfortunately, is not given quite the right name, but it's the common name for the scheme. 
-
-We should call it ``shortest next CPU burst''.
-
-Then again, the other sciences are not so good at naming things either... the Red Panda is not a Panda at all.
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/redpanda.jpg}
-\end{center}
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Job First}
-
-
-
-Choose the process that is likely to have the smallest CPU burst. 
-
-If two are the same, then FCFS can break the tie (or just choose randomly). 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Smallest CPU Burst}
-
- 
-
-Imagine $P_{1}$ through $P_{4}$, whose predicted burst times are 6, 8, 7, and 3 respectively. 
-
-We should schedule then such that the order would be $P_{4}, P_{1}, P_{3}, P_{2}$.
-
-\begin{center}
-\includegraphics[width=0.7\textwidth]{images/sjf.png}
-\end{center}
-
-The average waiting time is $(3 + 16 + 9 + 0) / 4$ = 7 units of time. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Smallest CPU Burst}
-
-This is significantly better than the FCFS scheduling. 
-
-The algorithm is provably optimal in giving the minimum average waiting time for processes. 
-
-Moving a short process up means it finishes faster, and that decreases its waiting time, while moving longer processes back increases their waiting time. 
-
-Overall, this scheme is a net positive; the decreases outweigh the increases.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Smallest CPU Burst}
-
-The problem is predicting the CPU burst times. 
-
-The best thing we may be able to do is gather information about the past and use that to guess about the future. 
-
-\begin{center}
-$S_{n+1} = \frac{1}{n}\displaystyle\sum_{i=1}^{n}T_{i}$
-\end{center}
-
-where:\\
-\quad $T_{i}$ is the burst time for the $i$th instance of this process;\\
-\quad $S_{i}$ is the predicted value for the $i$th instance; \\
-\quad and $S_{1}$ is a guess at the first value.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Estimating CPU Burst}
-
-Instead of a sum each time, modify the equation to just update the value:
-
-\begin{center}
-$S_{n+1} = \frac{1}{n}T_{n} + \frac{n - 1}{n} S_{n}$
-\end{center}
-
-This routine gives each term in the summation equal weight of $\frac{1}{n}$. 
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Estimating CPU Burst}
-
-Give greater weight to the more recent values: exponential averaging. 
-
-Define a weighting factor $\alpha$, somewhere between 0 and 1, that determines how much weight the observations are given:
-
-\begin{center}
-$S_{n+1} = \alpha T_{n} + (1 - \alpha) S_{n}$
-\end{center}
-
-The larger the value of $\alpha$, the more the recent observations matter.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Exponential Averaging}
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/exponential-averaging.png}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Choosing a Starting Value}
-
-
-We might give an estimate of $S_{1} = 0$ to start with, which gives new processes priority and a chance to get started. 
-
-After they have started and run a bit, we will have some data. 
-
-But first we have to give them a chance.
-
-There is still a chance that longer processes will starve. 
-
-If there is a constant stream of shorter processes, they will continue to get scheduled ahead of a long one...
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Predictions and CPU Burst}
-
-\begin{center}
-\includegraphics[width=\textwidth]{images/sjf-2.png}
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Remaining Time}
-
-\begin{center}
-	\includegraphics[width=0.7\textwidth]{images/stay-on-target.jpg}
-\end{center}
-
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Shortest Remaining Time}
-
-Shortest remaining time is a modification of the preceding strategy, which allows for some additional preemption. 
-
-When a new process is scheduled or an old one becomes unblocked, the scheduler will run.
-
-It evaluates if the candidate has a shorter predicted running time than the currently-executing process. 
-
-If so, then the candidate will displace the currently-executing one and start running right away.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Shortest Remaining Time}
-
-As with Shortest Job First, there is a chance that long processes will starve because of a steady stream of shorter processes. 
-
-If we choose $S_{1}$ to be zero for new processes, it means they will always preempt the running process. 
-
-This may or may not be desirable.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Shortest Remaining Time Slicing}
-
-One advantage: we no longer need to have time slicing. 
-
-Instead of interrupting the running process every $t$ units of time, the other interrupts will be the prompts to run the scheduler. 
-
-Thus, the system does not spend any time handling the clock interrupts, which will be a performance increase. 
-
-Handling the clock interrupt is not expensive, but even an inexpensive operation, done a million times, will eventually add up...
-
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Batch and Interactive}
-
-So far the scheduling routines we have looked at are more suitable to batch processing systems than to interactive desktop systems. 
-
-The remaining scheduling algorithms in the list will look a lot more like what we expect to see on our laptops and phones...
 
 
 \end{frame}

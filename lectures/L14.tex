@@ -2,131 +2,146 @@
 
 \begin{document}
 
-\lecture{ 14 --- Dynamic Memory Allocation }{\term}{Jeff Zarnett}
+\lecture{ 14 --- Scheduling: Idling, Priorities, Multiprocessor}{\term}{Jeff Zarnett}
 
-\section*{Dynamic Memory Allocation}
-By now you must surely be familiar with dynamic memory allocation from the perspective of the application developer. To create a new instance of an object in Java, for example, you use the \texttt{new} keyword and the runtime will come and garbage collect it when it is no longer needed. In C++ we have the \texttt{new} and \texttt{delete} operators to allocate and deallocate memory. The \texttt{new} and \texttt{delete} operators invoke the constructor and destructor, respectively. C works on memory at a lower level: to allocate a block of memory in C, there is \texttt{malloc()} and when finished, you return it with \texttt{free()}. This level is a lot closer to the way the operating system thinks about memory: just tell me how much you need and tell me when you are finished with it.
+\section*{Scheduling Algorithms, Continued}
 
-This should square nicely with your experience of using \texttt{malloc()} and \texttt{free()} in C. To allocate an integer, you call \texttt{malloc( sizeof( int ) )}. This creates, somewhere in memory, a new integer and returns its address, which can be stored in a pointer (presumably an integer pointer, but you can store it in a void pointer too). To be sure to ask for the correct amount of memory, we have \texttt{sizeof} which works out the size of its argument (integer) and then the size of an integer, say, 4 bytes, is supplied to \texttt{malloc()}, so 4 bytes are allocated. 
+Carrying on from last time, we will examine some more scheduling algorithms.
 
-When you \texttt{free()} that pointer, all that happens is that the memory is marked as available, which is why you can sometimes get away with dereferencing a pointer after it has been freed. Sometimes it takes a while for that memory to be reclaimed or reused so the old value just happens to still be there in memory. Note that \texttt{free()} does not specify how much memory is being returned. This means two things: (1) that the operating system is keeping track of each allocated block's size, and (2) that it is not possible to return part of a block.
+\subsection*{Highest Response Ratio Next}
 
-With the preliminaries about memory allocation out of the way, now it is time to turn our attention to fulfilling the memory allocation requests that we receive. As we will see, this is not a trivial problem. The operating system will try to find some free memory to meet the request. Although running out of memory is a rare thing given the size of main memory in a modern computer, there is still the possibility that some request may not be fulfilled because no block meeting that need is available.
+We will introduce a new measure: normalized turnaround time. This is the ratio of the turnaround time (the time waiting plus the amount of time taken to execute) to the service time (the time it takes to execute). The relative amount of time waiting is somewhat more important; we can tolerate longer processes waiting a comparatively longer period of time. The goal, then, of the HRRN strategy, is to minimize not only the normalized turnaround time for each process, but to minimize the average over all processes~\cite{osi}.
 
-\subsection*{Fixed Block Sizes}
-One possibility for how to allocate memory is in fixed block sizes. All blocks of memory allocated are the same size. This does not mean that requests are not of varying size, it just means that all blocks allocated are the same size. If a request comes in for 1 byte, 1 block is allocated. If a request comes in that is, say, 1.5 blocks, 2 blocks are allocated. 
+The way to calculate the response ratio, $R$, is by the following formula: $\dfrac{w + s}{s}$ where $w$ is the waiting time and $s$ is the service time. The service time is, as always, a guess. When it is time to select the next process to run, choose the process with the highest $R$ value. A new process will have a value of 1.0 at the beginning, because it has spent no time waiting (yet). Thus it is not that likely to get selected.
 
-It is immediately obvious when we look at this that some memory is ``wasted''. If 1.5 blocks are requested and 2 blocks are allocated and returned, we are using up an extra 0.5 blocks. This space cannot be used for anything useful (as it shows as allocated). This is a problem called \textit{internal fragmentation} -- unused memory that is internal to a partition. This is obviously going to occur often when fixed block sizes are used, and the bigger each block is, the more memory will be wasted in internal fragmentation. 
+Jobs with a small $s$, i.e., short jobs, are likely to get scheduled quickly, which is still a positive. In spite of this, the HRRN approach introduces something important we have not yet had: factoring in the age of the process. The term $w$ indicates how much time a process has spent waiting. Thus, a process that has spent a long time waiting will rise in priority, over time, until it gets a turn. So processes will not starve, because even a process that is expected to have a very long $s$ will eventually have a high enough $R$ due to the growth of $w$.
 
-\paragraph{One Size of Blocks.} Suppose the system has only one size of blocks, perhaps, 1~KB. To implement this strategy, divide up memory into blocks of this fixed size and maintain a linked list of addresses of all currently available blocks. When a block is allocated, remove its corresponding node from the linked list; when a block is freed, put a node with that address into the linked list. If the list is empty, a memory request cannot be satisfied, and null will be returned. This is definitely fast as we can allocate memory in $\Theta(1)$ time~\cite{mte241}.
+We still need to have some way of estimating $s$, which may or may not be simple guessing. 
 
-\paragraph{Fixed Block Sizes, Multiple Size Options.} Recognizing that some memory allocation requests are bigger than others, it might make sense to have several different block sizes; perhaps 1~KB, 2~KB, and 4~KB. These can generally be allocated and deallocated in $\Theta(1)$ time if we have one linked list for each different size of block~\cite{mte241}.
+\subsection*{Multilevel Queue (Feedback)}
+For the most part, until now, we have treated processes more or less equally (except when we have taken the highest priority process). While it might seem very fair, it may not be ideal for a situation where processes behave differently. A desktop or laptop has many processes running, some of which are visible to the user (foreground, or interactive processes) and some of which are not (background and batch processes). We could then apply different scheduling algorithms to different types of process.
 
-Unfortunately, fixed block sizes suffer from a lot of internal fragmentation. This may be suitable for embedded systems where simplicity and speed of operations are more important than worrying about wasting memory. It is obvious from working with languages like C that this is not how \texttt{malloc()} works: 1~KB of memory is not allocated to store a 4-byte integer. What we need instead is a variable block size.
+The multilevel queue takes the ready queue and breaks it up into several queues. A process can be in one (but only one) of the queues and it is assigned to the queue based on some attribute of the process (priority, memory needs, foreground/background, et cetera). The foreground queue, for example, could be scheduled by Round Robin, and the background by First-Come, First-Served~\cite{osc}.
 
-\subsection*{Variable Block Sizes}
-To a certain extent, variable block sizes are not that different from fixed block sizes; we just take the size of blocks down to the smallest they can be. In a typical system with byte-addressable memory, in a way, the smallest block is one byte. Now we have a different problem: keeping track of what is allocated and what is free.
+When there are multiple queues, we also need a way of choosing which of the queues to take from next. The policy we choose depends on goals. We might say some queues have absolute priority over others (e.g., as in the earlier highest priority, period option), or we might have time slicing amongst the queues. This could be balanced evenly (rotate through each) or give more time slices to some queues at the expense of others.
 
-\paragraph{Bitmaps.} It is possible to divide memory into $M$ units of $n$ bits, and then to create a bit array of size $M$ storing the status of each of those units. If a bit $m$ in $M$ is 0, it means that unit is unallocated; if it is 1 then that unit is allocated. How much memory is lost to this overhead? $100/(n+1)$\% of the memory is used. If a unit is 4 bytes, the bitmap is about 3\% of memory; if it is 16 bytes the bitmap takes about 0.8\% of memory. Finding a block of $k$ bytes requires searching the bitmap for a run of $\frac{8k}{n}$ zeros~\cite{mte241}.
+An example of this was the CTSS (Compatible TimeSharing System) that ran on the IBM~7094. The CTSS designers decided that it was ideal to give CPU-Bound processes longer blocks of time to execute so they would not have to spend so much time swapping. They set up multiple queues. In the highest priority class, a process got 1 time slice; in the next one down, a process got 2 time slices; the third class meant 4 time slices, and so on. If a process ran up against the limit of a time slice (e.g., used the full 2 time slices), it was moved down a class. So it got a lower priority, but when it did get selected to run, it was able to run with a lower chance of being interrupted~\cite{mos}.
 
-\paragraph{Linked Lists.}
-The other approach, as in the case of fixed size blocks, is to use linked lists. The information of the linked list can be stored separately from all memory allocation or as part of the block of memory. Either approach is workable.
+Like a few schemes, we have seen so far, this is a ratchet: a process can move down in the priority list, but there does not appear to be a way for it to move up. So a process that needed a lot of CPU early on was going to be punished ``forever''. The designers of the system assumed that if the user pressed the Enter key, it might be a sign the process was likely to become interactive (and therefore should move up in priority). Some genius user (there's always one), figured out that by pressing the enter button repeatedly, his long running processes would finish faster. This was a bit unfair; his processes got priority over the others. But things really broke down when this individual decided to be nice: he told all his friends. And suddenly everyone was doing it and the benefit of the system was lost~\cite{mos}.
 
-After startup, the linked list contains one entry, as all available memory is in one contiguous block. When a memory request is allocated, for example, to allocate 128 bytes, the block is divided up. Suppose we allocate the first 128 bytes. A new entry is placed in the list, at 128 bytes. The node that is added contains the start address, the length of the block, and a bit indicating it is allocated. The unallocated block's node will contain the updated entry: smaller size, new start address, and the bit indicating it is unallocated. When a block is deallocated, we simply find that block in the linked list and set the bit to zero to indicate it is now available again.
+This scheduling algorithm may also be referred to as \textit{feedback}. We do not have any information in advance about how long various processes will be. Instead of being concerned with how much CPU time will be used, which requires clairvoyance or guessing, we assign priority based on the amount of CPU time assigned so far. A process that has used a lot of CPU so far gets lower priority.
 
-In a typical system there may be a lot of allocation and deallocation of memory. This will probably lead to breaking memory up into smaller pieces. We may end up with a situation where the free blocks are small and spread out, as in the figure below: 
+\subsection*{Guaranteed Scheduling}
 
-\begin{center}
-\includegraphics[width=0.9\textwidth]{images/checkerboard.png}\\
-Allocated blocks in memory after some time; the ``checkerboard'' situation~\cite{mte241}.
-\end{center}
+And now for something completely different. The idea behind guaranteed scheduling is to promise the users something and then fulfill that promise. We could promise that if there are $n$ users, each gets an equal share (1/$n$) of the CPU time. Or with $m$ processes, each process gets 1/$m$ of the CPU time.
 
-If this happens, it may be that there is a contiguous block of free memory available of size $N$, but this request cannot be fulfilled because the memory is logically split up into smaller pieces. To solve this, we need a way to recombine the split blocks, commonly called \textit{coalescence}. See the updated figure below:
+To make this happen, the system must keep track of how much CPU time each process has received since its creation. It then considers the how this value compares to the ideal (time since creation divided by $n$). If a process has a value of 0.5, it means it has had only half the CPU it ``should'' have received. If it has a value of 2.0, it has had double. So the scheduling algorithm is then to run the process with the lowest score, trying to keep all values as close to 1.0 as we can~\cite{mos}.
 
-\begin{center}
-\includegraphics[width=0.9\textwidth]{images/checkerboard-coalesced.png}\\
-The ``checkerboard'' situation with the adjacent free blocks coalesced~\cite{mte241}.
-\end{center}
+\subsection*{Lottery}
 
-\paragraph{Coalescence.} Coalescence is just the process of merging two (or more) adjacent free blocks into one larger block. It also makes sense that dividing memory should be a reversible operation. This solves the problem of a block of $N$ contiguous bytes being unable to be allocated. Coalescence can be done periodically or whenever a block of memory is freed.
+The lottery is a system to give predictable results with a simple implementation. The premise is that every process gets some number of ``lottery tickets'' for each resource (e.g., CPU). When a decision has to be made, a lottery ticket is selected at random. The process that holds that ticket gets that resource. This system provides some clarity; if a process has priority $p$, what does that mean? If a process has a fraction $f$ of the total tickets, then we can expect that process to get about $f$\% of the resource. When a process is created or terminates this may increase or decrease the number of tickets, or result in their redistribution~\cite{mos}. 
 
-As pointed out in~\cite{mte241}, coalescence makes it a good idea to maintain the memory blocks in a doubly-linked list. Recall a linked list has ``next'' pointers connecting the nodes and a doubly-linked list has ``next'' and ``previous'' pointers, to make it easier to traverse the list in both directions. When a block is freed, it may be in the middle of two free blocks, so it is convenient to have previous and next pointers so the adjacent sections can be merged efficiently.
+More important processes are given more tickets and have, therefore, a higher chance of winning. If there are 100 tickets outstanding, if a process has 25 of them, it has a 25\% chance of winning any given draw. To increase a process's chance of winning, give it more tickets. To decrease it, give it fewer. Unlike in the real lottery, though, there is always a winner. There are no ``unpurchased'' tickets and we can choose only a ticket that someone is holding.
 
-Even with coalescence, we may have the problem that $N$ free bytes exist in the system but spread out over many little pieces, so the request for $N$ cannot be satisfied. When free memory is spread into little tiny fragments, this situation is called \textit{external fragmentation}. It is analogous to internal fragmentation in that there are little bits of space that cannot be used for anything useful, except of course that they are not inside any block (hence external).
+Co-operating processes may be permitted to exchange tickets. A client that sends a request to a server might then give all its tickets to the server, increasing the chance the server gets the resources to run next~\cite{mos}.
 
-\paragraph{External Fragmentation.}
-One way to reduce external fragmentation is to increase internal fragmentation. If a request for $N$ bytes comes in and there is a block of $N+k$ available, where $k$ is very small (and unlikely to be allocated on its own), it makes sense to allocate the whole $N+k$ block for the request and just accept that $k$ bytes are lost to internal fragmentation. For example, if a free block contains 128 bytes and the request is for 120 bytes, it may not be worth the hassle and overhead to split this block into 120 and 8, as it is unlikely the 8 bytes will be filled anyway. Some systems round up memory allocations to the nearest power of 2 (e.g., a request for 28 bytes gets moved up to 32). Of course, this does not really help with satisfying the request for $N$ bytes of memory; it just keeps external fragmentation down.
+This is a lot less overhead than guaranteed scheduling. We do not have to keep track of how much of the resource a process has received. Assuming that the lottery system is sufficiently random, over time the resource allocation will tend towards the proportions of the tickets each process holds. If process $A$ has 20\% of the tickets, $B$ has 30\%, and $C$ has 50\%, then the CPU will be given to the processes in approximately a 20:30:50 ratio, as expected. Of course, random number generation is a small struggle for computers, though the complexity of this is not something we want to examine here.
 
-Another idea is \textit{compaction}, which can also be thought of as \textit{relocation}. The goal is simply to move the allocated sections of memory next to one another in main memory, allowing for a large contiguous block of free space. This is a very expensive operation; to do this successfully, the Java runtime, for example, must ``stop the world'' (halt all program execution) while it reorganizes memory. This tends to make Java unsuitable for use in writing a real-time operating system. But even if we are willing to pay the cost, it might not be possible to do.
 
-In previous discussions of memory management from the perspective of the application developer, languages with garbage collection like Java or C\# may do memory compaction as needed when the garbage collector runs. This can work in such languages, because variables are references and unless you are writing an \texttt{unsafe} block in C\#, references can be moved around in memory at the garbage collector or runtime's convenience; all it needs to do is update every reference. This is not the case in languages like C where we operate directly on memory addresses, and thanks to things like pointer arithmetic and using integer variables as addresses, there is no reliable way to update all references. 
+\section*{The Idle Task}
 
-The final way we can try to prevent or deal with external fragmentation is through different allocation strategies; that is, how to fit a memory request to a block of free memory. We will examine those strategies now.
+Sometimes our scheduling algorithm cannot produce a new process to run next because there is, quite frankly, nothing to do. The actual implementation of the idle thread may vary across different systems. In some cases it is just repeatedly invoking the scheduler; in others it does a bit of useless addition; or it might just be a whole bunch of \texttt{NOP} instructions. With truly nothing to do, the CPU can be told to halt or switch to a lower power state. Whatever it actually ``does'', the idle thread never has any dependencies on anything else and is always ready to run.
 
-\subsubsection*{Variable Allocation Strategies}
+Since the idle task does not necessarily do much, why have it? It prevents having special cases in the scheduler, first of all. It also provides some accounting information about how much of the time the CPU is not doing anything. In fact, a lot of the time on the desktop or laptop, task manager will tell you that ``System Idle Process'' is taking up a large percentage of the CPU. Because you are more intelligent than a certain technology journalist who may or may not be named John Dvorak, you will recognize that this just means the CPU is not doing anything; it does not mean that some mysterious system process is using up all your CPU's time.
 
-Given a memory request of $N$, where do we allocate the memory? If there is no block of at least size $N$, the request cannot be satisfied. If there is only one, the decision is easy. As long as memory has two free blocks of sufficient size ($N$ or more) that cannot be coalesced, a memory allocation request will require making a decision about which of those blocks to split to meet the allocation request. There are five strategies we will examine~\cite{mte241}:
+Saving power by shutting down (parts of) the processor seems like a nice savings of energy (and potentially increases battery life). On the other hand, time when the CPU is doing nothing might potentially be put to use. There are usually some accounting and housekeeping tasks that the CPU can be doing when it has nothing else. For example, the OS could collect statistical data, or defragment the hard drive (something we will look at).
+
+\section*{Bumping the Priority}
+Sometimes we get into a situation called a \textit{priority inversion}. This is what happens when a high priority process is waiting for a low priority process. Suppose that $P_{1}$ is high priority and is blocked on a semaphore, while $P_{2}$ is in its critical section. As $P_{2}$ is low priority, it might be a long time before $P_{2}$ is selected again to run and can finish and exit the critical section. So $P_{1}$ cannot run, because it is blocked, and it could be blocked for a very long time. In the meantime, other processes with lower priority than $P_{1}$ (but higher than $P_{2}$) carry on execution. Having $P_{1}$ waiting for the lower priority processes is rather undesirable.
+
+The solution is \textit{priority inheritance}. The right thing to do is to bump up the priority of $P_{2}$, temporarily, to be equal to that of $P_{1}$, so that $P_{1}$ can be unblocked as quickly as possible. To generalize, a lower priority process should inherit the higher priority if a higher priority process is waiting for a resource the lower priority process holds. So $P_{2}$ will get selected, will execute and exit the critical section. Its priority then falls down to normal, meaning $P_{1}$ will be selected and may continue.
+
+A famous case of priority inversion took place on the Mars Pathfinder rover. In short, a low priority task would acquire a semaphore, locking the information bus. A high priority task also needed that bus. There was, finally, a medium priority task for communication, which ran for a long time. If the low priority task had the bus, the high priority task was blocked; the medium priority task would be selected to run. While that happened, the low priority task could not finish and release the semaphore. Accordingly, the high priority task was stuck waiting. After a specified period of time, the system assumed the high priority task was stuck and its deadlock resolution strategy was armageddon: total system reboot (resulting in the loss of some data). 
+
+The Pathfinder solution was to enable priority inheritance on the information bus semaphore. This meant that the low priority task would get a higher priority than the communication task and would run to completion; then the high priority task would be able to run and the system would not assume a deadlock had occurred. It was, to a certain extent, fortunate that this option was built into the system at all and needed only to be turned on. Doing a major software update on a system that is located \textit{on another planet} is not quite the same as installing Windows updates on Patch Tuesday.
+
+\section*{Multiprocessor Scheduling}
+If you thought scheduling for a single processor was complicated enough, well, things are about to get exponentially harder. When we have more than one processor working on things at a time, then the complexity increases dramatically. 
+
+We can classify multiprocessor systems into three major buckets~\cite{osi}:
 
 \begin{enumerate}
-	\item First fit.
-	\item Next fit.
-	\item Best fit.
-	\item Worst fit.
-	\item Quick fit.
+	\item \textbf{Distributed}. We have a collection of relatively autonomous systems who interact. For more about this, take the class distributed systems.
+	\item \textbf{Functionally Specialized}. The system has lots of specialized chips working on their specific area (but we'll come back to this when we talk about I/O scheduling).
+	\item \textbf{Tightly Coupled}. A set of processors that share a common main memory and are under the control of the operating system. This is the kind we're most familiar with and going to examine here.
 \end{enumerate}
 
-As a performance optimization, we could have two linked lists: one for allocated memory and one for unallocated memory. That way to find a free block we do not have to look through the allocated blocks.
-
-\paragraph{First fit.} The strategy of first fit is to start looking at the beginning of memory, and check each block. If the block is of sufficient size, split it to allocate the memory, and return the balance to the unallocated memory list. This algorithm has a runtime of $O(n)$ where $n$ is the number of blocks. This algorithm is simple to implement. 
-
-\paragraph{Next fit.} This strategy is a modification of the first-fit algorithm. Instead of starting at the beginning of memory and finding the first block that meets the request, keep track of where the last block was allocated, and then start the next search after that. This prevents the situation where there are a lot of small unallocated blocks (external fragmentation) all concentrated at the start of memory~\cite{mte241}. The runtime is still $O(n)$, as with first fit.
-
-\paragraph{Best fit.}
-Instead of just walking through the list and splitting up the first block equal to or larger than $N$, we could instead try to make a more intelligent decision. Considering all blocks, we choose the smallest block that is at least as big as $N$. This produces the smallest remaining unallocated space at the end. 
-
-This would require either (1) checking every available block ($\Theta(n)$ runtime); or (2) keeping the blocks sorted by increasing size ($O(n)$ runtime). If we use an AVL tree or red-black tree, then we can get best fit to run in $\Theta($ln$(n))$, possibly better runtime than first fit~\cite{mte241}.
-
-
-\paragraph{Worst fit.}
-The problem with best fit is that the leftover bits of memory are likely to be too small to be useful. Rather than trying to find the smallest block that is of size $N$ or greater, choose the largest block of free memory. When the block is split, the remaining free block is, hopefully, large enough to be useful. 
-
-As with best fit, we must either (1) check each available block; or (2) keep the block sorted by size, though decreasing size this time. A max heap is appropriate, or a binomial or Fibonacci heap could also be appropriate~\cite{mte241}.
-
-\paragraph{Quick fit.}
-Though not a solution on its own, quick fit is an optimization. If memory requests of a certain size are known to be common, e.g., requests for 1~MB, it might be ideal to keep a separate list of blocks that are of perhaps 1-1.1~MB in size, so that if the request for 1~MB does come in, it can be satisfied immediately and quickly. 
-
-
-
-\paragraph{Example: 16~MB Allocation.} The diagram below illustrates where in memory a request of 16~MB may be placed:
+Then we have to worry about the interactions of various processes. Specifically, how often they plan to interact. See this table (from~\cite{osi} again) that provides an overview of the granularities:
 
 \begin{center}
-\includegraphics[width=0.50\textwidth]{images/first-best-next.png}\\
-An example of where the first, best, and next fit algorithms would place an allocation~\cite{osi}.
+\begin{tabular}{l|l|l}
+	\textbf{Grain Size} & \textbf{Description} & \textbf{Interval (Instructions)}\\ \hline
+	Fine & Single instruction stream & $< 20$ \\\hline
+	Medium & Single application & $20 - 200$ \\\hline
+	Coarse & Multiple processes & $200 - 2000$ \\\hline
+	Very Coarse & Distributed computing & $2000 - 1$M \\\hline
+	Independent & Unrelated processes & N/A \\
+
+\end{tabular}
 \end{center}
 
-The worst fit algorithm is not shown, but it would overlap with the placement indicated for next fit, because the largest block of free space before the allocation is is 36M.
+To sum it all up, the finer-grained the parallelism, the more care and attention needs to be given to how we are going to schedule a process in a multiprocessor system. If the processes are totally independent, then there is not too much to worry about; if we are taking a single process's thread and doing different instructions on different CPUs, then we have to be very careful to make sure that the execution is correct.
 
-\subsubsection*{Choosing a Strategy}
+If we choose asymmetric multiprocessing, we have a boss processor and this one alone is responsible for assigning work and managing the kernel data structures (e.g., process control blocks). If instead, the system uses symmetric multiprocessing, each processor is responsible for scheduling itself. We will need to make use of mutual exclusion and other synchronization techniques in the kernel to prevent errors in managing the execution of processes. We do not want to have two processors trying to dequeue from the ready queue at the same time, after all.
 
-According to~\cite{osc}, simulations show that worst fit performs, well, worst in terms of time required to fulfill an allocation request and that it results in the most wasted space. The performance problems of worst fit can be fixed, of course, by keeping the memory blocks in a max heap, but that still does not address the wasted space problem. First (next) and best fit are about equal in how well they utilize memory, but first fit tends to be faster. Despite this, even with optimization, given $x$ allocated blocks, another 0.5$x$ blocks may be lost to fragmentation.
+\subsection*{Processor Affinity}
+Let us imagine that every processor has its own cache (e.g., the L1, L2, \& L3 caches). If that is the case, then we want to have \textit{processor affinity}. After some period of time of executing on this processor, a process will have a bunch of its data in the cache of that processor. If the process begins executing on another processor, all the data is in the ``wrong'' cache and there will be a lot more cache misses (which will slow down execution). Ideally, then we will keep executing on the same processor, wherever possible. This desire to stick with a certain processor is called processor affinity.
 
-This is supported by~\cite{osi}, whose analysis also indicates that first fit is the fastest and best algorithm. The next fit algorithm tends to do allocations at the end of memory, so the largest block of free memory (typically at the end) is quickly broken up. On the other hand, first fit tends to litter the beginning of memory with small fragments. Best fit tends to produce free blocks that are too small to be useful. 
+If the OS is just going to make an effort but not guarantee that a process runs on a given processor, that is called \textit{soft affinity}. A process can move from one processor to another, but will not do so if it can avoid it. The alternative is \textit{hard affinity}: a process will only run on a specified processor (or set of processors). Linux, for example, has both soft and hard affinity~\cite{osc}.
 
-\subsubsection*{Advanced Strategy: Binary Buddy}
-Now let us examine a compromise between fixed and variable allocation, as laid out in~\cite{osi}. There is some internal fragmentation, but it is a trade-off against how much external fragmentation we are willing to accept.
-
-In a buddy system, memory blocks are available in powers of 2. More formally, a block is of size $2^{K}$, where $L \leq K \leq U$ and $2^{L}$ is the smallest block size that can be allocated and $2^{U}$ is the largest block size that can be allocated (usually the full size of memory). 
-
-Initially, memory is treated as a single block of size $2^{U}$. If a request of size $n$ occurs such that $2^{U-1} < n \leq 2^{U}$, then the entire block is allocated. Otherwise, the block is split into two ``buddies'', of size $2^{U-1}$. If $2^{U-2} < n \leq 2^{U-1}$, allocate one of the blocks of $2^{U-1}$ to the request. Otherwise, subdivide again. Repeat until the smallest block greater than or equal to $n$ is allocated. 
-
-In subsequent allocations, we look through the data structure, typically a tree, to find either (1) a block of appropriate size; or (2) a block that can be subdivided to meet the allocation. Whenever a pair of buddies (two blocks of equal size, split from the same ``parent'') in the list are both free, they can be coalesced.
-
-Consider the example below where a 1~MB block is allocated using the Binary Buddy system.
+Another motivation why we might want to lock a process to a particular processor occurs when memory accesses are non-uniform. For the most part we assume that any memory read takes as much time as any other, and if we have one bus connecting the CPU to all of main memory, that is a safe assumption. If the CPU can access some parts of memory faster than others, the system has \textit{non-uniform memory access} (NUMA). See the diagram below:
 
 \begin{center}
-\includegraphics[width=0.80\textwidth]{images/binary-buddy.png}\\
-An example of the Binary Buddy system for memory allocation~\cite{osi}.
+	\includegraphics[width=0.5\textwidth]{images/numa.png}\\
+	A system with Non-Uniform Memory Access (NUMA) times~\cite{osc}.
 \end{center}
+
+If we have this situation, then our choice of processor should be based on where the memory of the process is located. The memory allocation routine should also pay attention to where to allocate memory requests, preferring to keep the program code together in memory. If there is data in one of the other blocks of memory, it does not mean game over, but it means slower execution.
+
+\subsection*{Load Balancing}
+It is presumably obvious that if we have 4 processors, it is less than ideal to have one processor at 100\% utilization and 3 processors sitting around doing nothing. We want to keep the workload balanced between all the different systems. The process for this is \textit{load balancing}.
+
+Load balancing is typically necessary only where each processor has its own private queue of processes to run (the ``grocery store queue'' model); if there is a common ready queue (the ``bank queue'' model) then load balancing will tend to happen all on its own, as a processor with nothing to do will simply take the next process from the queue. But in most of the modern operating systems we are familiar with, each processor does have a private queue, so we need to do load balancing~\cite{osc}.
+
+There are two, non-exclusive approaches to redistributing the load: \textit{push} and \textit{pull} migration. It is called migration because a process migrates from one processor to another (it moves homes). If there is push migration, a task periodically checks how busy each processor is and then moves processes around to balance things out (to within some tolerance). Pull migration is when a processor with nothing to do ``steals'' a process from the queue of a busy processor. The Linux and FreeBSD schedulers, for example, use both~\cite{osc}.
+
+Load balancing, as you can imagine, sometimes conflicts with processor affinity. If a process has a hard affinity for a processor, it cannot be migrated from one processor to another. If there is a soft affinity, it can be moved, but it is presumably not our first choice and we will move that process only if we have no other option. Even then, we might consider what to do: should we always move a process despite the fact that it means a whole bunch of cache misses? Should we never do so and leave processors idle? Perhaps the best thing to do is to put a certain ``penalty'' on moving and only move a process from one queue to another if it would be worthwhile (i.e., the imbalance is sufficiently large).
+
+\subsection*{Multicore Processors}
+Before the early 2000s, the only way to get multiple processors in the system was to have multiple physical chips. But if you open up your laptop you are likely to find one physical chip. What gives? \textit{Multicore processors}. As far as the operating system is concerned, a quad-core chip is made of four logical processors, but it's all in one package and this can be faster and more convenient.
+
+When a processor issues a memory read or write that is a cache miss (so the read has to go to memory), the CPU core can spend a lot of time (perhaps as much as 50\%) of its time waiting for that read to take place. We might refer to periods of time where there is computation as a compute cycle, and time spent waiting for memory as a \textit{memory stall}. These tend to alternate, though the length of time for each will vary significantly. It's all a question of how often memory is accessed and how many cache misses there are. See the diagram below:
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/memory-stall.png}\\
+	Alternating compute and memory stall cycles~\cite{osc}.
+\end{center}
+
+During a memory stall, the processor core may have nothing to do. As you might learn about if you take a course in processor design or programming for performance, you can sometimes move instructions around so that the memory read goes out ``early'' and a few other instructions can be executed in the meantime. 
+
+To offset this problem, the solution was originally called \textit{hyperthreading}: two threads are assigned to each core; if one thread does a memory access or stalls, the code can switch to another thread with a limited penalty. The first CPU I had with hyperthreading was a Pentium IV (it was 2003), and it had one physical core but it would seemingly work on two threads at a time. See below:
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/hyperthreading.png}\\
+	Hyper threading in a single CPU core~\cite{osc}.
+\end{center}
+
+If we have coarse-grained multithreading, a thread will execute for a while and when there is a memory stall (or some other reason why a process gets blocked) then the processor will swap to another thread or process, flushing the instruction pipeline. That is expensive. If we have fine-grained multithreading, it looks more like the diagram above where we have alternation between two threads that are in the pipeline at the same time. The cost of switching between these two threads is small~\cite{osc}.
+
+So now we have two different levels of scheduling: assigning a process or thread to a processor (the job of the operating system) and deciding when to swap between the two threads in the core (typically the job of the hardware). 
+
+
+
 
 \input{bibliography.tex}
 

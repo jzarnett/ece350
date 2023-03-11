@@ -2,134 +2,148 @@
 
 \begin{document}
 
-\lecture{ 12 --- Scheduling in Linux}{\term}{Jeff Zarnett}
+\lecture{ 12 --- Uniprocessor Scheduling }{\term}{Jeff Zarnett}
 
-\section*{Commercial OS Scheduling, Continued}
+\section*{Uniprocessor Scheduling}
 
-We will now continue the discussion of commercial (real-world) operating system scheduling with a much more in-depth examination of Linux.
+As you may imagine, processor scheduling can be very complex when we have multiple threads and multiple processors. So, to keep things simple, we will start with single processor systems (uniprocessor scheduling) and then build on that to look into multiprocessor scheduling.
 
-Linux has two scheduling modes: Real-Time and Non-Real-Time (or perhaps we should call that the ``normal'' one). It is not necessary to use the real-time scheduler, strictly speaking, and if the real-time scheduler is used, the system can still have non-real-time threads which will be scheduled according to the normal scheduler routine.
+Scheduling is easy to define: given that we have multiple threads in the system, we are going to have to make some decisions about when different threads run. There are four types of scheduling, but one of the four is I/O scheduling which we will come back to after the scheduling topic in general. The other three bear more examination~\cite{osi}:
 
-\subsubsection*{Linux Real-Time Scheduler}
+\begin{enumerate}
+	\item \textbf{Long-Term Scheduling}
+	\item \textbf{Medium-Term Scheduling}
+	\item \textbf{Short Term Scheduling}
+\end{enumerate}
 
-The Linux scheduler operates based on \textit{scheduling classes}, which are very much like the categories above. There are three classes into which priorities can be assigned~\cite{osi}:
+A student-relevant analogy to explain the different levels: Long-term scheduling is deciding what courses to take in your degree (e.g., do I want to take ECON~102 as a non-technical elective?). Medium-term scheduling is about deciding what courses you are taking in a given term (do I take ECON~102 in 3B or 4A?). Short term scheduling is deciding what course you are going to study right now (I'll study SE~350 because the final exam is tomorrow!)
 
+\paragraph{Long-Term Scheduling.}
+
+The long term scheduler is responsible for determining which programs are going to run at all. It controls how many jobs the system is accepting to do at once. It controls the transition from the ``new'' state into the ready to run state (where it falls in the purview of the medium or short term scheduler). When a process exits, the long term scheduler might decide to admit a new one. Ah, but which one! The first? Based on some criteria?
+
+Long term scheduling does not tend to happen too much on desktop or laptop computer systems. The user controls how many processes are running at a given time. If you choose to open 50 programs, performance may suffer, but the OS will not attempt to stop you, nor will it complain.
+
+We do sometimes encounter long-term scheduling, but it's usually a remote service that is deciding to manager its resources. If you are trying to log into certain games on launch day, you may receive an error saying the server is busy/full. This is the server telling you that it will not start a new game for you (a new process) because it has reached a limit of how many processes (games) are currently permitted. Only when some people log out will you be allowed to log in. I used to reference here my experience with the game Diablo III, but I think that's far enough in the past that it is no longer relatable. 
+
+Mobile operating systems, notably Android, can be more aggressive about telling you they reached their limits. If memory is running low, Android can suspend and kill processes to make way for new ones.
+
+\paragraph{Medium-Term Scheduling.}
+Medium term scheduling is a lot more interesting than long term scheduling, and it revolves around swapping processes to and from disk. A process that is swapped to disk is not going to run in the immediate future, but it is at least likely to run before a long period of time has passed. Swapping a process to disk takes it out of the realm of the short term scheduler; swapping it in to memory returns it to that domain.
+
+The medium-term scheduler doesn't serve as much of a purpose as it used to, because the era of SSDs means that disk transfer times are no longer as painful as they were when we had magnetic drives. So onward.
+
+\paragraph{Short-Term Scheduling.}
+The short term scheduler, also sometimes called the dispatcher, is where the real action is. The medium and long term scheduler are all about someday and sometime and whenever. The short term scheduler is about ``what are we going to do \textit{right now}''. The short term scheduler is something the operating system invokes frequently and it can make the difference between an excellent user experience and a miserable one. The short term scheduler runs when there's a need, and we'll go over a few different situations that might cause it.
+
+If we have co-operative multitasking, short term scheduling will only take place in one of two circumstances: the currently executing threads yields the CPU or the currently executing thread/process terminates (voluntarily or with an error). We saw previously that yielding is possible but rare. Some ancient operating systems (e.g., Mac OS 9) required processes to yield to make the best use of the CPU. If the process \textit{does} yield or terminate, then the short term scheduler will run.
+
+For reasons that are presumably obvious (hint: some people are jerks), co-operative multitasking is problematic. What we will discuss from here on out is pre-emptive multitasking; the operating system, and not the running thread, is responsible for deciding when it's time to switch threads, with the exception of when a process or thread decides to voluntarily terminate.
+
+The dispatcher will certainly run when a thread becomes blocked, such as on an I/O operation. If a thread requested a write to the network and is blocked, now the short term scheduler needs to decide what thread runs next. If it gets blocked on a semaphore or mutex, that is also an occasion to switch to another thread. Page faults are also a great occasion to find something else to do.
+
+Another time to make a scheduling decision is after handling an interrupt, whether from an I/O device or otherwise. After the interrupt is handled, we can return to execution exactly where we left off, or we can go somewhere else (the original thread is suspended already so why not leave it in that state?). 
+
+System calls like \texttt{fork} and even posting on a semaphore may also provide good opportunities to switch from one thread to another. Again, by invoking the operating system through the system call, the calling thread is suspended (the trap handler runs and the OS takes over). So it is necessary to decide what thread executes next. We acknowledged this in the discussion of \texttt{fork}, by saying it was not known if the parent or child would execute next. In the case of semaphores, we do not even know which of the threads waiting on the semaphore will be the one to receive the signal, and even then, which of the signalling thread and waiting thread will resume.
+
+Finally, there is also time slicing. If time slices are defined as $t$ units, if a thread executes for $t$ time units, there will be an interrupt generated by the clock. The whole purpose of the interrupt handler in that case is to run the short term scheduler to choose a thread to run, so that different threads run (seemingly-)concurrently.
+
+\subsection*{Thread Behaviour: Rate Limiting Step}
+
+Threads tend to alternate periods of computing with input/output requests. A typical program exhibiting this pattern would be one that loads some data and processes it, before going on to the next part of the data. That means the program will do a lot of I/O to start with, and we call the waiting period an \textit{I/O Burst}; after that we have a period of time where the CPU does a lot of work, called a \textit{CPU Burst}. Then these steps repeat. Not every thread follows this alternation pattern, and the time spent on each is rarely exactly 50-50, but instead a spectrum. How much of CPU or I/O burst a thread does allows for classification of the thread into one of two categories.
+
+Threads that spend most of their time computing are called \textit{CPU-Bound} and the limiting factor in their execution is how fast the CPU executes the code. Complex mathematical equations, for example, require a lot of CPU time. They can speed up significantly if you get a faster CPU, or access to more CPUs. The alternative is a thread that spends most of its time waiting for I/O, which we call \textit{I/O-Bound}. In this case, having a faster CPU will not make the difference in how long it takes to execute the program. See the diagram below:
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{images/cpu-io-bound.png}\\
+CPU usage diagram showing (a) a CPU-Bound thread and (b) an I/O-Bound thread~\cite{mos}.
+\end{center}
+
+Studies have been done to examine the durations of CPU bursts. An I/O-Bound program will tend to have short CPU bursts, of course. Over time, CPUs have gotten faster at a rate much higher than the rate of I/O speedup. This is probably not surprising to you: a new CPU comes out every few months and the one you can get today is measurably better (in benchmarking tests) than the one from six months ago. I/O standards like Serial-ATA and USB and such change very slowly, over the course of years. When there \textit{is} a jump forward in I/O speed, like USB-2 to USB-3, it's often a large jump. So it makes sense that, over time, programs tend towards being I/O-Bound. The results of the study are shown below:
+
+\begin{center}
+\includegraphics[width=0.65\textwidth]{images/cpu-burst-histogram.png}\\
+CPU-Burst histogram~\cite{osc}.
+\end{center}
+
+But what does this have to do with scheduling? There are two ways we could make use of this. The long-term scheduler may attempt to keep a balance between CPU- and I/O-Bound tasks to get the best resource utilization. This requires that the long-term scheduler have some idea about which threads are which.
+
+Another is that if the disk is the slowest device and the one for which we spend the most time waiting, when the disk has nothing to do, the short term scheduler should immediately schedule a thread that is likely to issue a disk request. This ensures that we do not waste any of the disk's time.
+
+\subsection*{Scheduling Criteria}
+
+The goals of scheduling depend significantly on the objectives of the system. If the system is supposed to respond to events within a certain period of time (real-time system), that's something you'd like to know when choosing what scheduling algorithm to implement. Perhaps the goal is for the CPU to be used maximally (as in a supercomputer). Or maybe the most important thing is for users to feel like the system answers them quickly when they issue a command.
+
+As usual, when making a decision, we could just decide randomly, but we know that's silly here. So let's come up with some criteria to evaluate scheduling algorithms. Our goal is not to choose the one and only best algorithm, but to understand the strengths and weaknesses of each so we can choose what makes sense for our situation. We will examine the following scheduling criteria~\cite{osi}:
+
+\begin{enumerate}
+	\item Turnaround time.
+	\item Response time.
+	\item Deadlines.
+	\item Predictability.
+	\item Throughput.
+	\item Processor utilization.
+	\item Fairness.
+	\item Enforcing priorities.
+	\item Balancing resources.
+\end{enumerate}
+
+\paragraph{Turnaround Time.} The turnaround time is the amount of time between starting a thread and when it finishes. This is the execution time plus the amount of time waiting for resources (processor, I/O, etc). So, wall-clock time matters here. This is important to users; all things being equal the users would like their task to complete as fast as possible. If I ask my computer to convert a file from FLAC format to mp3 format so I can import it to my phone, I care about the turnaround time: how long will it take to convert this file?
+
+\paragraph{Response Time.} Assuming a process is not a background process (daemon), this is the time between putting in a request and getting some answers back. A process can often start producing output while still doing the request. If I am searching for a file on disk, while the search continues to run, any results found so far can be shown in the results list. Response time is very important to users; if they click a button and it takes a long time to acknowledge the command, users get frustrated and sometimes issue the command more than once. Like the time I accidentally bought two train tickets via an Android app. Fortunately, this was a single ride ticket, so it was only a 5 Euro mistake and not a monthly ticket, which could have easily been a 100+ Euro mistake.
+
+\paragraph{Deadlines.} This is more of a concern for real-time systems that have specific deadlines. If I am watching a movie with a Blu-Ray player, the player needs to read data from the disk, decrypt and decode it, and display it to the screen within a certain period of time, otherwise the video quality is degraded. Meeting the deadlines may be the most important thing in the system.
+
+\paragraph{Predictability.} It is desirable if a given job runs in a fairly consistent amount of time. If a task normally takes $x$ minutes and right now it is taking $2x$ minutes, somewhere between $x$ and $2x$ minutes, the user may fear the process is stuck and might terminate it. Users are very impatient.
+
+\paragraph{Throughput.} Scheduling policy should try to maximize the number of threads that complete in a given amount of time. This is our way of figuring out how much work is being accomplished. Much will depend here on the nature of the threads, but we would always like to get more done in the same amount of time. If I am in line to renew my drivers' license, if the Service Ontario office has a high throughput, more people will get their requests finished in the day. If it has a low throughput, I may be waiting there all day. Which would never happen. Oh no.
+
+\paragraph{Processor Utilization.} This is, obviously, how much of the time the CPU is busy. As already mentioned, supercomputers are really expensive to build and maintain. Processing time on supercomputers is sold (leased?) to various organizations like research labs and universities. Any time the supercomputer is not in use is wasted, because that's money that we could be earning. So we may give a lot of priority to keeping it busy.
+
+\paragraph{Fairness.} Who could be against fairness? Humans have a lot of inbuilt notions about fairness, but we are not necessarily expecting a perfectly fair routine for scheduling. What we do expect, however, is that threads should get at least a basic level of fairness, e.g., no starvation. There is a story, possibly apocryphal, about a system being shut down in 1972 that had a yet-unexecuted batch job that had been submitted some five years earlier. I think we can safely call that unfair.
+
+\paragraph{Priorities.} Processes and threads can be assigned priorities: a way of saying that this process or thread is more or less important compared to others. Scheduling should respect this, within reasonable limits. One example of priority with reasonable limits is something like priority boarding when flying: those who get priority boarding get to get on the plane first. This has some advantages -- if overhead bin space (a resource!) is limited, getting on first helps in getting that -- but everyone who has a seat on the plane will eventually get to board and arrive at the destination.  The highest priority process/thread should probably run most often or first, but probably it should not always be the one selected, as that would violate the principle of fairness.
+
+\paragraph{Balancing Resources.} We will get a better outcome if we balance resource usage. The example mentioned above applies: we would like to choose some CPU-Bound and I/O-Bound threads so both the CPU and I/O are kept busy. If we have more information about what sort of I/O the threads will need, so much the better: we can choose a thread that will use the printer if run, when we know the printer is idle, and avoid choosing a thread that will use the network if we know the network is busy.
+
+\subsubsection*{Scheduling Algorithm Goals}
+
+The priorities of these different goals depend significantly on the kind of system it is. The following list gives some idea about what is important in different kinds of systems~\cite{mos}:
+
+\paragraph{All Systems.}
 \begin{itemize}
-	\item \texttt{SCHED\_FIFO}: First-In, First-Out Real-Time threads
-	\item \texttt{SCHED\_RR}: Round-Robin Real-Time threads
-	\item \texttt{SCHED\_OTHER}: Other (non-real-time) threads.
+	\item Fairness
+	\item Priorities
+	\item Balancing Resources
 \end{itemize}
 
-In each class, threads may have different priorities relative to one another. Lower numbers indicate higher priorities. Real-time priorities are in the range [0-99] and the other priorities are [100-139].
+\paragraph{Batch Systems.}
+\begin{itemize}
+	\item Throughput
+	\item Turnaround time
+	\item CPU Utilization
+\end{itemize}
 
-The rules for \texttt{SCHED\_FIFO} are as follows~\cite{osi}:
+\paragraph{Interactive Systems.}
+\begin{itemize}
+	\item Response time.
+	\item Predictability.
+\end{itemize}
 
-\begin{enumerate}
-	\item The system will only interrupt a FIFO thread if one of the following is true:
-	\begin{enumerate}
-		\item Another FIFO thread of higher priority becomes ready.
-		\item The current FIFO thread gets blocked (e.g., on I/O).
-		\item The current FIFO thread yields the CPU with \texttt{sched\_yield}.
-	\end{enumerate}
-	\item If a FIFO thread is interrupted, it is placed in the queue associated with its priority.
-	\item If a FIFO thread becomes ready and that thread has higher priority than the currently-executing thread, the currently-executing thread is preempted in favour of the highest priority ready FIFO thread. If two or more threads are at the highest priority, the one that has been waiting the longest is chosen.
-\end{enumerate}
+\subsection*{The (Ab)use of Priorities}
 
-The policy is the same for Round-Robin real-time scheduling, except time slicing is implemented. So if a Round-Robin thread has executed for a full time slice it is suspended and the scheduler will select a real-time thread of equal or higher priority (which could certainly be the same thread, but is not necessarily). The difference is illustrated in the diagram below:
+Okay, so we've said that processes (and threads) have priorities and we've repeatedly referenced priority as being an important consideration in various operations like scheduling and page allocation and so on. We have not yet actually talked much about priorities.
 
-\begin{center}
-	\includegraphics[width=0.55\textwidth]{images/linux-rts.png}\\
-	Real-Time scheduling in Linux comparing FIFO to Round-Robin (RR)~\cite{osi}.
-\end{center}
+Each process or thread's priority is typically an integer. Whether higher numbers are higher priority or lower numbers are higher priority is a question of system design. As is typical, if there are two ways to do something, some people will choose one way and some will choose the other. In UNIX, a lower number is higher priority; Windows is the opposite. Picking a convention and sticking to it would be nice, but in England they drive on the left and in Canada we drive on the right.
 
-One of the threads in the \texttt{SCHED\_OTHER} category can execute only if there are no threads in the Round-Robin or FIFO queues that are ready at the moment.
+With a priority value assigned, it can be used to make decisions about resources. If $P_{1}$ wants resource $R_{1}$ and $P_{2}$ wants that same resource, where the priority of $P_{1}$ is greater than that of $P_{2}$, choose to assign the resource to $P_{1}$. This might come in to play, for example, when two threads are waiting on a semaphore. If process $P_{3}$ posts (signals) on the semaphore, the resource of that ``signal'' may be sent to the higher priority process $P_{1}$, allowing it to proceed first.
 
-\subsubsection*{Linux Non-Real-Time Schedulers}
-In Linux 2.4 and earlier (shockingly late, now that I think of it), the Linux kernel used something like the traditional algorithm. Then they introduced a scheduling algorithm that was commonly called the $O(1)$ scheduler, because it executed in constant time ($O(1)$) under all circumstances. This was a big improvement over the previous scheduling algorithm which ran in $O(n)$ time. It also worked a lot better for SMP systems, because it introduced processor affinity and load balancing. Since version 2.6.23 of the kernel, however, a new scheduling algorithm has replaced the $O(1)$ scheduler; it is called the \textit{Completely Fair Scheduler} (CFS).
+The operating system or the program author may each be partially responsible for assigning a priority to each of the threads. These priorities may change over time and when certain conditions are fulfilled (e.g., a process that uses a lot of CPU in a short period of time might be reassigned a lower priority by the operating system temporarily).
 
-Let us start by looking at the $O(1)$ scheduler. The traditional UNIX scheduler fell down on a couple of fronts: it was not very good at handling very large numbers of processes; it was an $O(n)$ algorithm, so its performance got worse as more processes appeared in the system. It also had significant difficulty with SMP systems due to its design, notably~\cite{osi}:
+System administrators can usually change the priority of a thread or process. Regular users may have a say in the priority of their own threads/processes, in a limited way. In Windows, for example, as a user it may be possible to set a task to a higher or lower priority. Giving this to users was probably a bad idea, because users often do it wrong. If you have a long, CPU-Bound task, the right thing to do is to give it a low priority and not a high one. You might expect that the high priority will get the task done faster, but it hurts the performance of the system and makes users unhappy (even though that's what they explicitly asked for).
 
-\begin{enumerate}
-	\item A single run queue;
-	\item A single run queue lock; and
-	\item An inability to pre-empt running processes.
-\end{enumerate}
+In some systems, the highest priority non-blocked thread will always run. This is a great way of making sure that higher priority threads have right-of-way, but a terrible way of ensuring fairness and preventing starvation. We could easily have a situation where low priority threads never get a chance to run, because there are too many threads of middle or high priority. So, scheduling is not necessarily as easy as just finding the highest priority thing to do...
 
-The single run queue means a task can and will be scheduled on any processor (good for load balancing), but there is no implementation of processor affinity. Thus, a task running on CPU-0 could be easily reassigned to CPU-1 resulting in lots of cache misses.
-
-The single run queue lock means there is one mutual exclusion construct protecting manipulation of the run queue. Thus, when one processor wants to modify it (enqueueing or dequeueing a task, for example), all other processors have to wait until it is unlocked (which can take non-trivial time as an $O(n)$ operation for sufficiently large values of $n$). Thus, processors may be waiting for something to do.
-
-Finally, pre-emption was not possible; lower priority tasks would continue to execute while higher priority tasks were waiting. Only something getting blocked, a time slice expiration, or an interrupt might cause the scheduler to re-evaluate what process should run next.
-
-So now that we know the problem with the traditional scheduler, we can see how the $O(1)$ scheduler is designed to address these problems. The kernel would maintain two data structures for the processor in the system~\cite{osi}:
-
-\begin{verbatim}
-struct prio_array {
-  int nr_active; /* number of tasks in this array */
-  unsigned long bitmap[BITMAP_SIZE]; /* priority bitmap */
-  struct list_head queue[MAX_PRIO]; /* priority queues */
-}
-\end{verbatim}
-
-There is one queue for each priority level, thus \texttt{MAX\_PRIO} (140) is both the highest priority and the number of queues. The bitmap array is of a size to provide one bit per priority level, so with 140 levels and 32 bit words, \texttt{BITMAP\_SIZE} is 5. The purpose of the bitmap is to indicate which queues are empty. There is an active queue structure as well as an expired queue structure.
-
-Initially, there are no tasks in any queues and all the bits in the bitmap are zero. If a process is created and enters the ready queue, it is put in the queue corresponding to its priority value. If that queue was previously empty, then its bit in the bitmap is set to 1 to indicate that queue is no longer empty. See the diagram below:
-
-\begin{center}
-	\includegraphics[width=0.75\textwidth]{images/linux-o1-struct.png}\\
-	Linux $O(1)$ scheduler internal structures~\cite{osi}.
-\end{center}
-
-If a process does not complete its full time slice before it is preempted, then it goes back in the ready queue. If it does run to the end of the time slice, it is placed in the expired queue instead. All scheduling takes place from the active queues. The highest priority queue is chosen; if there are multiple tasks in that queue, they are scheduled in Round-Robin fashion. This continues until the active queue structure is empty. When that happens, the active and expired queues change places, and execution (scheduling) continues~\cite{osi}.
-
-Part of the difficulty with the $O(1)$ scheduler is that it does not provide very good performance for interactive processes, notably the ones you work with on your desktop computer. Given that the Linux folks always claim that this year or next year is ``the year of the Linux desktop'' (... still waiting for that) a new scheduler was needed. Hence, the relatively rapid replacement with the Completely Fair Scheduler.
-
-The CFS, written by Ingo Moln\'ar, is not $O(1)$, unfortunately. It uses a red-black tree to model the ready queue, where processes are inserted based on a linear ordering of execution time. The leftmost node in this tree is therefore the task that has spent the least amount of time executing and that is what will be scheduled next. Because a red-black tree remains balanced, the time to access the leftmost node will be $O($ln$(n))$, though caching could be used to make access to the next task faster. If a task gets blocked it will not end up in the queue again, but if it reaches the end of a timeslice or gets preempted, then it will be inserted into the tree with its updated execution time, which is very likely not the same place it was taken from (which might require rebalancing the tree (a $O($ln$(n))$ operation)~\cite{mte241}.
-
-\begin{center}
-	\includegraphics[width=0.45\textwidth]{images/cfs.png}\\
-	The Completely Fair Scheduler's red-black tree structure of ready tasks~\cite{osc}.
-\end{center}
-
-Rather than using a strict rule, the CFS scheduler assigns a proportion of CPU processing time to each task based on the nice value. A nice value may be in the range -20 to +19 (lower priority is still higher priority). The CFS does not use a particular length of time slice, but instead has a \textit{target latency} which is an interval of time in which all ready tasks should get to run at least once. The CPU time is then doled out based on the targeted latency. There are usually default and minimum values, but targeted latency can increase if there is a big increase in the number of tasks to be executed~\cite{osc}.
-
-The linear ordering of execution time, called \texttt{vruntime} in the earlier diagram, is also called the \textit{virtual run time}. This is a way of keeping track of how much time a task has been executing. As with a lot of history keeping, there is a decay factor  so that more recent history is more highly weighed in the calculation. Higher priority processes' history decays faster; lower priority processes' history decays more slowly. For tasks at a normal priority (nice value of zero), the virtual run time equals the physical run time. If the physical run time is, say, 50~ms, a process with a nice value of 0 will have a virtual runtime of 50. If the process has a positive nice value, the virtual runtime will be larger than 50; if a negative nice value, the virtual runtime will be less than 50~\cite{osc}.
-
-Tasks that spend a lot of time using the CPU will, under this system, normally get a lower priority than a task that spends a lot of time waiting for I/O (e.g., sleeping). So a process that is user-interactive and waiting for user input will get to execute fairly quickly, making the system seem responsive to the user. Which users, of course, like.
-
-Another thing that is noteworthy in the CFS is the addition of group scheduling: we may designate a number of processes as belonging to a group. This is useful when a process spawns lots of threads or lots of new processes. Instead of treating every thread or process totally equally, a multithreaded program's threads can all be pooled together so that the group is equal to other processes. Within the group, the scheduler will try to treat the threads or processes fairly, too.
-
-\subsection*{A Decade of Wasted Cores}
-
-In 2016, researchers published a paper, exposing serious problems in the Linux scheduler, with the dramatic title: ``The Linux Scheduler: a Decade of Wasted Cores''~\cite{wastedcores}. The authors found four significant bugs in Linux multicore scheduling such that there were threads waiting to run even when cores were sitting idle. Performance degradation is in the range of 13-24\%, but may be as much as 138 times when looking at some corner cases. 
-
-There are four different problems but they all cause the same behaviour: cores are left idle for a long time when runnable threads are waiting to execute. If it is brief, it is not a problem; but if it goes on for longer then it will be more of an issue. Suppose there are 4 CPUs, each of which is busy, and there is one thread waiting in the queue for CPU 0. If the thread in CPU 3 terminates, it may take a moment for the thread waiting on CPU 0 to move there; moving it takes some ``effort'' on the part of the scheduler (notice this situation, decide to do something about it, actually carry out the move) and potentially results in a few more cache misses. It may be better to leave it alone, But if that thread is waiting an unreasonably long time (in the few hundred milliseconds) then it is a problem.
-
-Recall from earlier the completely fair scheduler we have discussed. There will be multiple run queues, one for each core. The simplest case for load balancing means two CPUs. If CPU 0 has one low priority thread and CPU 1 has three high priority threads, some sort of balancing will be needed, otherwise the high priority threads will run less than the low priority thread. Linux will periodically try to keep the queues balanced.
-
-Unfortunately, load balancing is expensive and will run periodically but not often. But a completely idle core will result in emergency load balancing. There's a problem and we need to do something about it! And you might imagine that load balancing is just look at how busy each of the cores is and move things from the most busy to the least busy core (... which is what most people do in the ECE 459 load balancing assignment!). That oversimplifies the solution because it does not consider cache locality or non-uniform memory access.
-
-Thus, above the level of each core is a larger unit, a scheduling domain. Scheduling domains are configured by what hardware they have in common (e.g., level 2 cache). See the image below:
-
-\begin{center}
-	\includegraphics[width=0.3\textwidth]{images/wastedcores.png}\\
-	A machine with 32 cores, 4 groups, and SMT-sharing amongst pairs of cores~\cite{wastedcores}.
-\end{center}
-
-In this image we have multiple levels: three groups are reachable from the first core (CPU 0) in one hop and the rest reachable in two hops. The scheduler will avoid duplicating work by making sure that one core is responsible for load balancing within that schedule domain. This is the lowest numbered idle core, or the lowest number overall if all are busy. The only way a core can get woken up is for another one to wake it up, and so a core that is busy and notices a lazy one sleeping nearby will wake it up and tell it to do load balancing~\cite{wastedcores2}.
-
-So what are the four bugs that caused this problem? The summary of these bugs from~\cite{wastedcores2}: (1) the group imbalance bug, (2) the scheduling group construction bug, (3) the overload on wakeup bug, and (4) the missing scheduling domains bug.
-
-\paragraph{The Group Imbalance Bug} Cores would attempt to steal work from other cores if the average load of the victim scheduling group is higher than the average load of the one doing the stealing. But averages can be misleading! The fix is to use the minimum load of the group, meaning the load of the least loaded core of the group. This means cores will steal more often, but this is better than leaving them idle. This can result in a 13\% decrease in the runtime of \texttt{make}.
-
-\paragraph{Scheduling Group Construction} The Linux \texttt{taskset} command allows applications to be pinned to specific cores. If the groups are two hops apart, the load balancing thread might not steal them... This problem arises because all groups are constructed from the perspective of core 0. If, therefore, the load balancing is running on core 31 it might not steal from a neighbouring core because it thinks it is too far away because it is two hops from core 0.
-
-\paragraph{Overload on Wakeup} We have already discussed the idea of processor affinity, but sometimes, too much of a good thing is a problem. If a thread goes to sleep on group 1, when it and it gets unblocked later by some other thread, the scheduler will try to put it on one of the cores in group 1... even if other groups are not busy. This will reduce the number of cache misses, sure, but it means sometimes a thread gets in a queue that's busy rather than one that's free.
-
-\paragraph{Missing Scheduling Domains}
-The last bug appears to have been caused by an error during refactoring. When a core was removed and re-added a step was skipped after the refactoring changes which could cause all threads of an application to run on a single core instead of all of them. 
-
-In conclusion: scheduling is by no means a solved problem. A simple scheduling algorithm that worked reasonably well in a single core environment was not adequate to the multiple core world. Averages can be misleading and optimizations sometimes do more harm than good. 
 
 \input{bibliography.tex}
 
