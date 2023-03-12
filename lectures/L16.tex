@@ -1,0 +1,30 @@
+\input{../common/header}
+
+\begin{document}
+
+\lecture{ 15 --- Real Time Scheduling Algorithms }{\term}{Jeff Zarnett}
+
+\section*{Real-Time Scheduling Algorithms}
+
+
+
+
+
+
+
+
+
+\subsection*{Earliest Deadline First}
+
+The earliest deadline first algorithm is, presumably, very familiar to students. If there is an assignment due today, an assignment due next Tuesday, and an exam next month, then you may choose to schedule these things by their deadlines: do the assignment due today first. After completing an assignment, decide what to do next (probably the new assignment, but perhaps a new task has arrived in the meantime?) and get on with that.
+
+The principle is the same for the computer. Choose the task with the soonest deadline; if there is a tie, then random selection between the two will be sufficient (or other criteria may be used, if desired). If there exists some way to schedule all the tasks such that all deadlines are met, this algorithm will find it. If a task is executing because its deadline is the earliest and another task arrives with a sooner deadline, then preemption means the currently executing task should be suspended and the new task scheduled. This might mean a periodic task being preempted by an aperiodic or sporadic task~\cite{mte241}.
+
+\subsection*{Least Slack First}
+A similar algorithm to earliest deadline first, is least slack first. The definition of \textit{slack} is how long a task can wait before it must be scheduled to meet its deadline. If a task will take 10~ms to execute and its deadline is 50~ms away, then there are (50 - 10) = 40~ms of slack time remaining. We have to start the task before 40~ms are expired if we want to be sure that it will finish. This does not mean, however, that we necessarily want to wait 40~ms before starting the task (even though many students tend to operate on this basis). All things being equal, we prefer tasks to start and finish as soon as possible. It does, however, give us an indication of what tasks are in most danger of missing their deadlines and should therefore have priority.
+
+
+
+\input{bibliography.tex}
+
+\end{document}
