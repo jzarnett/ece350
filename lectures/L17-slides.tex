@@ -1,0 +1,215 @@
+\input{configuration}
+
+\title{Lecture 28 --- Scheduling in Windows \& UNIX}
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+
+\part{Windows \& UNIX Scheduling}
+
+\begin{frame}
+\partpage
+\end{frame}
+
+\begin{frame}
+\frametitle{Scheduling in Desktop OSes}
+
+In this lecture we will examine how real commercial operating systems schedule their processes and threads. 
+
+We will examine UNIX and Windows scheduling. 
+
+We will see what approaches are used and what is interesting/novel about them.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Traditional UNIX}
+
+The traditional UNIX scheduling is really ancient; as in System V R3 and BSD 4.3.\\
+\quad It was replaced in SVR4 (which had some real-time support).
+
+Multilevel feedback system using Round Robin within each of the queues. 
+
+Time slicing is implemented and the default time slice is a (very long) 1 second. 
+
+So if a process does not block or complete within 1~s, then it will be preempted. 
+
+Priority is based on the process type as well as the execution history.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Traditional UNIX}
+
+Processor utilization for a process $j$ is calculated for an interval $i$ as:
+
+\begin{center}
+$CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$
+\end{center}
+
+And the priority is for process $j$ at interval $i$ is calculated by the formula:
+
+\begin{center}
+$P_{j}(i) = B_{j} + \dfrac{CPU_{j}}{2} + N_{j}$
+\end{center}
+
+where $B_{j}$ is the base priority of process $j$ and $N_{j}$ is the ``nice'' value of process $j$.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Be Nice}
+
+The ``nice'' value is a UNIX way to allow a user to voluntarily reduce the priority of a process to be ``nice'' to other users (but honestly, who uses this?).
+
+Actually, the answer to that question is: system administrators. 
+
+An admin can ``re-nice'' a process and make it somewhat nicer than it would otherwise be.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Traditional UNIX}
+
+The $CPU$ and $N$ components of the equation are restricted to prevent a process from migrating outside of its assigned category. 
+
+A process is assigned to a given category based on what kind of process it is. 
+
+To put it in simple terms, the OS puts its own needs first and tries to make the best use of resources it can.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Traditional UNIX}
+
+From highest to lowest priority, the categories are:
+
+\begin{enumerate}
+	\item Swapper (move processes to and from disk)
+	\item Block I/O device control (e.g., disk)
+	\item File manipulation
+	\item Character I/O device control (e.g., keyboard)
+	\item User processes
+\end{enumerate}
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Traditional UNIX}
+
+Yes, unfortunately, user processes get piled at the bottom of the list. 
+
+It should provide for efficient use of I/O devices and tends to penalize processor-bound processes at the expense of I/O bound processes. 
+
+CPU-bound processes should be able to carry on executing when an I/O-bound process waits for the I/O operation to complete. 
+
+When an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting.
+
+This strategy is reasonably effective for a general-purpose, time-sharing operating system.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Scheduling}
+
+Windows schedules threads using a priority-based, preemptive scheduling algorithm, ensuring that the highest priority thread runs. 
+
+The official name for the selection routine is the \alert{dispatcher}.
+
+A thread runs until it is preempted, blocks, terminates, or its time slice expires. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Scheduling}
+
+If a higher priority thread is unblocked, it will preempt a lower priority thread. 
+
+Windows has 32 different priority levels, the regular (priority 1 to 15) and real-time classes (16 to 31). 
+
+A memory management task runs at priority 0.
+
+The dispatcher maintains a queue for each of the scheduling priorities and goes through them from highest to lowest until it finds something to do.
+
+If there is nothing else currently ready, the System Idle Process will ``run''.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Priority Classes}
+
+There are six priority classes you can set a process to via Task Manager:
+
+\begin{enumerate}
+	\item Realtime
+	\item High
+	\item Above Normal
+	\item Normal
+	\item Below Normal
+	\item Low
+\end{enumerate}
+
+A process is usually in the Normal class.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Thread Priorities}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/windows-thread-priorities.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Time Slicing}
+
+If a process reaches the end of a time slice, the thread is interrupted.
+
+Unless it is in the real-time category, its priority will be lowered, to a minimum of the base priority of each class. 
+
+When a process that was blocked on something (e.g., a wait or I/O), its priority is temporarily boosted (unless it is real-time, in which case it cannot be boosted). 
+
+The amount of the boost depends on what the event was.
+
+A process that was waiting for keyboard input gets a bigger boost than one that was waiting for a disk operation, for example.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Windows Priority: UI}
+
+The operating system also gives a priority to whatever process is running in the selected foreground window. 
+
+This is different from foreground vs. background processes, because the definition of a foreground process was one that was user-interactive. 
+
+Here, the distinction is which of the user-interactive processes is currently ``on top'' in the UI. 
+
+Not only does this process get a priority boost, but it also gets longer time slices. 
+
+It highlights the different heritages of Windows and UNIX...
+
+\end{frame}
+
+
+
+\end{document}
+
