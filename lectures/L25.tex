@@ -46,11 +46,10 @@ In a real-time operating system, this loss of capacity might mean it's no longer
 \subsection*{Faults and Fault Tolerance}
 In the previous section, we just said vague things about something going wrong like hardware dying or something like that. But let's take a look at what is a fault and what does it mean to be fault tolerant.
 
-The IEEE Standards Dictionary and some textbooks define a fault as an erroneous hardware or software state of some variety~\cite{osi}:
+A failure is the term we use when the response (outcome) deviates from the specification as a result of an error; and an error is a manifestation of a fault~\cite{mte241}. But what's a fault? The IEEE Standards Dictionary and some textbooks define a fault as an erroneous hardware or software state of some variety~\cite{osi}:
 
 \begin{itemize}
 	\item \textbf{Permanent}: A fault that is always present after it occurs and can only be fixed by actually replacing or repairing the faulty component. If a GPU ceases to work due to overheating causing a failure of its internal components, that is now permanently broken and can maybe be repaired but probably has to be replaced, so it's a permanent fault. Software bugs are also permanent faults: the bug was always in the code, even if it wasn't triggered for some reason (e.g., the bug occurs only on the 29th of February) and accordingly must be fixed by a code change.
-	
 	
 	\item \textbf{Intermittent}: A fault that recurs at random, unpredictable times. A faulty chip may produce the right answer most of the time but the wrong answer rarely and unpredictably. That's super frustrating because it's hard to track down and identify what's wrong.
 
@@ -58,6 +57,41 @@ The IEEE Standards Dictionary and some textbooks define a fault as an erroneous 
 
 \end{itemize}
 
+\paragraph{Fault Prevention.} 
+Although it's tempting to jump straight to the idea of fault tolerance, which is about how to carry on in the face of the problem, it's even better if we can prevent the problem from occurring in the first place. That leads us to fault avoidance which is some combination of some of the following steps~\cite{mte241}:
+
+\begin{enumerate}
+	\item Make sure you understand the physical environment and protect the system from physical damage through appropriate shielding, waterproofing, etc.
+	\item Use hardware with the intended reliability and lifetime (don't cheap out on the components!)
+	\item Within software development...
+		\begin{enumerate}
+			\item Have a sufficiently detailed and rigorous specification
+			\item Use an appropriate design and test methodology
+			\item Use the right programming language (Rust?)
+			\item Use analysis tools
+		\end{enumerate}
+	\item Verify that components and tools work as they advertise!
+\end{enumerate}
+
+\paragraph{Fault Tolerance.}
+We already learned some of the important elements about fault tolerance through discussing the various RAID levels. In that topic we covered the idea of having backups or mirrored/striped volumes which gave is information redundancy: there's more than one copy of the data so the loss of one copy does not result in the permanent loss of data. 
+
+Most likely you covered some ideas of information redundancy in other courses around communication. Checksums, parity bits, error correcting codes, etc. all allow for detecting and possibly correcting errors through the use of data redundancy.
+
+There is also the idea of physical redundancy, which is what happens if we have, say, two CPU chips in the machine such that if one of them dies then the system can carry on with reduced capacity. But it also describes the idea of having more than one physical machine or instance of your application, so if one instance or machine goes down (even for maintenance) the other can continue on. Ideally this sort of physical redundancy extends to having the systems in more than one physical location so that your application can still be available even if the Amazon US East 1 data centre is currently offline.
+
+There's a third kind of redundancy called temporal redundancy: repeating an operation when an error is detected~\cite{osi}. This is what happens in, for example, TCP network communication, where a receiver who notices a packet is missing or damaged can request that this packet be re-sent to make sure the data received is correct. You may also consider the kind of redundancy where you have more than one execution of the task to verify that the results agree.
+
+The space shuttle had a combination of physical and temporal redundancy for important calculations. It had five computers, but normally only four of them were used in a majority vote system. If one of the systems fails, it is outvoted by the others; if two systems fail in different ways then they get different answers and the two correct systems win the vote; if two systems fail in the same way and there's a tie, the fifth computer votes to break the tie~\cite{mte241}.
+
+
+The important thing is that the system should have no single point of failure. A system that has such a single point of failure is vulnerable to total failure if that one component is out of action. And while it's sometimes possible to fix this in the system design phase, the deployment matters too: if you have two systems with multiple CPUs and redundant disks and extra RAM, but they share a network connection, they're not really independent because of that shared component.
+
+\section*{Now I Have Two Problems}
+If we have two distinct systems that need to work together, we've just unlocked a whole new tier of problems called distributed systems problems. We actually covered one of the possible issues in distributed systems in the past when we talked about the Byzantine Generals Problem. That was framed around finding traitors when trying to complete the mission of the Emperor, but there's lots of other things that we will have to consider.
+
+\paragraph{Distributed Systems Course.}
+All of this is just a very simple overview of some of the issues that might arise when we have multiple systems for redundancy. This is a complicated subject and is a whole 4th year ECE technical elective that you could take if this is of interest to you. 
 
 \input{bibliography.tex}
 
