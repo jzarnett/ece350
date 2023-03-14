@@ -23,11 +23,13 @@ In the words of Rocky Balboa, ``It's not about how hard you hit. It's about how 
 
 If you are designing something to not have downtime because the company loses some money when the system is down, your considerations are different to a situation where you need to avoid downtime because lives are on the line. Remember also that there are some scenarios that you cannot and should not handle because they're either too outlandish or just plain apocalyptic. If Russia decides it wishes to launch its nuclear missiles\footnote{ August 29, 1997 2:14 AM Eastern Time... \url{https://www.youtube.com/watch?v=4DQsG3TKQ0I}} and your data centre is in one of the target zones, does it matter if your app is going to have some downtime right now? I think there are bigger problems to worry about.
 
+Nevertheless, this is an engineering design tradeoff between cost and the amount of resiliency you want to have. Up to a certain point, more money will get more redundancy and more resiliency. Remember the earlier example about how a lack of spare crew capacity can result in delaying of your flight from Calgary to Vancouver? If a certain airline were more open to increasing the cost, they could have more capacity. That would make the system more resilient: a snowstorm in Nova Scotia wouldn't ruin the travel plans of unrelated people several thousand kilometres away. On the other hand, at some point it becomes wasteful: the airline should not be paying excessive amounts of people to hang around doing nothing just in case.
+
 Let's imagine that something has actually gone wrong, for whatever reason. There are a few different ways to respond or handle this situation. For the sake of the example, we'll consider primarily hardware failure, but software failures matter too.
 
-\paragraph{Can We Fix It? Yes We Can!} The best option for resiliency is if the system can correct the problem and carry on! That may not be sensible if the scenario is an unrecoverable hardware failure: if the magic smoke has come out of the hard drive, no amount of rebooting it will make it go back again. However, if the failure would be solved by re-initializing the device, why not?
+\paragraph{Can We Fix It? Yes We Can!} The best option for resiliency is if the system can correct the problem and carry on! That may not be sensible if the scenario is an unrecoverable hardware failure: if the magic smoke has come out of the hard drive, no amount of rebooting it will make it go back in again. However, if the failure would be solved by re-initializing the device, why not?
 
-Fixing it is somewhat easier if it's a software problem. Remember that we talked in a previous course about the ideas around deadlock recovery. Deadlock is a failure, and perhaps the system can recover from failure by pursuing one of those approaches, such as killing processes or rebooting the system.
+Fixing some things may be easier if it's a software problem. Remember that we talked in a previous course about the ideas around deadlock recovery. Deadlock is a failure, and perhaps the system can recover from failure by pursuing one of those approaches, such as killing processes or rebooting the system.
 
 During the process of recovery, though, the system is probably running at a lower capacity. So let's consider that...
 
@@ -58,23 +60,38 @@ A failure is the term we use when the response (outcome) deviates from the speci
 \end{itemize}
 
 \paragraph{Fault Prevention.} 
-Although it's tempting to jump straight to the idea of fault tolerance, which is about how to carry on in the face of the problem, it's even better if we can prevent the problem from occurring in the first place. That leads us to fault avoidance which is some combination of some of the following steps~\cite{mte241}:
+Although it's tempting to jump straight to the idea of fault tolerance, which is about how to carry on in the face of the problem, it's even better if we can prevent the problem from occurring in the first place. That leads us to fault avoidance, which is some combination of some of the following steps~\cite{mte241}:
 
 \begin{enumerate}
-	\item Make sure you understand the physical environment and protect the system from physical damage through appropriate shielding, waterproofing, etc.
-	\item Use hardware with the intended reliability and lifetime (don't cheap out on the components!)
+	\item Make sure you understand the physical environment and protect the system from physical damage through appropriate shielding, waterproofing, etc.;
+	\item Use hardware with the intended reliability and lifetime (don't cheap out on the components!);
 	\item Within software development...
 		\begin{enumerate}
-			\item Have a sufficiently detailed and rigorous specification
-			\item Use an appropriate design and test methodology
-			\item Use the right programming language (Rust?)
-			\item Use analysis tools
+			\item Have a sufficiently detailed and rigorous specification;
+			\item Use an appropriate design and test methodology;
+			\item Use the right programming language (Rust?);
+			\item Use analysis tools.
 		\end{enumerate}
 	\item Verify that components and tools work as they advertise!
 \end{enumerate}
 
+Following appropriate design, implementation, and testing processes will only make faults less likely. It is also important to resist the pressure to drop or degrade these processes when user time pressure. Perfection is generally unachievable, so it's more likely we'll have to think about how to deal with faults.
+
 \paragraph{Fault Tolerance.}
-We already learned some of the important elements about fault tolerance through discussing the various RAID levels. In that topic we covered the idea of having backups or mirrored/striped volumes which gave is information redundancy: there's more than one copy of the data so the loss of one copy does not result in the permanent loss of data. 
+Some of the things we covered much earlier in the course, or in an earlier course, play a role in supporting the resilience of the system in the face of software faults~\cite{osi}:
+
+\begin{itemize}
+
+	\item \textbf{Process Isolation}: The most obvious example of how this is relevant is that the OS prevents one process from accessing the memory of another or the memory of the operating system itself. This limits the potential damage if something goes wrong in one process (e.g., dereference a bogus pointer), it does not affect other processes or the operation of the OS. 
+	
+	\item \textbf{Dual-Mode Operation}: The OS monopolizing access to hardware devices and other common resources will, again, reduce the potential damage of a thread, maliciously or otherwise, interfering with the execution of others by cancelling other tasks.
+	
+	\item \textbf{Preemptive, Priority-Based Scheduling}: As with the previous example, preemptive and priority-based scheduling mean that misbehaving processes or threads have limited impact on other threads that want to run. Without this, a rogue thread could monopolize CPU time and negatively impact others.
+	
+	\item \textbf{Checkpoints, Transactions, Rollback}: These were covered in the concurrency course and can be used to recover from failures, transient or otherwise. 
+\end{itemize}
+
+As for hardware failure, we already learned some of the important elements about fault tolerance through discussing the various RAID levels. In that topic we covered the idea of having backups or mirrored/striped volumes which gave is information redundancy: there's more than one copy of the data so the loss of one copy does not result in the permanent loss of data. 
 
 Most likely you covered some ideas of information redundancy in other courses around communication. Checksums, parity bits, error correcting codes, etc. all allow for detecting and possibly correcting errors through the use of data redundancy.
 
@@ -82,13 +99,13 @@ There is also the idea of physical redundancy, which is what happens if we have,
 
 There's a third kind of redundancy called temporal redundancy: repeating an operation when an error is detected~\cite{osi}. This is what happens in, for example, TCP network communication, where a receiver who notices a packet is missing or damaged can request that this packet be re-sent to make sure the data received is correct. You may also consider the kind of redundancy where you have more than one execution of the task to verify that the results agree.
 
-The space shuttle had a combination of physical and temporal redundancy for important calculations. It had five computers, but normally only four of them were used in a majority vote system. If one of the systems fails, it is outvoted by the others; if two systems fail in different ways then they get different answers and the two correct systems win the vote; if two systems fail in the same way and there's a tie, the fifth computer votes to break the tie~\cite{mte241}.
+The space shuttle had a combination of physical and temporal redundancy for important calculations. It had five computers, but normally only four of them were used in a majority vote system. If one of the systems fails, it is outvoted by the others; if two systems fail in different ways then they get different answers and the two correct systems win the vote; if two systems fail in the same way and there's a tie, the fifth computer is activated and it will compute the problem and then vote to break the tie~\cite{mte241}.
 
 
 The important thing is that the system should have no single point of failure. A system that has such a single point of failure is vulnerable to total failure if that one component is out of action. And while it's sometimes possible to fix this in the system design phase, the deployment matters too: if you have two systems with multiple CPUs and redundant disks and extra RAM, but they share a network connection, they're not really independent because of that shared component.
 
 \section*{Now I Have Two Problems}
-If we have two distinct systems that need to work together, we've just unlocked a whole new tier of problems called distributed systems problems. We actually covered one of the possible issues in distributed systems in the past when we talked about the Byzantine Generals Problem. That was framed around finding traitors when trying to complete the mission of the Emperor, but there's lots of other things that we will have to consider.
+If we have two distinct systems that need to work together, we've just unlocked a whole new tier of problems called distributed systems problems. We actually covered one of the possible issues in distributed systems in the past when we talked about the Byzantine Generals Problem. That was framed around finding traitors when trying to complete the mission of the Emperor, but there's lots of other things that we will have to consider. We should examine one in detail -- clock synchronization.
 
 \paragraph{What Time Is It?}
 The idea of temporal redundancy introduces the problem of time and that it is not trivial to get two independent systems to agree on what time it is. Inevitably, all clocks except the universal reference clock are off by some amount; it's just a question of how much! This is not really an indication of anything wrong with the clock synchronization, but just a question of the laws of physics as we'll see.
@@ -100,10 +117,11 @@ Time zones also matter, but I'm going to recommend using UTC because it doesn't 
 
 Clocks frequently use quartz for synchronization, but there is always drift and measurement error; a quartz clock will typically vary by about half a second per day, so the idea of systems being off by a full second is quite reasonable if System A is fast by 0.5s and System B is slow by 0.5s~\cite{mte241}.
 
-\paragraph{Fixing It.}
+In a non-real time operating system, it's often okay to just change the clock to the correct time and just jump there. But for a real-time system, breaking the expectation of linear time can cause events to run again, so typically we do not wish to do that. The solutions are effectively a graduated slowdown or speedup (i.e., counting a second as a little longer or shorter until things are back in sync). But that presupposes that we know what time we are trying to adjust to, and how do we know that?
 
-In a non-real time operating system, it's often okay to just change the clock to the correct time and just jump there. But for a real-time system, that breaks our normal expectation of linear time, so typically we do not wish to do that. The solutions are effectively a graduated slowdown or speedup (i.e., counting a second as a little longer or shorter until things are back in sync).
+That's a more complicated question than we want to discuss here, but a possible solution is something like the Network Time Protocol -- NTP -- which allows querying a reference source. The protocol itself is designed to compensate for some forms of network delay, although not all. Effectively, it's difficult or impossible to get more than one system to agree on what time it is. 
 
+Ultimately, this means the design of communication and synchronization between the systems must account for the communication time but also that the clock times will not be identical, to the point where messages could appear to arrive before they're sent.
 
 
 \paragraph{Distributed Systems Course.}
