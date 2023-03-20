@@ -34,15 +34,45 @@ Much like the earliest deadline first approach, a queue where priority is determ
 
 Unlike the previous two scheduling algorithms, the name doesn't explain as much about how this one works. We consider the rate monotonic algorithm because something like the earliest deadline first or least slack first approach is that they focus solely on deadlines but do not consider priorities otherwise. 
 
+Rate-Monotonic scheduling is based around the idea of basing priority on the period -- tasks that execute more often are given higher priority. Tasks with higher frequency require more frequent attention, and therefore should be given higher priority. So each task needs to be assigned a priority number based on that period and this priority does not change dynamically at runtime. Higher-priority tasks will preempt lower-priority ones as needed.
 
-To figure out if it's possible to schedule things, there's a test.
+This algorithm is, however, not perfect in the sense that it's possible to fail to schedule things in such a way that all tasks meet their deadlines even if utilization is less than 1. An example from~\cite{mte241}: Suppose we want to dynamically schedule n periodic tasks with the form $(C_{k}, \tau _{k})$: (1, 4), (3, 7), and (3, 10). If we try to schedule these, we'll find that the third task fails to meet its deadline: task 1 runs, then 2, then 1 again, then 3. So far so good. Then task 2 runs, but it gets interrupted by task 1, so task 1 runs to completion, then 2 resumes, and 3 misses its deadline. But utilization is less than 1 so it should be possible to solve this one: ($1/4 + 3/7 + 3/10 = 137/140$). Earliest Deadline First would have been able to schedule this such that it met all deadlines. Oops.
+
+To figure out if it's possible to schedule things, there's a test. It turns out that it's very difficult to do this dynamically in real-time, so we have to use a less-precise formula for calculating whether a group of tasks may be scheduled or not. Given that real-time systems are pessimistic and would prefer to say no when it is schedulable rather than say yes when it is not. There are some formulae and proofs linked in the source~\cite{mte241} but it is easy enough for the computer to calculate: $\Pi^{n}_{k=1}( 1 + \dfrac{c_k}{\tau _k}) \leq 2$.
+
+Remember, though, if it's not possible to guarantee that all deadlines can be fulfilled, it doesn't mean that the tasks are certain to fail to meet their deadlines. Task times are always worst-case, and so things might actually be fine in reality.
+
+\paragraph{Deadline-Monotonic.} A variant of this is deadline-monotonic scheduling, in which case priority is assigned based on deadlines. The task with the shortest deadline is assigned the highest priority. It's not that different or interesting, but it is possible to come up with some scenarios that Rate-Monotonic would not find a good solution and Deadline-Monotonic would.
 
 \subsection*{Aperiodic Servers}
 Let's return to the idea of aperiodic tasks in the earliest-deadline-first approach. A task with a soft deadline is challenging to schedule here, because it's hard for the scheduler to know whether a task is soft- or hard-real time. One possibility is to say that aperiodic or soft-deadline tasks are always lower in priority than any firm- or hard-real time task, but that may not be optimal. 
 
-We'll examine an approach called a polling server as explained in the original paper introducing the idea. A polling server is, in its own way, a little container in which aperiodic tasks occur. The server is itself a hard-deadline periodic task with a fixed execution time budget and a deadline equal to its period~\cite{aperiodic-server}. Every time this task runs, it's really a trojan horse for the aperiodic tasks that want to run. During the execution time of the server task, the aperiodic tasks waiting will run sequentially. If there are too many tasks or they otherwise take too long and they do not finish, the aperiodic tasks just carry over to the next time the server runs. If there are not enough aperiodic tasks and there's time left over, just end the server task execution and let something else run.
+We'll examine an approach called a polling server as explained in the original paper introducing the idea. A polling server is, in its own way, a little container in which aperiodic tasks occur. The server is itself a hard-deadline periodic task with a fixed execution time budget and a deadline equal to its period~\cite{aperiodic-server}. Every time this task runs, it's really a trojan horse for the aperiodic tasks that want to run. During the execution time of the server task, the aperiodic tasks waiting will run sequentially. If there are too many tasks or they otherwise take too long and they do not finish, the aperiodic tasks just carry over to the next time the server runs. If there are not enough aperiodic tasks and there's time left over, just end the server task execution (throw away the extra time) and let something else run.
 
 An analogy that makes some sense here is a lunch break at work. You don't have to use this time period solely for eating, but you can use it to do various other tasks if you want or need: go to the bank, go shopping, etc. The lunch break task is ``important'' in the sense that you cannot skip it or reschedule it indefinitely. But when it is lunch break time, it's your time to do with as you wish to do tasks that otherwise might be difficult to schedule.
+
+It's also possible to have multiple servers to handle different types of aperiodic tasks. Higher priority tasks could go into one server and lower priority tasks in another one. In the lunch break analogy, you might try to go to the supermarket at lunch time (larger, higher priority task) and do some smaller task (Duolingo?) in a coffee break.
+
+This approach does not affect the ability of the system to complete the hard-deadline tasks, because the background server task runs following a schedule that's sufficiently known and predictable that the other hard-deadline tasks can also be scheduled with certainty that they will complete. Excellent!
+
+The disadvantage of the polling server is around the response time for the aperiodic tasks; it's half the server period plus the average execution time and the only way to improve that is to make the server period shorter~\cite{aperiodic-server}. That might not be desirable, though, because it increases the overhead significantly. 
+
+\paragraph{Variant: Deadline-Deferrable Server.}
+An improved version of this that gives better performance for aperiodic tasks and it's called the \textit{deferrable server}: it's like the polling server, but instead of throwing away the time budget if it's unused at the end of the period and there's nothing to do, save that leftover time in case something arrives~\cite{aperiodic-server}. Eventually the period expires and at that point the remaining execution time is lost, or the time is exhausted by actually doing tasks.
+
+To be clear, in the polling server situation, if the polling server task runs out of things to do with 40\% of its time budget available, the polling server task ends and the remaining time is thrown away. In the deferrable approach, that budget is retained until the end of the period for the deferrable server, so if something comes in during that remaining window, it can start immediately. The advantage here is effectively that an aperiodic task will likely be served faster than they would have been if they arrive a bit later.
+
+Continuing the lunch analogy let's say you have an hour and you use it for lunch and finish eating in 45 minutes. In the polling server approach you go back to work immediately even if your lunch break time isn't used up and your remaining 15 minutes of break time is discarded. In the deferrable approach, your extra 15 minutes of lunch time isn't used up and you could use those 15 minutes later on in the day to take a personal call. Still, when the day is over, if you didn't use it for something else, the remaining 15 minutes is lost. The next day you get another full hour for lunch, but the extra time from the day before didn't carry over. Note that none of this is a substitute for legal advice from an employment lawyer about the rules and regulations around legally required breaks during the workday.
+
+\paragraph{Variant 2: Deadline Sporadic Server.}
+The next idea for a high-priority task that handles the aperidoic is called the sporadic server, and it's like deadline-deferrable, but for two things: (1) instead of losing the extra unused period it can be saved for the future, indefinitely; and (2) the replenishment of the budget forces execution to be spread out more evenly~\cite{aperiodic-server}.
+
+
+\subsection*{Multiprocessor Math}
+
+So far when we've talked about real-time scheduling, we have not considered the possible complexities introduced by making it multiprocessor.
+
+
 
 \input{bibliography.tex}
 
