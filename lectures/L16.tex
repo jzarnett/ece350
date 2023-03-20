@@ -6,7 +6,7 @@
 
 \section*{Real-Time Scheduling Algorithms}
 
-Given our understanding of scheduling algorithms in general and an undemanding of what makes real-time system scheduling a little bit different from just regular scheduling, we can consider some other scheduling algorithms that work for real-time systems. We already covered the idea of timeline scheduling. If everything is predictable and orderly then making a schedule that looks like a schedule of classes is effective. But we also know that's not the case, so we'll talk about some other scheduling algorithms that are able to handle aperiodic and sporadic tasks.
+Given our understanding of scheduling algorithms in general and an undemanding of what makes real-time system scheduling a little bit different from just regular scheduling, we can consider some other scheduling algorithms that work for real-time systems. We already covered the idea of timeline scheduling. If everything is predictable and orderly then making a schedule that looks like a schedule of classes is effective. But we also know that's not the case, so we'll talk about some other scheduling algorithms that are able to handle aperiodic and sporadic tasks. For now we'll go back to the uniprocessor view of the world, because it's simpler -- but eventually we must indeed talk about the multiprocessor scenario again.
 
 \subsection*{Earliest Deadline First}
 
@@ -65,12 +65,27 @@ To be clear, in the polling server situation, if the polling server task runs ou
 Continuing the lunch analogy let's say you have an hour and you use it for lunch and finish eating in 45 minutes. In the polling server approach you go back to work immediately even if your lunch break time isn't used up and your remaining 15 minutes of break time is discarded. In the deferrable approach, your extra 15 minutes of lunch time isn't used up and you could use those 15 minutes later on in the day to take a personal call. Still, when the day is over, if you didn't use it for something else, the remaining 15 minutes is lost. The next day you get another full hour for lunch, but the extra time from the day before didn't carry over. Note that none of this is a substitute for legal advice from an employment lawyer about the rules and regulations around legally required breaks during the workday.
 
 \paragraph{Variant 2: Deadline Sporadic Server.}
-The next idea for a high-priority task that handles the aperidoic is called the sporadic server, and it's like deadline-deferrable, but for two things: (1) instead of losing the extra unused period it can be saved for the future, indefinitely; and (2) the replenishment of the budget forces execution to be spread out more evenly~\cite{aperiodic-server}.
+The next idea for a high-priority task that handles the aperiodic is called the sporadic server, and it's like deadline-deferrable, but for two things: (1) instead of losing the extra unused period it can be saved for the future, indefinitely; and (2) the replenishment of the budget forces execution to be spread out more evenly~\cite{aperiodic-server}. 
 
+Why does spreading it out matter? The deadline server could theoretically schedule two runs of the server back-to-back, which is convenient for some aperiodic tasks (the ones that are there and ready), but inconvenient for others. When I was doing my first co-op term in Toronto, I would take the Finch West bus to and from work. The schedule said ``frequent service'' which was TTC-speak for ``every ten minutes, or more often''. It was subject to a phenomenon that's called ``bunching'' in the literature, by which I mean you could stand at the bus stop for 30 minutes and then three busses would arrive and no more for the next 30. This is convenient if you happen to be standing at the bus stop at the time when the three busses arrive because you can get aboard the least-busy one and ideally have a more pleasant ride. But if you just missed it, it's going to be a long wait.
+
+As for spreading it out, the basic plan is that the execution time for the server is broken down into chunks. When there's something to do and the server runs that aperiodic task, the amount of time that it runs is deducted from the available budget of chunks. The decrease can be fractions of a chunk, so, for example, if there are 10 chunks total, the budget is full, and an aperiodic task runs for 1.5, the budget is now at 8.5 chunks. When a chunk is depleted, it's scheduled for replenishment at a fixed time in the future. That spreads out the replenishment. If chunks are exhausted, the server is suspended until the next period.
+
+This sort of replenishment model is also used in other contexts, like, say, database credits for Amazon AWS database instances. You start out with some number of credits, they are depleted by using the database CPU time above a certain threshold, and replenished at a steady rate over time. There is a cap  so you can't stockpile too many credits. 
+
+I would explain this as being a little bit like the hearts system in Duolingo. If you're not familiar with it, it's a language learning app with a green owl mascot. You start with five hearts, which is also the maximum number of hearts. If you make a mistake when doing an exercise, you lose a heart. If you run out of hearts, you cannot continue and have to wait for hearts to refill and hearts refill at a rate of about one every four hours. You can pay money to avoid this but that's a different subject. The key difference here is that in Duolingo the hearts only decrease if you get an exercise wrong; in the deadline sporadic server approach the budget always decreases from running aperiodic tasks.
+
+\paragraph{Variant 3: Deadline Exchange Server.}
+This is an approach builds on the Deadline-Deferrable server, and simplifies the idea of tracking the chunks. Chunks require individual tracking so there's a lot of overhead of keeping a handle on them. The strategy is that any remaining execution time is discarded when the request queue is empty and the wait for replenishment is based on the last chunk of execution time used~\cite{aperiodic-server}. This is simpler to implement since there's only ever one replenishment to track and the replenishment is always the full quota. 
+
+\paragraph{But does it work?}
+The simulation studies show that different forms of the period server approach are effective for different workloads. The paper introducing this suggests that you get good average response time by making the period of the server be the same as the shortest period of the regular period tasks~\cite{aperiodic-server}. But it's possible to have different servers configured for different aperiodic tasks to give the best balance of prioritization and performance.
 
 \subsection*{Multiprocessor Math}
 
-So far when we've talked about real-time scheduling, we have not considered the possible complexities introduced by making it multiprocessor.
+So far when we've talked about real-time scheduling, we have not considered the possible complexities introduced by making it multiprocessor. If there are multiple processors in the system, we need to make a decision about whether tasks have dedicated CPUs or whether they can migrate between them. We already talked about CPU affinity, and this is basically the same idea but for real-time scheduling. But let's break it down into a little more detail about the options~\cite{sa-rt}:
+
+
 
 
 
