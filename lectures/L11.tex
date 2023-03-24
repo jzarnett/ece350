@@ -8,6 +8,18 @@
 
 We will continue with our discussion of virtual memory by looking at a few advanced considerations in virtual memory.
 
+\subsection*{Memory-Mapped Files}
+When we talked about inter-process communication in a previous course, one option that we covered was based around memory-mapped files. Now we can actually talk about how it works.
+
+It should not be surprising, given what we know so far, that the basic premise is that disk blocks for the file are mapped to memory and if a chunk of the file is referenced that is not in memory, it is treated as if it is a normal page fault and a page-sized piece of the file is brought into memory~\cite{osc}. In this regard it is then expected that other accesses are just memory reads and writes on the data in memory without going to disk. When the file is closed, then the data is written back to disk in its modified format. 
+
+In the one-process-using-it scenario, we don't have to worry so much about synchronizing changes, but in the inter-process communication version it was important to make sure that we chose to synchronize the file because changes might not be visible immediately. If two or more processes have the same file in memory at a time, the memory-mapped file can in the virtual address space for the two different processes. But remember, we only go and fetch a block of the file for this process if we need it, so some explicit synchronization is needed to be certain that the data is the same for everyone.
+
+\subsection*{Arbitrary Addresses: Memory-Mapped I/O}
+Another advanced consideration for I/O when we think of memory is the need for memory-mapped I/O -- to communicate with a certain hardware device, an area of memory is mapped to the I/O device's memory. This means that although it looks like an ordinary memory read or write to main memory, in reality it might be going over the bus to a totally different device. This simplifies some operations and implementations, because communicating with the device works exactly the same way as communicating with memory -- nothing special is needed.  Part of the reason behind treating everything like a file in UNIX is to simplify the operations; something similar applies here.
+
+This contrasts with the older-style \textit{port-mapped} I/O where there are different CPU instructions and separate registers used to communicate with the device. It's not that this does not work, but it's just more difficult to work with.
+
 \subsection*{Allocation of Frames}
 In a simple system where we do not do anything advanced, if there are $n$ frames free in the system, we will demand page all of them. So the initial state is that all frames are empty, and as needed, pages are read into those frames. Once all $n$ frames are filled with pages, page $n+1$ must replace a page already in a frame (because there is no more space). When a process terminates, all its frames are marked as free. In theory, one process could fill all the frames in the system. This is as simple as it can be; from there we can build on it.
 
@@ -17,9 +29,9 @@ Assuming, as we did with cache, that we might want to allocate different numbers
 
 The motivation behind allocating at least a minimum number of frames is ostensibly performance. As long as our page replacement algorithm is sane (i.e., not FIFO), adding more frames reduces the page fault rate. As we demonstrated earlier, a page fault is a huge performance decrease. 
 
-The absolute minimum number of frames is determined by the architecture of the system. Imagine a machine where a memory reference instruction may contain one memory address. In the worst case, the instruction and the address are in different pages, so we will need two frames to be able to complete this instruction. If the max frames for this process were 1, the instruction could never be completed.  The IBM 370 \texttt{MVC} instruction is an extreme example: it moves data from one storage location to another. It takes six bytes, and the instruction itself can straddle two pages. That requires six frames. The worst case scenario is when the \texttt{MVC} instruction is the operand of an \texttt{EXECUTE} instruction that also straddles a page boundary. So eight frames are needed~\cite{osc}.
+The absolute minimum number of frames is determined by the architecture of the system. Imagine a machine where a memory reference instruction may contain one memory address. In the worst case, the instruction and the address are in different pages, so we will need two frames to be able to complete this instruction. If the max frames for this process were 1, the instruction could never be completed. 
 
-In theory, the problem could be infinitely bad if the computer architecture allows referencing of an indirect address. The address being referenced could be on another page. That instruction could then reference another indirect address, and it's turtles all the way down. If that is the case, the entire virtual memory must be in main memory (so, not possible). The standard solution is to limit the levels of indirection to some manageable value, like 16. Rather like recursion leading to a stack overflow, it is possible that a stack overflow prevents a program that is correct from running, but more likely the program is in an infinite loop and it is better off terminated. If we limited the levels of indirection to 16, then the worst case scenario is a requirement of 17 pages~\cite{osc}.
+Another possible thing that limits the number of frames that we can move around is the need to lock pages in memory. One possible cause of this locking is an I/O operation: if the I/O has been handed off to a DMA controller, the DMA has a source and destination address and one of those may be a specific memory location and we cannot move those pages to different frames or swap them out~\cite{osc}. When the I/O operation is started, lock the relevant frame or frames, and they are ineligible for replacement while locked; when the operation is complete, then unlock it/them. Frames is plural because it is possible that the data, even if small, crosses at least one page boundary. We could avoid the need for locking if, however, data reads and writes do not take place in user-level process memory and instead the data is copied to/from some kernel buffers.
 
 Assuming we do not allocate every process the minimum or maximum, there are a few allocation algorithms we might follow. We already got a glimpse at this when we talked about local vs. global cache replacement.
 
@@ -32,15 +44,6 @@ If there are $m$ frames in the system and the operating system reserves $k$ of t
 This value of $a_{i}$ is only an estimate. It may not divide evenly, and we can only allocate an integer number of frames to each process.  So we will have to raise or lower $a_{i}$ a bit to make it an integer. If $a_{i}$ is below the minimum number of frames, then it needs to get bumped up to that minimum. We also must respect the limits of the system: the sum of all $a_{i}$ values may not exceed the total frames of memory (minus the OS reserve), so a few of the larger processes may need to have their allocations nudged down.
 
 Note that with proportional allocation, as with equal allocation, there is no regard given to the priorities of the processes. Normally, we would want to give more frames to higher priority processes so their page fault rates are lower and they can therefore execute more quickly. So we could modify the $a_{i}$ values according to process priority, as well~\cite{osc}. The subject of priority is something we have not yet examined much yet, but will do so soon when we get to talking about scheduling; the next major topic. But, first, let's finish what we are doing with memory.
-
-\paragraph{Local and Global Replacement.}
-We already saw the idea of local replacement and global replacement in the cache. To refresh your memory, if we have chosen the LRU algorithm, in a global replacement policy, the least recently used page anywhere in the cache (memory) will be replaced. If we chose a local page replacement policy, it is the least recently used page that belongs to the current process.
-
-Local is not affected much by our allocation concerns, so we can more or less leave that alone. 
-
-Suppose we choose global allocation. We will see the number of pages allocated to each change over time. If we assigned a colour to each process, it might be a bit like watching a little simulation of fictional countries as they fight over land, gaining and losing territory. Over time, a global replacement algorithm means processes that run more often will accumulate more pages in memory as they will acquire more pages than get taken from them.
-
-It might make sense to watch to see how many frames each process has. It may be desirable to prevent a process from falling below the minimum number of pages, or to swap completely to disk a process that no longer meets that threshold. 
 
 
 \subsection*{Thrashing}
