@@ -571,11 +571,9 @@ If so, then the candidate will displace the currently-executing one and start ru
 \begin{frame}
 \frametitle{Shortest Remaining Time}
 
-As with Shortest Job First, there is a chance that long processes will starve because of a steady stream of shorter processes. 
+As with Shortest Process Next, there is a chance that long processes will starve because of a steady stream of shorter processes. 
 
-If we choose $S_{1}$ to be zero for new processes, it means they will always preempt the running process. 
-
-This may or may not be desirable.
+For Short Job First, if we choose $S_{1}$ to be zero for new processes, it means they will always preempt the running process which may be undesirable.
 
 
 \end{frame}
