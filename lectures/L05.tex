@@ -2,7 +2,7 @@
 
 \begin{document}
 
-\lecture{ 5 --- Concurrency Control Implementation}{\term}{Jeff Zarnett}
+\lecture{ 5 --- Concurrency Control Implementation }{\term}{Jeff Zarnett}
 
 
 \section*{Concurrency Control Construct Implementation}
@@ -94,7 +94,7 @@ If the caller used a try-lock or try-wait sort of call, then they don't get bloc
 
 If the thread is supposed to be blocked, that's not a very complex operation from the point of view of the operating system. Change the status of the calling thread to be blocked (so that it is not ready to run), and then choose another thread to continue execution. Which one? Scheduling decision, as you know, except scheduling is \textit{also} something that we hand-waved away in the past and are about to find ourselves forced to revisit. Anyway, back to blocked threads.  
 
-Marking a thread as blocked or moving it to a ``blocked'' queue is insufficient, though. We will need some way of knowing that this thread is blocked on the particular semaphore or mutex it was accessing -- hence, an implementation of blocking and unblocking will require, perhaps, that the concurrency control construct has an associated queue of the threads waiting for it. Or maybe when a thread is blocked there's somewhere in its PCB that says what it's waiting for. At that point the thread can just wait until its turn arrives
+Marking a thread as blocked or moving it to a ``blocked'' queue is insufficient, though. We will need some way of knowing that this thread is blocked on the particular semaphore or mutex it was accessing -- hence, an implementation of blocking and unblocking will require, perhaps, that the concurrency control construct has an associated queue of the threads waiting for it. Or maybe when a thread is blocked there's somewhere in its PCB that says what it's waiting for. At that point the thread can just wait until its turn arrives.
 
 Eventually, whichever thread did lock the mutex will want to unlock it or some thread will post on a semaphore. If it's a counting semaphore, we always increase its internal counter by 1 and will unblock a waiting thread. For the mutex, we'll only change the internal counter from 0 to 1 if there is no thread waiting; otherwise the only thing to do is unblock a waiting thread. That particular implementation is not the only way to go about it, but it's important not to just set the mutex back to unlocked and forget about whatever threads are waiting -- or worse, set it back to unlocked AND unblock one of the threads and allow it to proceed. Either one of those outcomes would ruin the mutual exclusion behaviour we want.
 
