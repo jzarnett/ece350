@@ -1,0 +1,481 @@
+\input{configuration}
+
+\title{Lecture 2 --- Review of Processes and Threads }
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+\begin{frame}
+\frametitle{Past is Prologue}
+
+
+\begin{center}
+	\includegraphics[width=0.45\textwidth]{images/memeloop.jpg}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{The Process}
+
+	A process is a program in execution.
+
+	\begin{enumerate}
+		\item The instructions and data.
+		\item The current state.
+		\item Any resources that are needed to execute.
+	\end{enumerate}
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{Processes vs. Programs}
+
+	Note: two instances of the same program running equals two processes.
+
+	You may have two windows open for Microsoft Word, and even though they are the same program, they are separate processes.
+
+
+	Similarly, two users who both use Firefox at the same time on a terminal server are interacting with two different processes.
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{Two Documents, Two Processes}
+
+	\begin{center}
+		\includegraphics[width=\textwidth]{images/2docs.png}
+	\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{Process Control Block}
+
+	Data structure for managing processes: \alert{Process Control Block} (PCB).
+
+	It contains everything the OS needs to know about the program.
+
+	It is created and updated by the OS for each running process.
+
+	It can be thrown away when the program has finished executing and cleaned everything up.
+
+	The blocks are held in memory and maintained in some container (e.g., a list) by the kernel.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Control Block}
+
+	The process control block will (usually) have:
+	\begin{itemize}
+		\item \textbf{Identifier.}
+		\item \textbf{State.}
+		\item \textbf{Priority.}
+		\item \textbf{Program Counter*.}
+		\item \textbf{Register Data*.}
+		\item \textbf{Memory Pointers.}
+		\item \textbf{I/O Status Information.}
+		\item \textbf{Accounting Information.}
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Control Block (Simplified)}
+
+	\begin{center}
+		\includegraphics[width=0.35\textwidth]{images/pcb.png}
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Control Block}
+
+	This data is kept up to date constantly as the process executes.
+
+	The program counter and the register data are asterisked.
+
+	When the program is running, these values do not need to be updated.
+
+	They are needed when a system call (trap) or process switch occurs.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{PCB: Asterisked Fields}
+	We will need a way to restore the state of the program.
+
+	Save the state of the process into the PCB.
+
+	1. Save the state into the Program Counter variable.
+
+	2. Save the Register variables.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Switch}
+
+	A switch between the execution of process $P_{0}$ and process $P_{1}$:
+
+	\begin{center}
+		\includegraphics[width=0.75\textwidth]{images/process-switch.png}
+	\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{The Circle of Life}
+
+
+	Unlike energy, processes may be created and destroyed.
+
+	Upon creation, the OS will create a new PCB for the process.\\
+	\quad Also initialize the data in that block.
+
+	Set: variables to their initial values.\\
+	\quad the initial program state.\\
+	\quad the instruction pointer to the first instruction in \texttt{main}
+
+	Add the PCB to the set.
+
+	After the program is terminated and cleaned up:\\
+	\quad Collect some data (like a summary of accounting information).\\
+	\quad Remove the PCB from its list of active processes and carry on.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Creation}
+
+	Three main events that may lead to the creation of a process:
+
+	\begin{enumerate}
+		\item System boot up.
+		\item User request.
+		\item One process spawns another.
+	\end{enumerate}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Creation: At Boot Up}
+
+	When the computer boots up, the OS starts and creates processes.
+
+	An embedded system might have all the processes it will ever run.
+
+	General-purpose operating systems: allow one (both) of the other ways.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Creation: At Boot Up}
+
+	Some processes will be in the foreground; some in the background.
+
+	A user-visible process: log in screen.
+
+	Background process: server that shares media on the local network.
+
+	UNIX term for a background process is \alert{Daemon}.
+
+	Example: \texttt{ssh} (Secure Shell) command to log into a Linux system.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Creation: Users}
+
+	Users are well known for starting up processes whenever they feel like it.\\
+	\quad Much to the chagrin of system designers everywhere.
+
+	Every time you double-click an icon or enter a command line command (like \texttt{ssh} above) that will result in the creation of a process.
+
+
+	\begin{center}
+		\includegraphics[width=0.6\textwidth]{images/desktop-shortcut.jpg}\\
+		Image Credit: CS Tigers
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Creation: Spawning}
+
+	An already-executing process may spawn another.
+
+	E-mail with a link? Click it; the e-mail program starts the web browser.
+
+	A program may break its work up into different logical parts.\\
+	\quad To promote parallelism or fault tolerance.
+
+	The spawning process is the \alert{parent} and the one spawned is the \alert{child}.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction}
+
+	Eventually, most processes die.
+
+	This is sad, but it can happen in one of four ways:
+	\begin{enumerate}
+		\item Normal exit (voluntary)
+		\item Error exit (voluntary)
+		\item Fatal Error (involuntary)
+		\item Killed by another process (involuntary)
+	\end{enumerate}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction: Normal}
+
+	Most of the time, the process finishes because they are finished.\\
+	\quad Or the user asks them to.
+
+	Compiler: when compilation is finished, it terminates normally.
+
+	You finish writing a document in a text editor, click the close button.
+
+	Both examples of normal, voluntary termination.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction: Error}
+
+	Sometimes there is voluntary exit, but with an error.
+
+	Required write access to the temporary directory \& no permission.
+
+	Compiler: exit with an error if you ask it to compile a non-existent file.
+
+	The program has chosen to terminate because of the error.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction: Fatality}
+
+	The third reason for termination is a fatal error.\\
+	\quad Examples: stack overflow, or division by zero.
+
+	The OS will detect this error and send it to the program.
+
+	Often, this results in involuntary termination of the offending program.
+
+	A process may tell the OS it wishes to handle some kinds of errors.
+
+	If it can handle it, the process can continue.
+
+	Otherwise, unhandled exceptions result in involuntary termination.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction: Killed}
+
+	The last reason for termination: one process might be killed by another.\\
+	\quad (Yes, processes can murder one another. Is no-one safe?!).
+
+	Typically this is a user request:\\
+	\quad a program is stuck or consuming too much CPU...\\
+	\quad the user opens task manager (Windows) or \texttt{ps} (UNIX)
+
+	Programs can, without user intervention, theoretically kill other processes.
+
+	Example: a parent process killing a child it believes to be stuck.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Process Destruction: Killed}
+
+	There are restrictions on killing process.\\
+	\quad A user or process must have the rights to execute the victim.
+
+	Typically a user may only kill a process he or she has created.
+
+	Exception: system administrator.
+
+	While killing processes may be fun, it is something that should be reserved for when it is needed.
+
+	Maybe when a process is killed, all processes it spawned are killed too.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Five State Model}
+
+	\begin{center}
+		\includegraphics[width=0.9\textwidth]{images/5-state-model.png}
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Five State Model}
+
+	There are now eight transitions:
+
+	\begin{itemize}
+		\item \textbf{Create}
+		\item \textbf{Admit}
+		\item \textbf{Dispatch}
+		\item \textbf{Suspend}
+		\item \textbf{Exit}
+		\item \textbf{Block}
+		\item \textbf{Unblock}
+		\item \textbf{Reap}
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Five State Model}
+
+	There are two additional exit transitions that are not shown.
+
+	A process can go directly from ``Ready'' or ``Blocked'' to ``Terminated''.
+
+	This happens if a process is killed.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Seven State Model}
+
+	\begin{center}
+		\includegraphics[width=0.9\textwidth]{images/7-state-model.png}
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Seven State Model}
+	A variant of the five state model.
+
+	The ``Admit'' transition is modified: by default the new process does not start in main memory.
+
+	Two new transitions: ``Swap In'' and ``Swap Out''.
+
+	A second ``Unblock'' transition.
+
+	As in the five state model, some additional ``Exit'' transitions.
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{What is a Thread?}
+
+	The term ``thread'' is a short form of \alert{Thread of Execution}.
+
+	A thread of execution is a sequence of executable commands that can be scheduled to run on the CPU.
+
+	Threads also have some state and stores some local variables.
+
+	Most programs you will write in other courses have only one thread;\\
+	\quad that is, your program's code is executed one statement at a time.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Multithreaded Programs}
+
+	A multithreaded program uses more than one thread, (some of the time).
+
+	A program begins with an initial thread (where the \texttt{main} method is).
+
+	That main thread can create some additional threads if needed.
+
+	Threads can be created and destroyed within a program dynamically.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Threads and Processes}
+
+	\begin{center}
+		\includegraphics[width=0.9\textwidth]{images/mthread.png}
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Thread Possessions}
+
+
+	In a process that has multiple threads, each thread has its own:
+	\begin{enumerate}
+		\item Thread execution state.
+		\item Saved thread context when not running.
+		\item Execution stack.
+		\item Local variables.
+		\item Access to the memory and resources of the process (shared with all threads in that process).
+	\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Single vs. Multithreaded}
+
+	\begin{center}
+		\includegraphics[width=0.9\textwidth]{images/mthread2.png}
+	\end{center}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Thread Notes}
+
+	All the threads of a process share the state and resources of the process.
+
+	If a thread opens a file, other threads in that process can also access it.
+
+	The way programs are written now, few are not multithreaded.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Why Threads?}
+
+Remember there's a performance-risk tradeoff in threads.
+
+If this didn't seem familiar to you, please go back and review ECE~252!
+
+\end{frame}
+
+
+\end{document}
+

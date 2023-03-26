@@ -1,0 +1,390 @@
+\input{configuration}
+
+\title{Lecture 3 --- Sunrise to Sunset }
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+\begin{frame}
+\frametitle{Sunrise, Sunset}
+
+\begin{center}
+	\includegraphics[width=0.9\textwidth]{images/binary_sunset.jpg}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Operating System Lifetime}
+We talked about the lifecycle of a process, but an OS has one too!
+
+It is started, executes, and eventually shuts down.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Start Me Up}
+
+Let's imagine the operating system is already installed.
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/itbegins.jpg}
+\end{center}
+
+System startup begins with the BIOS or UEFI.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Boot Loader}
+
+The BIOS or UEFI starts the boot loader.
+
+The boot loader is a small piece of code to start the OS.
+
+It can do some other things.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Start Here}
+
+The boot loader itself has at least some initialization code located in the first block of the hard drive that is the boot device.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/start-beginning.jpg}
+\end{center}
+
+Only if the first block of the drive contains this information can it be used for booting.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Kernel Start}
+
+Once the kernel is running, it can start the relevant operating system services.
+
+Some services and utilities are always started when the OS begins running; others are configurable.
+
+Although they are started by the OS without any direct user interaction, most processes are still user-level programs that operate like normal.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{By Your Command}
+
+\begin{center}
+	\includegraphics[width=0.6\textwidth]{images/centurions.jpg}
+\end{center}
+\hfill``By your command.''
+
+The main purpose of the operating system is not to run itself, but is there to make things work for the user-level programs that are supposed to run. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{What Have the Romans Ever Done For Us?}
+
+Some examples of things we already asked the OS to do for us:
+
+\begin{itemize}
+	\item Process and thread creation, termination
+	\item Inter-process communication
+	\item Concurrency control
+	\item Memory allocation
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{When You See It...}
+
+The operating system does a lot more than this, and the visibility of that functionality varies.
+
+The OS must check permissions whenever you want to open a file, but you probably do not notice or think about it unless somehow permission is denied.
+
+Scheduling?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{OS Structure}
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/os-structure.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Steady-State and Trap}
+At steady-state, the operating system runs whatever background tasks it needs to do.
+
+The interesting things happen as the result of a user-level program asking for the OS to do something. 
+
+And you know how that works...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Of Course You Do}
+
+\begin{center}
+	\includegraphics[width=0.65\textwidth]{images/trap2.jpg}
+\end{center}
+
+We've covered this from the user-program point of view.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Mode Bits}
+
+We also talked about user mode \& supervisor mode instructions...
+
+Mode bits for the CPU...
+
+Why the I/O operations are managed by the kernel...
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Trap Operation}
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/trap.png}\\
+	Transition from user to supervisor (kernel) mode~\cite{osc}.
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{User Mode and Kernel Mode: Motivation}
+
+
+	Thanks Uncle Ben: ``with great power comes great responsibility''.
+
+
+	Same as why we have user accounts and administrator accounts.
+
+	To protect the system \& its integrity against errant and malicious users.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{User Mode and Kernel Mode: Motivation}
+
+	Multiple programs might be trying to use the same I/O device at once.
+
+	Program~1 tries to read from disk. This takes some time.
+
+	If Program~2 wants to read from the same disk, the operating system forces Program~2 to wait its turn.
+
+	Without the OS, it would be up to the author(s) of Program~2 to check and wait patiently for it to become available.
+
+	Works if everyone plays nicely.
+
+	Without enforcement of the rules, a program will do something nasty.
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{User Mode and Kernel Mode: Motivation}
+
+	There is a definite performance trade-off.
+
+	Switching from user to kernel mode takes time.
+
+	The performance hit is worth it for the security.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Policy and Mechanism}
+
+\begin{center}
+	\includegraphics[width=0.35\textwidth]{images/briscoe-logan.jpg}
+	\includegraphics[width=0.35\textwidth]{images/mccoy-kincaid.jpg}
+\end{center}
+
+Policy: What will be done.
+
+Mechanism: How policy is carried out.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Policy}
+Some policies are configurable:\\
+\quad Yes: How much do priorities matter?\\
+\quad: No: Can I read from files where I lack the permission?
+
+What is configurable is a question of OS design!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Acropalypse Now}
+
+Applying the policy involves both design and implementation.
+
+OSes err on the side of fewer options.
+
+Do OS authors know best?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Eat Your Vegetables}
+
+From the point of view of the user program, policy is something that we have to contend with but may not have any say in it.
+
+Having to follow the rules may be less convenient, but it's not optional.
+
+The operating system code itself has no such restrictions!
+
+The operating system also has to be responsible for the mechanism.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Switching Time}
+
+Previously: how a switch occurs. Now: when (why)?
+
+From the point of view of the application program we say that the process switch could happen at any time.
+
+The OS does get to choose but it's not a trivial decision.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Interrupt}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/interrupt.jpg}
+\end{center}
+
+Interrupt always pauses a thread; may result in a thread switch.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Just Briefly}
+
+A thread switch must occur when the currently-executing one gets blocked.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/shortrest.jpg}
+\end{center}
+
+... or if it terminates.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{OS Decision}
+After dealing with an interrupt we can choose a new thread.
+
+We also want to prevent monopolization of the CPU...\\
+\quad Timer interrupts perhaps?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Take Detailed Notes}
+
+The operating system will have to keep track of the various resources.
+
+\begin{itemize}
+	\item Memory Tables
+	\item I/O Tables
+	\item File Tables
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Tables}
+
+Track the state of memory: what's free and what's not?
+
+What is the OS memory?
+
+Is any memory shared?
+
+When do we update them?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{I/O Tables}
+Keep track of the state of I/O devices.
+
+Pay attention to what operations are in progress...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{File Tables}
+
+Keep track of which files are open -- process and system level.
+
+Remember -- everything in UNIX is a file!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Power Down}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/taffer.jpg}
+\end{center}
+
+Notify all the running processes they should exit.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{But Will They?}
+
+Asking programs to shut down politely may not actually get them to terminate.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/savework.png}
+\end{center}
+
+How long do we wait?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Can We Do This?}
+
+Can every user call a shutdown?
+
+Once all processes are done, the OS can terminate its services.
+
+And that's it, power off (or restart).
+
+\end{frame}
+
+
+\end{document}
+
