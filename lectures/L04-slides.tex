@@ -1,0 +1,344 @@
+\input{configuration}
+
+
+\title{Lecture 4 --- Review of Concurrency Control }
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+\begin{frame}
+\frametitle{Concurrency and Synchronization}
+
+Recall two important concepts: the semaphore and the mutex.
+
+We'll review the basic theory and usage functions for:
+
+\begin{enumerate}
+	\item Mutex
+	\item Semaphore
+	\item Readers-Writers Lock
+	\item Condition Variable
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stay Out of Trouble}
+
+Concurrency control is about ensuring the correctness of the program.
+
+Race conditions are ``hazards'':
+
+\begin{center}
+\begin{tabular}{ll|l|l}
+	& & \multicolumn{2}{c}{\textbf{Second Access}} \\
+\textbf{First Access}	& & \textbf{Read} & \textbf{Write} \\ \hline
+\textbf{Read}	& & No Dependency & Anti-Dependency \\
+	& & Read After Read (RAR) & Write After Read (WAR) \\\hline
+\textbf{Write}	& & True Dependency & Output Dependency \\
+	& & Read After Write (RAW) & Write After Write (WAW) \\
+\end{tabular}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Such Thing}
+
+RAR is not real -- no hazard!
+
+Other situations easy to imagine.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Advisory Locks Only}
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/seatbelt.jpg}
+\end{center}
+
+Concurrency control mechanisms only work if used correctly.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Unless...?}
+
+\begin{center}
+	\includegraphics[width=0.3\textwidth]{images/rust.png}
+\end{center}
+
+But this is C so the onus is on the application developer.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Mutex}
+
+We spent a lot of time talking about semaphores, but the mutex is often enough.
+
+Usually we talk about locking and unlocking.
+
+The mutex has two states, and only two states, locked and unlocked. There's no need to specify an initial value or anything to that effect.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Mutex Functions}
+
+\begin{lstlisting}[language=C]
+pthread_mutex_init( pthread_mutex_t *mutex, pthread_mutexattr_t *attributes )
+pthread_mutex_lock( pthread_mutex_t *mutex )
+pthread_mutex_trylock( pthread_mutex_t *mutex ) /* Returns 0 on success */
+pthread_mutex_unlock( pthread_mutex_t *mutex )
+pthread_mutex_destroy( pthread_mutex_t *mutex )
+\end{lstlisting}
+
+When created, by default, the mutex is unlocked. 
+
+The intended behaviour is that the thread that locked the mutex is the same the one to unlock it later on. 
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Semaphore}
+In UNIX the kind of semaphore is known as a \textit{counting} or \textit{general} semaphore.
+
+\begin{lstlisting}[language=C]
+sem_init( sem_t* semaphore, int shared, int initial_value)
+sem_destroy( sem_t* semaphore )
+sem_wait( sem_t* semaphore )
+sem_post( sem_t* semaphore )
+\end{lstlisting}
+
+Of these functions, the only one where the parameters are not obvious is the initialization routine. 
+
+UNIX semaphores do not give you the option of a maximum value.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Increment and Decrement}
+
+A thread that waits on that semaphore will decrement the integer by 1. 
+
+A thread that signals on the semaphore will increment the integer by 1.
+
+New value negative? Calling thread is blocked.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Cannot Check}
+
+No option to check the value of the semaphore.
+
+Trylock sort of helps?
+
+But the answer could change.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{After You...}
+
+When a thread signals a semaphore, it likewise does not know if any other thread(s) are waiting on that semaphore. 
+
+What thread continues? Scheduling decision.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Misconception?}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/nothowforceworks.jpg}
+\end{center}
+
+If the semaphore's value is currently -3 and there are 3 threads waiting, a call to \texttt{post} will both increment the value to -2 and unblock one of the threads waiting.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Semaphore Destruction}
+
+Unlike the mutex, there's no requirement for the semaphore to be in a certain state before it is destroyed.
+
+Reusable barrier was more desirable only for efficiency?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Semaphores Are Flexible}
+
+We used the semaphore in all sorts of synchronization problems.
+
+\begin{center}
+	\includegraphics[width=0.8\textwidth]{images/echobase.jpg}
+\end{center}
+
+We won't be examining all the ways we could use it any further.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Readers-Writers Locks}
+
+Unlike the producer-consumer problem, some concurrency is allowed, recognizing the fact that there is no read-after-read dependency:
+
+\begin{enumerate}
+	\item Any number of readers may be in the critical section simultaneously.
+	\item Only one writer may be in the critical section (and when it is, no readers are allowed).
+\end{enumerate}
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{RW Lock Functionality}
+
+The type for the lock is \texttt{pthread\_rwlock\_t}. 
+
+\begin{lstlisting}[language=C]
+pthread_rwlock_init( pthread_rwlock_t * rwlock, pthread_rwlockattr_t * attr )
+pthread_rwlock_rdlock( pthread_rwlock_t * rwlock )
+pthread_rwlock_tryrdlock( pthread_rwlock_t * rwlock )
+pthread_rwlock_wrlock( pthread_rwlock_t * rwlock )
+pthread_rwlock_trywrlock( pthread_rwlock_t  *  rwlock )
+pthread_rwlock_unlock( pthread_rwlock_t * rwlock )
+pthread_rwlock_destroy( pthread_rwlock_t * rwlock )
+\end{lstlisting}
+
+In theory, the same thread may lock the same rwlock $n$ times; just remember to unlock it $n$ times as well. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Priority?}
+
+As for whether readers or writers get priority, the specification says this is implementation defined. 
+
+If possible, for threads of equal priority, a writer takes precedence over a reader. 
+
+We also examined situations where we really did need to enforce writer priority would require us to build our own complicated solution with semaphores and a mutex.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{RW Example}
+
+\begin{multicols}{2}
+	\begin{lstlisting}[language=C]
+pthread_rwlock_t rwlock;
+
+void init( ) {
+  pthread_rwlock_init( &rwlock, NULL );
+}
+
+void cleanup( ) {
+  pthread_rwlock_destroy( &rwlock );
+}
+\end{lstlisting}
+
+	\columnbreak
+
+	\begin{lstlisting}[language=C]
+void* writer( void* arg ) {
+  pthread_rwlock_wrlock( &rwlock );
+  write_data( arg );
+  pthread_rwlock_unlock( &rwlock );
+}
+
+void* reader( void* read ) {
+  pthread_rwlock_rdlock( &rwlock );
+  read_data( arg );
+  pthread_rwlock_unlock( &rwlock );
+}
+\end{lstlisting}
+
+\end{multicols}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Condition Variable}
+
+The condition variable looks a lot like a semaphore, but it has a few interesting differences. 
+
+We have the option, when an event occurs, to signal either one thread waiting for that event to occur...
+
+... or to broadcast (signal) to all threads waiting for the event.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Condition Variable Functions}
+
+\begin{lstlisting}[language=C]
+pthread_cond_init( pthread_cond_t *cv, pthread_condattr_t *attributes );
+pthread_cond_wait( pthread_cond_t *cv, pthread_mutex_t *mutex );
+pthread_cond_signal( pthread_cond_t *cv );
+pthread_cond_broadcast( pthread_cond_t *cv );
+pthread_cond_destroy( pthread_cond_t *cv );
+\end{lstlisting}
+
+Condition variables are always used in conjunction with a mutex.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Why Use It?}
+
+A thread is partway through some thing and wants to wait until a condition is fulfilled before proceeding?
+
+Also if you need broadcast functionality?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Lost Wakeup}
+
+If a thread signals/broadcasts and nobody's listening, the event is ``lost''.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/sleepingbeauty.jpg}
+\end{center}
+
+Sometimes that's fine.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{More Efficient?}
+
+The broadcast does wake up many different threads, but it does not mean they all start running immediately. 
+
+They each have to wait their turn for the mutex to continue for real.
+
+Consider the barrier pattern from earlier: broadcast may be better!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Implementation}
+
+But how do they really work? 
+
+The answer is that it's both simpler and more complicated than it might seem. 
+
+\end{frame}
+
+\end{document}
+

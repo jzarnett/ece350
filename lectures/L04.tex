@@ -57,8 +57,6 @@ To destroy a mutex, use \texttt{pthread\_mutex\_destroy}. As expected, it cleans
 
 
 
-
-
 \subsection*{The Semaphore}
 
 You remember, I'm sure, that in UNIX the kind of semaphore is known as a \textit{counting} or \textit{general} semaphore. Instead of having only the values 0 and 1, the setup routine for the counting semaphore allows the choice of an integer value as the initial value. So, the functions are:
@@ -178,7 +176,7 @@ It should be noted that if a thread signals a condition variable that an event h
 
 The broadcast does wake up many different threads, in the sense that they are no longer waiting for the condition variable, but it does not mean they all start running immediately. They each have to wait their turn for the mutex to continue for real. So if you're worried that a broadcast results in many threads immediately running... no need.
 
-The condition variable with broadcast can be used to replace some of the synchronization constructs we've seen already. Consider the barrier pattern from earlier. There are $n$ threads and we wait for the last one to arrive. Then the last thread signals to unlock the barrier and then each thread calls post to unblock the next thread until all of them are through. This is a lot of calls and maybe it would be better to make it a broadcast instead. 
+The condition variable with broadcast can be used to replace some of the synchronization constructs we've seen already. Consider the barrier pattern from the previous course. There are $n$ threads and we wait for the last one to arrive. Then the last thread signals to unlock the barrier and then each thread calls post to unblock the next thread until all of them are through. This is a lot of calls and maybe it would be better to make it a broadcast instead. 
 
 
 \subsection*{The Implementation}
