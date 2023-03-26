@@ -15,6 +15,56 @@
 
  \end{frame}
 
+\begin{frame}
+\frametitle{Memory-Mapped Files}
+
+Remember memory-mapped files for IPC? Let's talk about how it works.
+
+Basic premise: disk blocks mapped to main memory.
+
+First access is a page fault; subsequent accesses are reads/writes.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Table For One Please}
+
+In the one-process scenario, we don't have to synchronize changes.
+
+The memory-mapped file can be in the virtual address space for two different processes.
+
+But we only fetch a block if we must, so synchronization is explicit.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Take Me There}
+
+Memory-mapped I/O -- to communicate with a HW device, an area that looks like main memory is really I/O device memory.
+
+This simplifies some operations!
+
+Kind of like how UNIX treats everything as a file...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Port Mapped}
+
+This contrasts with the older-style \alert{port-mapped} I/O
+
+There are different CPU instructions and separate registers used to communicate with the device. 
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/translator.jpg}
+\end{center}
+
+It's not that this does not work, but it's just more difficult to work with.
+
+
+
+\end{frame}
+
 
 \begin{frame}
 \frametitle{Allocation of Frames}
@@ -117,43 +167,16 @@ If the max frames for this process were 1, the instruction could never complete.
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Minimum Frames: IBM 370}
-
-The IBM 370 \texttt{MVC} instruction is an extreme example: it moves data from one storage location to another. 
-
-It takes six bytes, and the instruction itself can straddle two pages. 
-
-That requires six frames. 
-
-The worst case scenario is when the \texttt{MVC} instruction is the operand of an \texttt{EXECUTE} instruction that also straddles a page boundary. 
-
-So eight (!) frames are needed.
-
-
-\end{frame}
 
 \begin{frame}
-\frametitle{Minimum Fames: Infinite?}
+\frametitle{I'm Still Using That!}
 
-In theory, the problem could be infinitely bad if the computer architecture allows referencing of an indirect address. 
+We might need to lock pages in memory for, perhaps, an I/O operation.
 
-The address being referenced could be on another page. 
+For DMA: Lock, transfer, unlock.
 
-That instruction could then reference another indirect address, and it's turtles all the way down.
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/bargain.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Minimum Fames: Infinite?}
-
-The standard solution is to limit the levels of indirection to some value.
-
-If we limited the levels of indirection to 16, then the worst case scenario is a requirement of 17 pages.
+Maybe we can avoid it by never transferring directly to/from user memory...\\
+\quad Always use kernel buffers instead.
 
 \end{frame}
 
@@ -220,52 +243,6 @@ Priority matters a lot in scheduling... soon...
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Local and Global Replacement}
-
-\begin{center}
-	\includegraphics[width=0.7\textwidth]{images/global-local.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local and Global Replacement}
-
-We already saw the idea of local and global replacement in the cache. 
-
-If we have chosen the LRU algorithm, in a global replacement policy, the least recently used page anywhere in the cache (memory) will be replaced. 
-
-If we chose a local page replacement policy, it is the least recently used page that belongs to the current process.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Local and Global Replacement}
-
-Local is not affected much by our allocation concerns; leave that alone. 
-
-Suppose we choose global allocation. 
-
-We will see the number of pages allocated to each change over time. 
-
-Over time, a global replacement algorithm means processes that run more often will accumulate more pages in memory.
-
-They will acquire more pages than get taken from them.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Watching Frame Counts}
-
-It might make sense to watch to see how many frames each process has. 
-
-Goal: prevent a process from falling below the minimum number of pages.
-
-Or we swap completely to disk a process that no longer meets that threshold.
-
-
-\end{frame}
 
 \begin{frame}
 \frametitle{Thrashing}
