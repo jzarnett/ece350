@@ -14,6 +14,16 @@
   \titlepage
 
  \end{frame}
+ 
+\begin{frame}
+\frametitle{Real-Time Scheduling}
+
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/tiktok.jpg}
+\end{center}
+
+\end{frame}
 
 \begin{frame}
 \frametitle{Real-Time Scheduling}
@@ -31,6 +41,28 @@ Fast is not as important as predictable.
 \end{frame}
 
 \begin{frame}
+\frametitle{Task Management}
+
+The term \alert{task} is used to refer to something that needs doing.
+
+Yes, the scheduler operates on threads rather than specific things to do.
+
+Let's say each task corresponds to a thread trying to some work.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Task Types}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/tofu.jpg}
+\end{center}
+
+Not quite... Hard, Firm, Soft.
+
+\end{frame}
+
+\begin{frame}
 \frametitle{Hard and Soft Real-Time}
 
 \alert{Hard real-time}: it has a deadline that must be met to prevent an error, prevent some damage to the system, or for the answer to make sense. 
@@ -39,32 +71,16 @@ If a task is attempting to calculate the position of an incoming missile, a late
 
 A \alert{soft real-time} task has a deadline that is not, strictly speaking, mandatory; missing the deadline degrades the quality of the response, but it is not useless.
 
-
 \end{frame}
 
 \begin{frame}
-\frametitle{Hard Real-Time Failure}
+\frametitle{Firm}
 
-If a task is hard real-time, there are two scenarios in which it might not complete before its deadline. 
+Firm is about severity of consequences. 
 
-The first is that it is scheduled too late; like an assignment that will take two hours to complete being started one hour before the deadline. 
+A firm deadline is one in which the response is useless if it arrives a little too late.
 
-If that is the case, the system will likely reject the request to start the task, or perhaps never schedule the task to run at all. 
-
-Why waste computation time on a task that will not finish in time? 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Hard Real-Time Failure}
-
-The second scenario is that at the time of starting, completion was possible. 
-
-For whatever reason (e.g., other tasks with higher priority have occurred) it is no longer possible to meet the deadline. 
-
-In that case, execution of the task may be terminated partway through so that no additional effort is wasted on a task that cannot be completed.
-
-
+A hard deadline is one in which the system itself fails if it doesn't meet the deadline.
 \end{frame}
 
 \begin{frame}
@@ -76,180 +92,395 @@ They make few guarantees, if any, about service.
 
 When there are consequences for missing deadlines, this kind of thing matters. 
 
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Userspace?}
+
 Remember Java's ``stop the world'' garbage collector scenario.
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Timeline Scheduling}
-
-If a process/task recurs at regular intervals, it is \alert{periodic}.
-
-Periodic tasks are very common: check a sensor, decode and display a frame of video to a screen, keep the wifi connection alive, etc.
+Why is the OS not suitable for real-time operations?
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Periodic Task}
+\frametitle{Arbitrary Timelines}
 
-Consider a periodic task to have two attributes: 
+How long does it take to run a system call?
 
-1. $\tau_{k}$, the period (how often the task occurs); and 
+If you measure it, is that the average scenario? Worst-case?
 
-2. $c_{k}$, the computation time (how long, in the worst case, the task might run).
+Interrupts? Concurrency-control mechanisms?
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Pessimism}
-
-In real-time systems we are usually pessimists and care almost exclusively about the worst case scenario. 
-
-We can calculate the processor utilization of periodic tasks according to the following formula, to get the long-term average of processor utilization $U$:
+\frametitle{It's Different}
 
 \begin{center}
-$U = \sum\limits_{k=1}^n\dfrac{c_{k}}{\tau_{k}}$
+	\includegraphics[width=0.4\textwidth]{images/thinkdifferent.png}
 \end{center}
 
-If $U > 1$, it means the system is overloaded. 
+Much of the difference of real-time systems is in scheduling.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Overload}
-If overloaded: there are too many periodic tasks and we cannot guarantee that the system can execute all tasks and meet the deadlines. 
+\frametitle{Hard Real-Time Failure}
 
-Otherwise, we will be able to devise a schedule that makes it all work.
+If a task is hard real-time, there are two scenarios in which it might not complete before its deadline. 
+
+The first is that it is scheduled too late; like an assignment that will take two hours to complete being started one hour before the deadline. 
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/notime.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard Real-Time Failure}
+
+If that is the case, the system will likely reject the request to start the task, or perhaps never schedule the task to run at all. 
+
+Why waste computation time on a task that will not finish in time? 
+
+... Could it have been completed if scheduled better?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard Real-Time Failure}
+
+The second scenario is that at the time of starting, completion was possible. 
+
+For whatever reason (e.g., other tasks with higher priority have occurred) it is no longer possible to meet the deadline. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard Real-Time Failure}
+
+In that case, execution of the task may be terminated partway through so that no additional effort is wasted on a task that cannot be completed.
+
+... Could this task have been completed if scheduled better?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Properties of Real-Time Systems}
+
+Real-time systems are considered to be unique in five key areas:
+
+\begin{enumerate}
+	\item Determinism
+	\item Responsiveness
+	\item User (administrator) control
+	\item Reliability
+	\item Fail-Soft operation
+\end{enumerate}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Determinism}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/predictable.jpg}
+\end{center}
+
+Determinism: operations are predictable.
+
+Perfect determinism probably won't happen; just need guarantees.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Nondeterminism?}
+
+Nondeterminism isn't necessarily bad: e.g., caching.
+
+The presence of caching makes the worst case no worse and the best case much better -- this sounds like free performance to me! 
+
+Can you think of something else?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Responsiveness}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/notresponding.jpg}
+\end{center}
+
+Responsiveness includes not only the time to execute the interrupt handler...
+
+Also the time it takes to start the interrupt handler and what happens if the interrupt is itself interrupted by another higher-priority interrupt.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Administrator Control}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/twup.png}
+\end{center}
+
+Administrator control could be much less or much more!
+
+Typical OS is somewhere in between.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Reliability \& Fail-Soft}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/silvermedal.jpg}
+\end{center}
+
+
+Fail-soft: do our best even if it's not possible to succeed at all tasks.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Scheduling is Central}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/captainschair.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Scheduling Algorithm Selections}
+
+Choosing the wrong algorithm guarantees failure.
+
+Scheduling algorithms we've discussed so far are inadequate.
+
+Fairness and minimizing average response time are irrelevant.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stay On Target!}
+The goal is to make sure hard real-time tasks complete.\\
+\quad And as many as possible of the soft real-time tasks.
+
+Right algorithm? Success is possible but not guaranteed.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/physics.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Preemption is the Priority}
+
+Non-preemptive algorithms won't work here.
+
+Immediate preemption makes sense.
+
+Why, when we can make timeslices super small?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{What Kind of Tasks?}
+
+Every task can be categorized as one of the four kinds:
+
+\begin{enumerate}
+	\item Fixed-Instance
+	\item Periodic
+	\item Aperiodic
+	\item Sporadic
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed Instance}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/oneping.jpg}
+\end{center}
+
+This kind of task happens only a fixed number of times (usually once).
 
 \end{frame}
 
 \begin{frame}
 \frametitle{Periodic Tasks}
 
-If the only tasks in the system are periodic ones, create a fixed schedule. 
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/periodic.jpg}
+\end{center}
 
-This is what the university administrators do when they create the schedule of classes for a given term.
-
- Every Monday, for example, from 13:30-14:50, course ECE~254 (a ``process'', if you will) takes place in classroom EIT~1015 (a resource). 
- 
-If there are more requests for room reservations than rooms and time slots available, it means some requests cannot be accommodated.
+If a task repeats at regular intervals, it's \alert{periodic}.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Living in a Periodic World}
+\frametitle{Periodic Tasks}
 
-A world in which all the tasks are periodic and behave nicely is, well, a very orderly world (and that has its appeal). 
+Periodic tasks have two relevant attributes:\\
+\quad: $\tau_{k}$, the period; \\
+\quad $c_{k}$, the worst-case computation time
 
-Unfortunately, the real world is not so accommodating most of the time. 
+We can calculate the utilization of periodic tasks:
 
-So we will need to deal with tasks that are not periodic, which we can categorize as \alert{aperiodic} or \alert{sporadic}.
+\begin{center}
+$U = \sum\limits_{k=1}^n\dfrac{c_{k}}{\tau_{k}}$
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Overloaded}
+
+If $U > 1$, it means the system is overloaded: there are too many periodic tasks. 
+
+We cannot guarantee that the system can execute all tasks and meet the deadlines.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/allshesgot.jpg}
+\end{center}
+
+Otherwise, we can devise a schedule.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Only Periodic?}
+
+If the only tasks in the system are periodic ones, then we can create a fixed schedule for them.
+
+Example: classes at UW.
+
+But life is rarely so nice.
 
 \end{frame}
 
 \begin{frame}
 \frametitle{Aperiodic Tasks}
 
-Aperiodic tasks are ones that respond to events that occur irregularly. 
+Aperiodic tasks occur irregularly with no minimum interval.
 
-There is no minimum time interval between two events.
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/aperiodic.jpg}
+\end{center}
 
-Therefore it would be very difficult to make a guarantee that we will finish them before the next one occurs, so they are rarely hard real-time (hard deadlines). 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Aperiodic Tasks}
-
-Tasks like this should be scheduled in such a way that that they do not prevent another task with a hard deadline from missing its deadline. 
-
-As an example, if we expect an average arrival rate of 3 requests per second, there is still a 1.2\% chance that eight or more requests appear within 1~second. 
-
-If so, there is not much we can do to accommodate them all (most likely).
+If we expect an average arrival rate of 3 requests per second, there is still a 1.2\% chance that eight or more requests appear within 1~second
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Sporadic Tasks}
+\frametitle{Sporadic Task}
 
-Sporadic tasks are aperiodic, but they require meeting deadlines. 
+Sporadic tasks are aperiodic, but they require meeting deadlines.
 
-To make such a promise we need a guarantee that there is a minimum time $\tau_{k}$ between occurrences of the event. 
+\begin{center}
+	\includegraphics[width=0.3\textwidth]{images/sporadic.jpg}
+\end{center}
 
-Sporadic tasks can overload the system if there are too many of them, and if that is the case, we must make decisions. 
+We need a guarantee that there is a minimum time $\tau_{k}$ between occurrences of the event.
 
-If we know a task will not make its deadline, we will likely not even bother to schedule it (why waste the time on a task where the answer will be irrelevant?)
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Aperiodic, Sporadic, and Timeline}
-
-So, these aperiodic and sporadic tasks really mess with timeline scheduling. 
-
-This unpredictability makes it hard to create a simple timetable and follow it.
-
-If we have pre-emptive scheduling, then we can examine 2 optimal alternatives. 
-
-They are called optimal because they will ensure a schedule where all tasks meet their deadlines, not because they are the ideal algorithms.
-
-
+They can overload the system?
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Earliest Deadline First}
+\frametitle{Estimation}
 
-The earliest deadline first algorithm is, presumably, very familiar to students. 
+Where do task execution times come from?
 
-Assignment due today, an assignment due next Tuesday, and an exam next month, then you may choose to schedule these things by their deadlines. 
-
-Do the assignment due today first. 
-
-After completing an assignment, decide what to do next (probably the new assignment, but perhaps a new task has arrived in the meantime?) and start.
-
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/estimates.jpg}
+\end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Earliest Deadline First}
+\frametitle{Worst Case Scenario}
 
-The principle is the same for the computer. 
+We always assume the worst case scenario! 
 
-Choose the task with the soonest deadline; if there is a tie, then random selection between the two will be sufficient (or other criteria may be used). 
+There's two ways to do it: source code analysis and empirical testing.
 
-If there exists some way to schedule all the tasks such that all deadlines are met, this algorithm will find it. 
-
-If a task is executing and another task arrives with a sooner deadline, the currently executing task should be suspended and the new task scheduled. 
-
-This may mean a periodic task being preempted by an aperiodic/sporadic task.
-
+Err on the side of caution... More money? Worse battery life?
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Least Slack First}
+\frametitle{Airline Example}
 
-A similar algorithm to earliest deadline first, is least slack first.
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/cancelled-flights.jpg}
+\end{center}
 
-\alert{Slack}: how long a task can wait before it must be scheduled to meet a deadline.
-
-If a task will take 10~ms to execute and its deadline is 50~ms away, then there are (50 - 10) = 40~ms of slack time remaining.
-
-Start the task before 40~ms are expired if we want to be sure that it will finish. 
+Caused by lack of capacity...
 
 \end{frame}
 
+\begin{frame}
+\frametitle{Code Analysis}
 
+Code analysis is exactly what it sounds like.
+
+Try to figure out how long the execution takes on the longest path.
+
+Overestimate; ignores pipelining and compiler optimizations...
+
+\end{frame}
 
 \begin{frame}
-\frametitle{Least Slack First}
-This does not mean, however, that we necessarily want to wait 40~ms before starting the task (even though many students tend to operate on this basis). 
+\frametitle{Estimation is Hard}
 
-All things being equal, we prefer tasks to start and finish as soon as possible. 
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/nasa-logo.png}
+\end{center}
 
-It does, however, give us an indication of what tasks are in most danger of missing their deadlines and should therefore have priority.
+NASA/JPL Guidelines:
+\begin{enumerate}
+	\item No recursion and no \texttt{goto}
+	\item Loops must have a fixed bound
+	\item No dynamic memory allocation after init
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Empirical Observation}
+
+If you already have a version $n$ of the system and want to build version $n+1$: extrapolate?
+
+Otherwise, simulate.
+
+Simulation must be representative or misleading.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Confidence Intervals}
+
+It's possible to estimate using known mathematical techniques the worst case runtime with the \alert{confidence interval}.
+
+We might say that the maximum time is $t$ with 99\% confidence, based on the standard deviation.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Ready to Schedule Some?}
+
+Now that we understand real-time systems and classification...
+
+Let's actually schedule some!
 
 \end{frame}
 
