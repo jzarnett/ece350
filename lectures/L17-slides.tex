@@ -14,6 +14,172 @@
   \titlepage
 
  \end{frame}
+ 
+\part{Algorithm Evaluation}
+
+\begin{frame}
+\partpage
+\end{frame}
+ 
+\begin{frame}
+\frametitle{What Do We Choose?}
+
+In some cases (real-time?) it's obvious what to choose.
+
+Otherwise, what gives the best overall performance?
+
+This requires a clear definition of best...\\
+\quad Let's assume we have one.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{How to Decide?}
+
+We need to evaluate the algorithms we've discussed in terms of how well they achieve that goal. 
+
+While it is possible to just have a theoretical discussion about it where we say we think $A$ is better than $B$ but worse than $C$, that's not a very scientific approach. 
+
+What we'd like to do instead is gather some data and make the decision using it.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Deterministic Modelling}
+
+Looks like writing test scenarios for a lab project.
+
+Test scenario has inputs/outputs and check correctness/performance.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Deterministic Modelling}
+
+An example of a simple test case looks like this, where all five processes arrive at time 0 in this order:
+
+\begin{center}
+\begin{tabular}{c|r}
+	\textbf{Process ID} & \textbf{Burst Time}\\ \hline
+	1 & 10 \\
+	2 & 29 \\
+	3 & 3 \\
+	4 & 7 \\
+	5 & 12 \\
+\end{tabular}
+\end{center}
+
+Then run the target scheduling algorithms.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Deterministic Modelling}
+
+Wait times:
+
+FCFS: 28\\
+SJF: 13\\
+RR(10): 23
+
+Total time of execution is the same... right?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Process Switch Penalty}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/free-realestate.jpg}
+\end{center}
+
+A more precise version of this evaluation would assign a penalty to the process switch.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Context Switches}
+
+FCFS and SJF have 4 switches; RR has 7.
+
+Maybe context switch time is so small as to be irrelevant?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{More Realistic}
+
+Test cases that look more realistic will not have everything be statically initialized at the beginning and all tasks waiting.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/simulations.jpg}
+\end{center}
+
+The nice thing about the deterministic modelling approach is that the tests are reproducible and produce consistent results on every run.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Oh no, Math}
+
+The real behaviour of most systems looks very different from how the deterministic approach models it.
+
+\begin{center}
+	\includegraphics[width=0.6\textwidth]{images/dnd.jpg}
+\end{center}
+
+Real systems have a lot of randomness in them...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Queueing Theory}
+
+Example: login times are somewhat random, but not totally.
+
+That leads us to queueing theory.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/math.jpg}
+\end{center}
+
+That's too advanced for this course.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Simulations and Emulation}
+
+The simulation, if designed appropriately, will account for more things like clock interrupts and context switch times.
+
+It's possible to do an all-software simulation...
+
+The simulation is only as accurate as you make it and there are a lot of things that might be difficult to simulate accurately.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Embedded Platform?}
+
+Your system may come with an emulator that saves you a lot of work!
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/emulator.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Simulation Limitation}
+
+Simulations are always based on some assumptions.
+
+A general purpose OS also needs to work for many different HW configurations...
+
+Actually, let's consider some real OS algorithms.
+
+\end{frame}
 
 
 \part{Windows \& UNIX Scheduling}
@@ -123,6 +289,53 @@ CPU-bound processes should be able to carry on executing when an I/O-bound proce
 When an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting.
 
 This strategy is reasonably effective for a general-purpose, time-sharing operating system.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Upgrading to SVR4}
+
+SRV4: highest priority to real-time, then kernel, then user-mode.
+
+Big differences are:\\
+\quad (1) more priority levels -- 160 broken down into three types\\
+\quad (2) preemption points
+
+Preemption points were needed!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{FreeBSD}
+FreedBSD has a scheduling process that's quite similar to that of SRV4.
+
+Interactivity scoring mechanism: which are user-interactive?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Scoring Mechanism}
+
+We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$ and the sleep time of the thread as $s$. 
+
+More sleep time than run time? The interactivity score is calculated as $(\dfrac{m}{2})(\dfrac{r}{s})$
+
+For those that have more run time than sleep time:
+  $(\dfrac{m}{2})(1 + \dfrac{r}{s})$. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Affinity and Load-Balancing}
+
+We already covered affinity and load-balancing.
+
+FreeBSD has push and pull mechanisms.
+
+Pull: bit mask to indicate it's idle.
+
+Push: Twice per second tasks to equalize highest and lowest CPUs.
+
 
 \end{frame}
 
