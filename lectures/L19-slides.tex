@@ -97,6 +97,82 @@ After that there will be a protocol for how the devices will communicate\\
 \end{frame}
 
 
+\begin{frame}
+\frametitle{Quick Review}
+
+Quick review of polling, interrupts, and DMA.\\
+\quad Not all are equally good options in efficiency terms.
+
+An I/O port represents the connection and may have 4 registers:\\
+\quad data-in, data-out, status, control.
+
+Main system is called \alert{host}.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Polling}
+
+Last choice, but might be our only choice!
+
+Use a bit to mark the device as busy during operation.
+
+Not exciting, but it does work.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Polling}
+
+Periodic polling might decrease CPU cycles but...
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/watchmen.jpg}
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Interrupts}
+
+We've covered interrupts extensively!
+
+There's some sort of interrupt request line (hardware) and when the CPU sees the signal that indicates the presence of an interrupt. 
+
+Then the interrupt handler is executed to deal with it and clear the signal.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Something Something Fire Drill}
+
+Ignores some complexity: interrupt priority, disabling interrupts?
+
+But can avoid the problem of missing data.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{DMA}
+
+Remember, based on the idea of delegating the work to the DMA controller.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/makeitso.jpg}
+\end{center}
+
+Can be quite efficient: CPU is still interrupted, but way less.
+
+\end{frame}
+
+
+
 
 \begin{frame}
 \frametitle{Application I/O Interface}
@@ -316,43 +392,6 @@ Perhaps also for printers and sound output which operate naturally on a linear s
 \end{frame}
 
 \begin{frame}
-\frametitle{Buffering}
-
-Regardless of whether a device is block- or character-oriented, the operating system can improve its performance through the use of buffering. 
-
-As you may have experienced, the use of a buffer speeds things up.
-
-A buffer is nothing more than an area of memory that stores data being transferred, from memory to a device, device to memory, or device to device. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Buffering}
-
-A buffer is a good way to deal with a speed mismatch between devices. 
-
-Users type very slowly, from the perspective of the computer. 
-
-It would be awfully inefficient to ask the disk, a block oriented device, to update itself on every single character. 
-
-It is much better if we wait until we have some certain amount of data and then write this out to disk all at once.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Buffering}
-
-The write is not instantaneous and in the meantime, a user can still keep typing. 
-
-The typical solution is \alert{double buffering}, that is, two buffers. 
-
-While buffer one is being emptied, buffer two receives any incoming keystrokes. 
-
-Double buffering decouples the producer and consumer of data, helping to overcome speed differences between the two.
-
-\end{frame}
-
-\begin{frame}
 \frametitle{Network Devices}
 
 Network devices are fundamentally different from those that are directly attached to the system. 
@@ -430,56 +469,6 @@ The kernel must, as is rather obvious, keep track of what I/O devices are in use
 	\includegraphics[width=0.7\textwidth]{images/unix-io-kernel.png}
 \end{center}
 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{I/O Scheduling}
-
-Sometimes we want to schedule I/O requests in some order other than First-Come, First-Served. 
-
-Analogy: you need to go to the grocery store, the dry cleaners, and the bank. 
-
-The bank is 1~km to the west of your current location; the grocery store is 3~km west; and dry cleaners is in the same plaza as the grocery store. 
-
-It would be fine to go to the bank, then the dry cleaners, then the grocery store, but not to go to the dry cleaners, then the bank, then the grocery store. 
-
-The unnecessary back-and-forth wastes time and energy.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{I/O Scheduling}
-The operating system will want to do something similar with I/O requests.
-
-Maintain requests structure; re-arrange them to be accomplished efficiently.
-
-This will, naturally, have some limits: requests should presumably get scheduled before too much time has elapsed even if it would be ``inconvenient''. 
-
-It might also take priority into account. 
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Transforming I/O Requests to Hardware Operations}
-
-Reading from the file system on disk, for example, requires a few steps. 
-
-If I want to open a file like \texttt{example.txt}, the file system will associate this file with some information about where on the disk this is. 
-
-Then, to read the file, \texttt{read} commands can be issued to get those blocks into memory so I can edit it with \texttt{vi}.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{I/O Request Life Cycle}
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/io-lifecycle.png}
-\end{center}
 
 \end{frame}
 
