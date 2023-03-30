@@ -1,0 +1,366 @@
+\input{configuration}
+
+\title{Lecture 25 --- Reliability: Fail-Soft Operation }
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+
+
+\begin{frame}
+\frametitle{Things Go Wrong}
+
+Except when we talked about hard drives and the Byzantine Generals Problem, we usually think that things will work as they should.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/fleshwound.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Reliability Required?}
+
+Downtime is okay for some systems: e.g., my laptop!
+
+Reliability is important for real-time systems...\\
+\quad Downtime may be intolerable if it's life- or safety-critical!
+
+
+Or maybe it just costs money if you have some SLA.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{In French, Le Flat Tire}
+
+Normally, if I get a flat tire, I can't drive until I change the tire.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/runflat.jpg}
+\end{center}
+
+Run-flat tires have limitations, but the car is functional at reduced capacity.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Goals}
+
+Two distinct goals:
+
+1. Resiliency -- carry on in the event of a failure.
+
+2. Fail-soft -- preserve as much capability as possible or terminate gracefully.
+
+Where did RAID fall in this spectrum?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Resiliency}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/rocky.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Resiliency Requirements}
+
+First question is how much resiliency you really need?
+
+
+Is this ``we lose money'' or ``people might die''?
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{August 29, 1997...}
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/judgementday.png}
+\end{center}
+
+But no need to plan for nuclear armageddon (usually).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Tradeoffs}
+
+This is an engineering design tradeoff: how much extra capacity should we have?
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/flightdelay.jpg}
+\end{center}
+
+Too little capacity: every problem becomes global...\\
+\quad Too much and we wasted money!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Can We Fix It? Yes We Can!}
+
+Best option for resiliency is to fix it!
+
+Maybe not possible if this is an unrecoverable hardware failure.
+
+Maybe deadlock detection and recovery?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stiff Upper Lip}
+
+Continue as best we can at reduced capacity.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/keepcalm.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stiff Upper Lip}
+
+Example: 4 CPU cores, all running at 50\% capacity, but one dies?
+
+Maybe running at reduced capacity until a repair comes...
+
+What if we can't meet all deadlines?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Real-Time Resiliency}
+
+The system is considered \alert{stable} if it will always meet the deadlines of its most critical tasks.
+
+Even if lower priority tasks may not be completed at all!
+
+Painful choices may need to be made.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Shut It Down!}
+
+Perhaps it's sensible to do an orderly shutdown.
+
+Prevent data corruption, but cannot carry on.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stop. Hammertime.}
+
+Cease all operation or execution immediately.
+
+This may cause some damage, but may be the least bad choice.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Faults and Fault Tolerance}
+
+Until now, vague words about ``something going wrong''.
+
+What is a fault and failure?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Faults and Fault Tolerance}
+
+\alert{Failure}: When the response (outcome) deviates from the specification as a result of an error.
+
+\alert{Error}: A manifestation of a fault.
+
+\alert{Fault}: An erroneous hardware or software state of some variety.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Types of Fault}
+
+\textbf{Permanent}: dead hard drive, software bug.
+
+\textbf{Intermittent}: fault hardware chip.
+
+\textbf{Transient}: cosmic radiation?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Prevent Fault}
+
+Instead of jumping right to fault tolerance, what about prevention?
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/bttf.jpg}
+\end{center}
+
+What strategies would you use?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Not Perfect}
+
+Following appropriate design, implementation, and testing processes will only make faults less likely.
+
+It is also important to resist the pressure to drop or degrade these processes when user time pressure.
+
+Still need to think about tolerance...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fault Tolerance}
+
+We already know a few things about fault tolerance from earlier topics.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/biff.jpg}
+\end{center}
+
+Can you think of some?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fault Tolerance Techniques}
+
+\begin{itemize}
+	\item Process Isolation
+	\item Dual-Mode Operation
+	\item Preemptive, Priority-Based Scheduling
+	\item Checkpoints, Transactions, Rollback
+	\item RAID
+	\item Checksums, Parity Bits, ECC...
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Types of Redundancy}
+
+\alert{Information redundancy}: checksums, parity bits, ECC...
+
+\alert{Physical redundancy}: two CPUs instead of one...
+
+\alert{Temporal redundancy}: TCP communication, resend...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Space Shuttle}
+
+The Space Shuttle had both physical and temporal redundancy.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/spaceshuttle.jpg}
+\end{center}
+
+Important thing: no single point of failure!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Now I Have Two Problems}
+
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/achievement.jpg}
+\end{center}
+
+We covered this a little bit in the Byzantine Generals Problem.
+
+We'll consider one in particular: clock synchronization.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Clock Synchronization}
+
+It is not trivial to get two independent systems to agree on what time it is.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/jumanji.jpg}
+\end{center}
+
+Inevitably, all clocks except the universal reference clock are off by some amount; it's just a question of how much! 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Disagreement Means Problems}
+
+It's easy to imagine scenarios where independent systems who don't agree on what time it is will misbehave.
+
+Ever been in a video call with lag?
+
+Time zones also matter!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Quartz Clocks}
+
+Clocks frequently use quartz for synchronization, but there is always drift and measurement error.
+
+A quartz clock will typically vary by about half a second per day, so the idea of systems being off by a full second is quite reasonable.
+
+
+Just imagine System A is fast by 0.5s and System B is slow by 0.5s.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Time Travel is Real}
+
+In a non-real time operating system, it's often okay to just change the clock to the correct time and just jump there.
+
+But for a real-time system, breaking the expectation of linear time can cause events to run again, so typically we do not wish to do that.
+
+The solutions are effectively a graduated slowdown or speedup... but to when?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{NTP}
+A possible solution is something like the Network Time Protocol.
+
+Effectively, it's difficult or impossible to get more than one system to agree on what time it is. 
+
+Better: build your system to account for these things.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Distributed Systems Course}
+
+All of this is just a very simple overview of some of the issues that might arise when we have multiple systems for redundancy. 
+
+This is a complicated subject and is a whole 4th year ECE technical elective that you could take!
+
+
+\end{frame}
+
+\end{document}
+
