@@ -1,0 +1,123 @@
+\input{configuration}
+
+\title{Lecture 24 --- Reliability: RAID }
+
+\author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
+\institute{Department of Electrical and Computer Engineering \\
+  University of Waterloo}
+\date{\today}
+
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+ \end{frame}
+
+
+\begin{frame}
+\frametitle{Failure is Always an Option}
+
+\begin{center}
+	\includegraphics[width=0.75\textwidth]{images/failure.jpg}
+\end{center}
+
+Sometimes hard drives die -- so now what?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Backups}
+
+Backups help but they are not the only way.
+
+A backup may be a bit out of date?
+
+Are you sure they work?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Now What?}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/rip-hdd.jpg}
+\end{center}
+
+Maybe loss of data, maybe system is down, maybe reduced performance?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Too Good To Be True?}
+
+ What if I told you there exists a solution to this where you not only get higher reliability and availability, but also maybe better performance?
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/hela.jpg}
+\end{center}
+
+It does cost money... But it's not magic.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{The Solution is Called...}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/raid.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Solution is Called...}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/leo.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID}
+
+RAID: Redundant Array of Independent Disks.
+
+
+Multiple different independent disks that work together but appear to the user as if they are one drive/volume.
+
+Can be managed in software or hardware.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{How Much Redundancy?}
+
+Choose level of redundancy based on the data in question.
+
+Is losing data inconvenient? A tragedy? Does it affect uptime?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{MttF}
+
+
+
+\end{frame}
+
+
+
+
+
+\end{document}
+
