@@ -111,7 +111,242 @@ Is losing data inconvenient? A tragedy? Does it affect uptime?
 \begin{frame}
 \frametitle{MttF}
 
+For any device we can talk about the \alert{mean time to failure}.
 
+This is always an estimate!
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/keanu.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{MttF Math}
+
+Let's say you bought a disk that says its mean time to failure is 100~000 hours (11.4 years)
+
+You might think that this is perfectly fine, even if it lives only half its expected life it's still more than five years and you'll replace it by then!
+
+... but if you are running a data centre and you have 100 of them, the MttF of one of these disks is really only 100~000 / 100 = 1~000 hours (41.66 days).
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Another One Bites the Dust}
+
+The textbook example is misleading -- hard drive deaths aren't evenly distributed!
+
+It's more likely that everything is fine for a while and then drives start dying in quick succession. 
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{No Free Lunch}
+
+So if we want to have improved reliability, it's obvious this is going to have a cost. 
+
+The cost is in the redundancy; having more than one copy of the data and those copies are stored on different physical storage media.
+
+Either: more money for more disks, or less total capacity for more redundancy.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Mirroring}
+
+Obvious approach is \alert{mirroring}.
+
+If one of the disks dies, then the data is on the other disk and it's not lost.
+
+
+How fast do we have to replace it?
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Quicker is Better}
+
+If the mean time to failure is 100~000 hours and the mean time to repair is 10 hours?
+
+The mean time to data loss is $(100~000)^{2}/(2 \times 10) = 500 \times 10^{6}$ hours (about 57~000 years).
+
+Is that realistic?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Simple Mirror}
+
+This version means there's additional cost to every write...
+
+What happens if one succeeds and one fails?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Level, Please}
+
+RAID is describes as having different ``levels''.
+
+Each has a different configuration; higher number isn't always better.
+
+There are seven basic levels that have broad acceptance.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{No Thanks}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/jbod.jpg}
+\end{center}
+
+This is the do-nothing approach.
+
+Manual backups? 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 0}
+
+Disk striping; no redundancy.
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/raid0.png}
+\end{center}
+
+Some use cases for it...
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 1}
+
+Mirroring
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/raid1.png }
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 2}
+
+Bit Parity
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/raid2.png }
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 3}
+
+Byte Parity
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/raid3.png}
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 4}
+
+Block Parity
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/raid4.png}
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 5}
+
+Distributed Block Parity
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/raid5.png}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{RAID 6}
+Like RAID 5 but can survive more disk failures.
+
+\begin{center}
+	\includegraphics[width= \textwidth]{images/raid6.png}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Combining Levels}
+
+here are a number of ways that RAID may be combined, such as RAID 01, 10, 50... 
+
+These are best thought of as being something like 1 + 0 rather than ten, because what we're doing is combining both these things at two different levels. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Combining Levels}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/raid10-01.png}
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Choosing the Right Level}
+
+\begin{itemize}
+	\item How critical is it that data is not lost?
+	\item What is the budget?
+	\item How important is performance?
+	\item Do we need to be able to carry on in the event a disk dies?
+	\item Are rebuild times important?
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Choosing the Right Level}
+
+No one-size-fits-all answers.
+
+RAID 2, 3, 4 not very popular...
+
+Choose what makes sense!
 
 \end{frame}
 
