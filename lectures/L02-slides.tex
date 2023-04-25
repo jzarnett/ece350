@@ -500,7 +500,26 @@ int sigprocmask( int how, const sigset_t * set, sigset_t * old_set );
 
 Remember there's a performance-risk tradeoff in threads.
 
-If this didn't seem familiar to you, please go back and review ECE~252!
+One thread can crash the program!
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Thread Functions}
+\begin{lstlisting}[language=C]
+pthread_create( pthread_t *thread, const pthread_attr_t *attr, 
+    void *(*start_routine)( void * ), void *arg );
+pthread_join( pthread_t thread, void **returnValue );
+pthread_detach( pthread_t thread );
+pthread_cancel( pthread_t thread );
+pthread_testcancel( ); 
+pthread_setcanceltype( int type, int *oldtype );
+pthread_cleanup_push( void (*routine)(void*), void *argument ); 
+pthread_cleanup_pop( int execute ); 
+pthread_exit( void *value );
+\end{lstlisting}
+
+If this doesn't seem familiar, please go back and review ECE 252!
 
 \end{frame}
 
