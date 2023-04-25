@@ -119,7 +119,31 @@ Ready/Swapped (ready to run, and currently not in memory) and Blocked/Swapped (n
 
 As in the five-state model, there are additional ``Exit'' transitions that may happen but are not shown. If a process is killed, for example, regardless of whether it is in memory or on disk, it will move to the Terminated state.
 
-At this point I assume you remember how to use \texttt{fork()} and related functions like \texttt{wait()} and there's no need to recap it here. If you are uncertain about it, please check the ECE 252 notes!
+Remember our process functions?
+\begin{lstlisting}[language=C]
+pid_t fork( );
+pid_t wait( int* status );
+pid_t waitpid( pid_t pid, int *status, int options ); /* 0 for options fine */
+void exit( int status );
+\end{lstlisting}
+
+... and the ones that are about signals?
+
+\begin{lstlisting}[language=C]
+int kill( pid_t pid, int signal ); /* returns 0 returned if signal sent, -1 if an error */
+int raise( int signal ); /* Send signal to the current process */
+void ( *signal(int signum, void (*handler)(int)) ) (int); /* handle signal */ 
+int pause( ) /* Suspend this program until a signal arrives */
+
+int sigemptyset( sigset_t* set ); /* Initialize an empty sigset_t */
+int sigaddset( sigset_t* set, int signal ); /* Add specified signal to set */
+int sigfillset( sigset_t* set ); /* Add ALL signals to set */
+int sigdelset( sigset_t* set, int signal ); /* Remove specified signal from set */ 
+int sigismember( sigset_t* set, int signal ); /* Returns 1 if true, 0 if false */
+int sigprocmask( int how, const sigset_t * set, sigset_t * old_set ); 
+\end{lstlisting}
+
+If you are uncertain about these, please check the ECE 252 notes!
 
 \subsection*{And the Thread}
 
@@ -145,6 +169,20 @@ Or, to represent this visually:
 
 
 As you know, the primary motivation for threads over processes is performance. They are much faster to create and clean up than processes, and there's no overhead of establishing shared-memory communication. But of course, there are risks, like any one thread crashing the whole program. 
+
+Remember our thread functions?
+\begin{lstlisting}[language=C]
+pthread_create( pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)( void * ), void *arg );
+pthread_join( pthread_t thread, void **returnValue );
+pthread_detach( pthread_t thread );
+pthread_cancel( pthread_t thread );
+pthread_testcancel( ); /* If the thread is cancelled, this function does not return (thread terminated) */
+pthread_setcanceltype( int type, int *oldtype );
+pthread_cleanup_push( void (*routine)(void*), void *argument ); /* Register cleanup handler, with argument */ 
+pthread_cleanup_pop( int execute ); /* Run if execute is non-zero */
+pthread_exit( void *value );
+\end{lstlisting}
+
 
 Like with processes, I'll assume you remember how the various pthread functions work from ECE 252 -- if not, please go back and look at that -- it will save you a lot of headache...
 
