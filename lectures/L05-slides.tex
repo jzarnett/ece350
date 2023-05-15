@@ -108,6 +108,7 @@ Alternative: \alert{compare-and-swap} (or compare-and-exchange).
 int compare_and_swap( int * value, int old_value, int new_value ) {
   if ( *value == old_value ) {
     *value = new_value;
+    return old_value;
   }
   return *value;
 }
