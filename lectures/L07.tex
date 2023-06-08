@@ -34,6 +34,8 @@ The other approach, as in the case of fixed size blocks, is to use linked lists.
 
 After startup, the linked list contains one entry, as all available memory is in one contiguous block. When a memory request is allocated, for example, to allocate 128 bytes, the block is divided up. Suppose we allocate the first 128 bytes. A new entry is placed in the list, at 128 bytes. The node that is added contains the start address, the length of the block, and a bit indicating it is allocated. The unallocated block's node will contain the updated entry: smaller size, new start address, and the bit indicating it is unallocated. When a block is deallocated, we simply find that block in the linked list and set the bit to zero to indicate it is now available again.
 
+A single linked-list approach may be relatively simple to implement, as it does not require moving blocks around too much. However, for a sufficiently-large memory area, this strategy is quite inefficient. With just one list, every memory allocation potentially requires searching the whole list of all blocks. And that becomes slower and slower as there are more allocations, particularly small allocations. Instead, if we only had to search the free list, we could find free memory much faster.
+
 In a typical system there may be a lot of allocation and deallocation of memory. This will probably lead to breaking memory up into smaller pieces. We may end up with a situation where the free blocks are small and spread out, as in the figure below: 
 
 \begin{center}
@@ -78,6 +80,8 @@ Given a memory request of $N$, where do we allocate the memory? If there is no b
 As a performance optimization, we could have two linked lists: one for allocated memory and one for unallocated memory. That way to find a free block we do not have to look through the allocated blocks.
 
 \paragraph{First fit.} The strategy of first fit is to start looking at the beginning of memory, and check each block. If the block is of sufficient size, split it to allocate the memory, and return the balance to the unallocated memory list. This algorithm has a runtime of $O(n)$ where $n$ is the number of blocks. This algorithm is simple to implement. 
+
+As referenced earlier, it's important for the sake of efficiency to have separate lists for free and allocated memory. With it, finding a free block is linear in the number of \textbf{free} blocks instead of linear with the number of total blocks -- and most likely the number of allocated blocks is much larger than the number of free blocks.
 
 \paragraph{Next fit.} This strategy is a modification of the first-fit algorithm. Instead of starting at the beginning of memory and finding the first block that meets the request, keep track of where the last block was allocated, and then start the next search after that. This prevents the situation where there are a lot of small unallocated blocks (external fragmentation) all concentrated at the start of memory~\cite{mte241}. The runtime is still $O(n)$, as with first fit.
 

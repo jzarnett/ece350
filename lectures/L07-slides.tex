@@ -301,6 +301,18 @@ When a block is deallocated, we simply find that block in the linked list and se
 
 \end{frame}
 
+
+\begin{frame}
+\frametitle{Efficiency Counts}
+For a sufficiently-large memory area, one linked list is inefficient.
+
+Why? May need to search all blocks and more allocations means more blocks.
+
+Better idea: separate free block list!
+
+\end{frame}
+
+
 \begin{frame}
 \frametitle{Variable: Deallocation}
 
