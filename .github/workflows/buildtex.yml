@@ -6,6 +6,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          set-safe-directory: '*'
       - id: files
         uses: jzarnett/get-changed-files@v1.3
       - run: |
