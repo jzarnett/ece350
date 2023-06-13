@@ -9,14 +9,14 @@ jobs:
         with:
           set-safe-directory: '/github/workspace'
       - id: files
-        uses: jzarnett/get-changed-files@v1.3
+        uses: jzarnett/get-changed-files@v1.3.1
       - run: |
           cp lectures/compiled/* lectures
           for changed_file in ${{ steps.files.outputs.added_modified }}; do
             touch ${changed_file}
           done
       - name: Compile
-        uses: jzarnett/make-latex-action@v0.4.2
+        uses: jzarnett/make-latex-action@v0.4.3
         with:
           working_directory: lectures
           pushback: true
