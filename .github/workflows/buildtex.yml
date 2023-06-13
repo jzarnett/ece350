@@ -16,7 +16,7 @@ jobs:
             touch ${changed_file}
           done
       - name: Compile
-        uses: jzarnett/make-latex-action@v0.4.1
+        uses: jzarnett/make-latex-action@v0.4.2
         with:
           working_directory: lectures
           pushback: true
