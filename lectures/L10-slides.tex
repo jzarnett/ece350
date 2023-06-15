@@ -159,7 +159,7 @@ We will come back to the subject of thrashing later.
 \begin{enumerate}
 	\item Check if the memory reference is valid or invalid.
 	\item If the reference is invalid, terminate the program (segmentation fault).\\
-	 If it was valid, but the page referenced is not in memory, retrieve it.
+	 If it was valid, but the page referenced is not in memory, continue.
 	\item Find a free frame (or make one by evicting some other page).
 	\item Request a disk read (and possibly write) to bring in the new page.
 	\item When the disk read is complete, update the records.
