@@ -97,13 +97,13 @@ The $CPU$ and $N$ components of the equation are restricted to prevent a process
 
 Yes, unfortunately, user processes get piled at the bottom of the list. The use of the hierarchy should provide for efficient use of I/O devices and tends to penalize processor-bound processes at the expense of I/O bound processes. This is beneficial, because CPU-bound processes should be able to carry on executing when an I/O-bound process waits for the I/O operation to complete, but when an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting. This strategy is reasonably effective for a general-purpose, time-sharing operating system.
 
-\paragraph{Upgrading to SRV4.}
-In UNIX SRV4 the system for a complete overhaul, trying to give the highest priority to ``real-time'' processes, then kernel processes, and then user-mode preferences; its two big differences are (1) more priority levels -- 160 broken down into three types -- and (2) preemption points~\cite{osi}. 
+\paragraph{Upgrading to SVR4.}
+In UNIX SVR4 the system for a complete overhaul, trying to give the highest priority to ``real-time'' processes, then kernel processes, and then user-mode preferences; its two big differences are (1) more priority levels -- 160 broken down into three types -- and (2) preemption points~\cite{osi}. 
 
 Such preemption points are needed, because the original versions of the UNIX kernel were themselves not well-suited to preemption because it was not expected in the design that the kernel's execution could itself be preempted at any time. So preemption points are placed in the code where it would be okay for the kernel to stop execution and do another operation. In practice, this means that all kernel data structures are updated, or there are appropriate locks that would prevent concurrent modification and prevent race conditions~\cite{osi}. 
 
 \paragraph{FreeBSD.}
-BSD, the Berkeley Software Distribution, is another form of UNIX, and FreeBSD is one of its descendants. FreedBSD has a scheduling process that's quite similar to that of SRV4. There are more priority levels than SRV4 -- 256 rather than 160 -- and they are subdivided into five categories rather than just three. This implementation is intended to support multiprocessor systems better than the traditional UNIX approaches.
+BSD, the Berkeley Software Distribution, is another form of UNIX, and FreeBSD is one of its descendants. FreedBSD has a scheduling process that's quite similar to that of SVR4. There are more priority levels than SVR4 -- 256 rather than 160 -- and they are subdivided into five categories rather than just three. This implementation is intended to support multiprocessor systems better than the traditional UNIX approaches.
 
 What's new and interesting here is the interactivity scoring mechanism. Interactivity score is intended to identify which threads are user-interactive and which ones are CPU-intensive. Threads that are user-interactive should get a higher priority to run; in this system, lower numbers equal higher priority. Interactivity is judged based on how much the thread in question gets blocked: if it's waiting for the user or network or similar, then it would be considered interactive.
 
