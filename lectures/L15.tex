@@ -5,7 +5,7 @@
 \lecture{ 15 --- Real Time Scheduling }{\term}{Jeff Zarnett}
 
 \section*{Real-Time Scheduling}
-It's been a while since we introduced it, but we started earlier by saying a real-time system one that is supposed to respond to events within a certain amount of real (wall-clock) time. There are deadlines, and there are consequences for missing deadlines. Furthermore, fast is not as important as predictable. If real time systems are of interest to you, you may wish to take some of the later embedded systems courses, or the famous CS trains course\footnote{Abandon sanity, all ye who enter here.}. There's also a 4th year ECE technical elective on real-time systems.
+It's been a while since we introduced it, but we started off the course by saying a real-time system one that is supposed to respond to events within a certain amount of real (wall-clock) time. There are deadlines, and there are consequences for missing deadlines. Furthermore, fast is not as important as predictable. If real time systems are of interest to you, you may wish to take some of the later embedded systems courses, or the famous CS trains course\footnote{Abandon sanity, all ye who enter here.}. There's also a 4th year ECE technical elective on real-time systems. Still, we need to talk about it because it is a component of this course, even if it's not a large one.
 
 The term ``task'' is used to refer to something that needs doing. Yes, the scheduler operates on threads rather than specific things to do, but we will say for the sake of the discussion that each task corresponds to one thread that is trying to carry out some work. When we say that the system schedules a task, please understand it means it schedules the thread associated with that task.
 
@@ -30,7 +30,7 @@ The first is that it is scheduled too late; like an assignment that will take tw
 The second scenario is that at the time of starting, completion was possible, but for whatever reason (e.g., other tasks with higher priority have occurred) it is no longer possible to meet the deadline. In that case, execution of the task may be terminated partway through so that no additional effort is wasted on a task that cannot be completed. Again, was scheduling here the culprit? Maybe; if the interrupts were treated differently perhaps it would have been possible to complete the original task.
 
 \subsection*{Properties of Real-Time Systems}
-Real-time systems are considered to be unique in five key areas~\cite{osi}:
+Real-time systems are considered to be unique (that is, distinct from other kinds of systems) in five key areas~\cite{osi}:
 
 \begin{enumerate}
 	\item Determinism
@@ -50,7 +50,7 @@ Nondeterminism is not necessarily bad. We learned already about caching and this
 
 In the no-control scenario, the system takes no instructions from users or administrators and simply runs as it has been programmed and configured. Users have no way to start new processes or tell the system to change priorities. That's pretty reasonable in certain contexts -- you should not be able to play solitaire on the fire suppression system, should you?
 
-In the more control scenario, administrators get to choose a lot. The OS itself has no way of knowing which tasks are real-time and which (if any) are not, nor can it know which of the real-time tasks are soft/firm/hard. Accordingly, an administrator must be able to specify what is what, and maybe even be able to make other choices like what scheduling algorithm should be used. The obvious downside is that if this is put in the hands of the user or administrator, they could always get it wrong. 
+In the more-control scenario, administrators get to choose a lot. The OS itself has no way of knowing which tasks are real-time and which (if any) are not, nor can it know which of the real-time tasks are soft/firm/hard. Accordingly, an administrator must be able to specify what is what, and maybe even be able to make other choices like what scheduling algorithm should be used. The obvious downside is that if this is put in the hands of the user or administrator, they could always get it wrong. That's not something the system designers can prevent, but it is a concern.
 
 The typical desktop or mobile OS goes somewhere in between; a regular user can typically start processes and even, to some extent, choose their priorities. Administrators can set certain elements of scheduling policy, but maybe not everything, so perhaps they cannot change the scheduling algorithm. 
 
@@ -63,7 +63,7 @@ In fact, for a real-time system, fairness and minimizing average response times 
 
 Any of the non-preemptive scheduling algorithms will not be suitable for a real-time system, because the whole idea is based around prioritization of hard real-time tasks. If one of those arrives while an unimportant task is in progress, it's not sensible for the high priority task to wait until the currently-executing one gets blocked, voluntarily yields the CPU, or exits. Similarly, some routine based solely around time slices probably does not work either, since it would not be optimal to force the higher priority task to wait for up to a full timeslice before it gets a turn. A more realistic approach is immediate preemption, which is just a fancy way of saying that as soon as something more important comes along, the system drops what it is doing to deal with it. 
 
-You might wonder why that's so important to drop everything, if we can make timeslices nearly arbitrarily small? Yes, but sometimes the speed of the response we need is in the order of microseconds or a few milliseconds, and there are big consequences for being late, so we need a strategy that recognizes that. 
+You might wonder why that's so important to drop everything, if we can make timeslices nearly arbitrarily small? Yes, but sometimes the speed of the response we need is in the order of microseconds or a few milliseconds, and there are big consequences for being late, so we need a strategy that recognizes that. Remember also that time slice interrupts are overhead that the system needs to deal with and having a high overhead decreases overall performance.
 
 \subsection*{What Kind of Task is It?}
 

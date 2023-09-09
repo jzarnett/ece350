@@ -81,7 +81,7 @@ As a performance optimization, we could have two linked lists: one for allocated
 
 \paragraph{First fit.} The strategy of first fit is to start looking at the beginning of memory, and check each block. If the block is of sufficient size, split it to allocate the memory, and return the balance to the unallocated memory list. This algorithm has a runtime of $O(n)$ where $n$ is the number of blocks. This algorithm is simple to implement. 
 
-As referenced earlier, it's important for the sake of efficiency to have separate lists for free and allocated memory. With it, finding a free block is linear in the number of \textbf{free} blocks instead of linear with the number of total blocks -- and most likely the number of allocated blocks is much larger than the number of free blocks.
+As referenced earlier, it's important for the sake of efficiency to have separate lists for free and allocated memory. With it, finding a free block is linear in the number of \textbf{free} blocks instead of linear with the number of total blocks -- and most likely the number of allocated blocks is much larger than the number of free blocks. While it may be tempting to have one single linked list because it is easier to implement, that will be dramatically slower.
 
 \paragraph{Next fit.} This strategy is a modification of the first-fit algorithm. Instead of starting at the beginning of memory and finding the first block that meets the request, keep track of where the last block was allocated, and then start the next search after that. This prevents the situation where there are a lot of small unallocated blocks (external fragmentation) all concentrated at the start of memory~\cite{mte241}. The runtime is still $O(n)$, as with first fit.
 

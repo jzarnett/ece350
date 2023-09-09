@@ -21,7 +21,7 @@ In the previous topic, we discussed what we can do to mitigate the impact of har
 \subsection*{Resiliency}
 In the words of Rocky Balboa, ``It's not about how hard you hit. It's about how hard you can get hit and keep moving forward. How much you can take and keep moving forward.''. When designing a system for resiliency, the question to consider is how much resiliency do you really need? 
 
-If you are designing something to not have downtime because the company loses some money when the system is down, your considerations are different to a situation where you need to avoid downtime because lives are on the line. Remember also that there are some scenarios that you cannot and should not handle because they're either too outlandish or just plain apocalyptic. If Russia decides it wishes to launch its nuclear missiles\footnote{ August 29, 1997 2:14 AM Eastern Time... \url{https://www.youtube.com/watch?v=4DQsG3TKQ0I}} and your data centre is in one of the target zones, does it matter if your app is going to have some downtime right now? I think there are bigger problems to worry about.
+If you are designing something to not have downtime because the company loses some money when the system is down, your considerations are different to a situation where you need to avoid downtime because lives are on the line. Remember also that there are some scenarios that you cannot and should not handle because they're either too outlandish or just outright apocalyptic. If Russia decides it wishes to launch its nuclear missiles\footnote{ August 29, 1997 2:14 AM Eastern Time... \url{https://www.youtube.com/watch?v=4DQsG3TKQ0I}} and your data centre is in one of the target zones, does it matter if your app is going to have some downtime right now? I think there are bigger problems to worry about.
 
 Nevertheless, this is an engineering design tradeoff between cost and the amount of resiliency you want to have. Up to a certain point, more money will get more redundancy and more resiliency. Remember the earlier example about how a lack of spare crew capacity can result in delaying of your flight from Calgary to Vancouver? If a certain airline were more open to increasing the cost, they could have more capacity. That would make the system more resilient: a snowstorm in Nova Scotia wouldn't ruin the travel plans of unrelated people several thousand kilometres away. On the other hand, at some point it becomes wasteful: the airline should not be paying excessive amounts of people to hang around doing nothing just in case.
 
@@ -125,7 +125,7 @@ Ultimately, this means the design of communication and synchronization between t
 
 
 \paragraph{Distributed Systems Course.}
-All of this is just a very simple overview of some of the issues that might arise when we have multiple systems for redundancy. This is a complicated subject and is a whole 4th year ECE technical elective that you could take if this is of interest to you. 
+All of this is just a very simple overview of some of the issues that might arise when we have multiple systems for redundancy. This is a complicated subject and is a whole 4th year ECE technical elective (ECE 454) that you could take if this is of interest to you. Did I just plug a 4th year TE that isn't ECE 459? Oh my!
 
 \input{bibliography.tex}
 
