@@ -71,7 +71,7 @@ The traditional UNIX scheduling is really ancient; as in System V R3 and BSD 4.3
 
 The routine is a multilevel feedback system using Round Robin within each of the priority queues. Time slicing is implemented and the default time slice is a (very long) 1 second. So if a process does not block or complete within 1~s, then it will be preempted. Priority is based on the process type as well as the execution history.
 
-Processor utilization for a process $j$ is calculated for an interval $i$ by the following formula:
+Processor utilization for a process $j$ is calculated for an interval $i$ by keeping track of the actual amount of CPU time used, with aging of the history implemented via the following formula:
 
 \begin{center}
 $CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$

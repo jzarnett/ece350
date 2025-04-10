@@ -219,7 +219,7 @@ Priority is based on the process type as well as the execution history.
 \begin{frame}
 \frametitle{Traditional UNIX}
 
-Processor utilization for a process $j$ is calculated for an interval $i$ as:
+Processor utilization for a process $j$ is calculated for an interval $i$ with measuring the actual CPU usage and aging implemented as:
 
 \begin{center}
 $CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$
