@@ -2,132 +2,136 @@
 
 \begin{document}
 
-\lecture{ 10 --- Virtual Memory }{\term}{Jeff Zarnett}
+\lecture{ 10 --- Memory: Segmentation and Paging }{\term}{Jeff Zarnett}
 
-\section*{Virtual Memory}
-Even with paging and moving pages into and out of memory, there is a limit on what we can do with the system. Specifically, a program that requires more memory than the machine's physical memory cannot run. Maybe that seems ridiculous in the modern era of 4, 8, and 16~GB of memory, but server or supercomputer systems working on large datasets may require more memory than is available in the machine. Furthermore, when we have many programs running and a multiprocessor systems, we could have a situation where the sum of memory requirements exceeds the available memory. It is less than ideal to have a processor waiting for something to do because a process that is otherwise ready to run cannot proceed because there are insufficient free frames for it to run.
+\section*{Memory Segmentation}
 
-The problem is: a process must be entirely in memory or entirely on disk. In a lot of cases, the entire program is not needed at any given time. Code used to handle unusual situations (error handling, etc.) may not be needed except occasionally. Startup code is needed at the beginning of the program, but then never again. Data structures and collections may be declared to be very large even when it is not actually needed (e.g., the \texttt{ArrayList} in Java defaults to 16 elements, even if you might only need 4, wasting a bit of space).
+Though you've been repeatedly told that memory is a linear array of bytes, you have also likely been told that there's the stack and the heap, libraries and instructions. Both of these are true; they are simply views of memory at two different levels of abstraction. Each of the elements such as the stack, the heap, the standard C library, et cetera, are known as \textit{segments}.
 
-If we could execute programs that are only partly in memory, there would be three major benefits~\cite{osc}:
+Programmers do not necessarily give much thought to whether variables are allocated on the stack or the heap, or where program instructions appear in memory. In many cases it does not matter, though C programmers are well advised to know the difference. Not knowing the difference is the cause of many errors in concurrent programming, like stack allocating a variable and passing it to another thread and it goes out of scope while still needed by another thread.
 
-\begin{enumerate}
-	\item A program is no longer constrained by the size of physical memory; programmers can use the entire virtual space without worrying about whether it fits.
-	\item Each program could use up less physical memory, allowing more processes to execute concurrently.
-	\item Less I/O is needed to swap user programs in or out.
-\end{enumerate}
-
-
-Good news, everyone!  We have already discussed many of the key ideas to making such a system work when we examined caching. The principle is really the same: main memory can be viewed as yet another level of cache and the disk is the last stop where the data can be. If a page is referenced and not currently in main memory, it is a page fault, and the page is loaded from disk into main memory. A page might need to be evicted from main memory to make way for it; thus a page replacement algorithm is needed to select the ``victim'' page and write it out to disk. 
-
-\begin{center}
-\includegraphics[width=0.5\textwidth]{images/vmem-physmem.png}\\
-Virtual memory exceeding the size of physical memory, with some pages on disk~\cite{osc}.
-\end{center}
-
-The typical approach is also like that of the cache, which is to use demand paging. A page is loaded into memory only if it is referenced or needed, thus preventing unnecessary disk accesses. This is also called the ``lazy'' approach in~\cite{osc}, though lazy is typically an insult and in this case it is not necessarily bad.  Clearly, we would like to involve disk as little as possible, because disk is, from the perspective of the CPU, extremely slow.
-
-The fact that disk is so slow means we can get into a troublesome state called \textit{thrashing}: the operating system is spending most or all of its time swapping pages in and out of memory and very little actual work can get done.
-
-Apparently, if the NeXT operating system, NeXTStep\footnote{One of the three parents of Mac OS X: the classic Mac OS, BSD [UNIX], and NeXTStep.} were booted on a machine with only 2~MB of RAM instead of the expected 4~MB, the steady state of the system would be a constant level of swapping~\cite{mte241}. This was particularly bad because the most common cause of failure in the NeXT boxes was hard disk drive. But they did have cool magnesium cases, so after they died they at least made impressive conversation pieces and doorstops.
-
-With virtual memory, each memory reference is a six step process~\cite{osc}:
+A full program has a collection of segments, each of which may be different lengths. Normally the compiler is responsible for constructing the various segments; perhaps one for each of the following~\cite{osc}:
 
 \begin{enumerate}
-	\item Check if the memory reference is valid or invalid (just as we have done before).
-	\item If the reference is invalid, terminate the program (segmentation fault). If it was valid, but the page referenced is not in memory, continue.
-	\item Find a free frame (or make one by evicting some other page).
-	\item Request a disk read (and possibly write) to bring in the new page.
-	\item When the disk read is complete, update the records to show the new page is in memory.
-	\item Restart the instruction that referenced the page that needed to be brought into memory.
+	\item The code (instructions).
+	\item Global variables.
+	\item The heap.
+	\item The stack (one per thread).
+	\item The standard C library.
 \end{enumerate}
 
-Or, to view this visually:
+From the programmer's perspective, memory may simply be various blocks, as below:
 
 \begin{center}
-\includegraphics[width=0.7\textwidth]{images/handling-page-fault.png}\\
-Handling a page fault~\cite{osc}.
+\includegraphics[width=0.25\textwidth]{images/segments.png}\\
+One way programmers might look at memory~\cite{osc}.
 \end{center}
 
-Note that between steps 4 and 5, a significant amount of time will take place while the disk performs a read of the desired page and possibly a write of the page to be evicted if it was modified. While the slow disk operations are going on, the process is blocked on that I/O operation and, in the meantime, the processor can and should be working on something else.
-
-The key requirement in the described workflow is the ability to restart any instruction following the page fault. We save the state of the process, including all the registers and instruction pointer and so on, when the page fault occurs, so we are able to restart the process exactly where it was. The difference is that after the restart, the page needed is in memory and is accessible. A page fault could occur on any memory reference, including fetching the next instruction. If it happens at that time, the fetch operation is done again. If a page fault happens when doing an operation that required fetching an operand, then we fetch and decode the instruction again and then fetch the operand. So a little bit of work may be repeated~\cite{osc}.
-
-Consider the \texttt{ADD} instruction that adds \texttt{A} to \texttt{B} and stores the result in \texttt{C}. First, we must fetch and decode the instruction. That tells us about the two operands, which must be retrieved themselves. Then we can add the two operands, and store the result in the target location. If a page fault occurs when trying to write to \texttt{C}, because that page is not currently in memory, we will restart the instruction. That means back to step one: fetch the \texttt{ADD} instruction again, then get the operands, then perform the addition, and finally write it into the destination location~\cite{osc}.
-
-As we can see, some work is repeated here: fetching and decoding the instruction, as well as taking the operands and doing the addition. This is not a big deal, because the time it takes the CPU to do such an operation is minuscule. CPUs are very good at executing instructions and doing this one a second time is not a big task.
-
-While fetching the page containing \texttt{C} from disk, the page that contains \texttt{A} or \texttt{B} could get swapped out, meaning that the second run of the instruction will also produce a page fault. This is unlikely if using a sane replacement algorithm, because the page with \texttt{A} and \texttt{B} having just been referenced, it is a poor candidate for eviction. But a random page replacement algorithm could result in that behaviour on occasion. While hypothetically possible, it is very unlikely that a system would get stuck on the same instruction forever if the page containing \texttt{A} were constantly replaced in memory and cache by the page containing \texttt{C} and vice versa. But a system vulnerable to this problem would have some very significant design issues, to say the least.
-
-The question is, can every instruction be restarted without affecting the outcome? The answer is no; an example is the situation that occurs when an instruction modifies more than one memory location. If we are moving a block of $n$ bytes, it is possible those bytes will straddle a page boundary\footnote{Some CPUs and operating systems have boundary issues and take this kind of thing a bit more seriously, requiring alignment of data structures to byte and block boundaries... others don't seem to mind at all.}, either at the source or destination. We would like to avoid this situation, because the move operation may not be easily restarted if the source and destination overlap (i.e. the source is modified). One is for the CPU to try to access the start and end addresses before the move begins; if one of the pages needed is not in memory, the page fault is triggered before any data is changed, so we can be sure the move will succeed when it actually starts. Another solution is temporary registers to hold overwritten location; if a page fault occurs, then the temporary data is restored so the instruction may be restarted without affecting the operation's correctness~\cite{osc}.
-
-\subsection*{Virtual Memory Performance}
-
-As we have already seen, finding something in the cache is significantly faster than having to go to main memory. Retrieving something from disk is dramatically slower, but computing how long it takes to retrieve a given page will follow the same principle. Recall from earlier the effective access time formula:
+Rather than thinking about memory as just a pure address, we can think of it as a tuple: \textit{$<$segment, offset$>$}. Given that, we need an implementation to map these tuples into memory addresses. The mapping has a segment table; each entry in the table contains two values: the base (starting address of the segment) and the limit (the length of the segment). So there will be some addition involved as well as a comparison to see if the address lies within that range. As is typically the case, memory accesses are such a common operation that we will need another rescue from the hardware folks to make this not painfully slow.
 
 \begin{center}
-	Effective Access Time = $ h \times t_{c} + (1 - h) \times t_{m}$
+\includegraphics[width=0.75\textwidth]{images/segmentation-hardware.png}\\
+Segmentation hardware~\cite{osc}.
 \end{center}
 
-Where $h$ is the hit rate, $t_{c}$ the time to retrieve a page from cache, and $t_{m}$ is the time to retrieve it from memory. If we replace the terms $t_{c}$ and $t_{m}$ with $t_{m}$ and $t_{d}$ (time to retrieve it from disk) respectively, and redefine $h$ as $p$, the chance that a page is in memory, we can get an idea of the effective access time in virtual memory: 
+With segmentation, memory need no longer be contiguous; we can allocate different parts of the program in different segments; different segments can be located in different areas of memory.
+
+\section*{Paging}
+Fixed and variable sized partitions suffer from fragmentation, whether external or internal. Let us divide memory up into small, fixed-size chunks of equal size, called \textit{frames}. Each process's memory is divided up into chunks the same size as a frame, called \textit{pages}. Then a page can be assigned to a frame. A frame may be empty or may have exactly one page in it. 
+
+Imagine, as an analogy, a simple picture frame. The frame may be empty or it may contain a picture. If the picture frame is empty, all that is necessary is to put a picture in it. To put in a different picture, you would first need to take out the picture that is already there. Taking out the picture to empty the frame is allowed, too. A picture is always aligned so that it is completely in one frame; not half in and half out. Now expand this scheme by having a very long row of picture frames, each of which can contain one picture at a time, at most, and a picture can be in at most one frame at a time. 
+
+When a process starts, it is loaded into memory, and has some initial memory requirements (e.g., the stack and global variables), so it will require some number of pages. The number of pages can and will change over time as memory is allocated and freed. A process may also be swapped out to disk, but to run it will need to be swapped back in. Either way, a process will take up a certain number of pages in memory at any given time.
+
+Pages provide the benefit of separating the logical address from the physical address: programmers may pretend the address space of the computer is $2^{64}$ bytes rather than however many GB of memory are in the physical machine. 
+
+Consider the diagram below, in which there are 15 free frames initially. Then we load process $A$, which consists of 4 frames; then process $B$ with 3 frames, $C$ with another 3 frames. Eventually, $B$ is swapped out (put back on disk) and $D$ is loaded. Process $D$ has five frames, but the frames do not have to be contiguous (and although they are shown in order, they do not necessarily have to be).
 
 \begin{center}
-	Effective Access Time = $ p \times t_{m} + (1 - p) \times t_{d}$
+\includegraphics[width=0.75\textwidth]{images/loading-pages.png}\\
+Assignment of process pages into free frames~\cite{osi}.
 \end{center}
 
-And just while we're at it, we can combine the caching and disk read formulae to get the true effective access time for a system where there is only one level of cache:
+Now that we have multiple segments for each process and they are no longer contiguous, it is insufficient to have a base address and a limit. Now instead, each process needs a page table, to keep track of which pages are located where in memory. A list of free frames is also necessary. See the diagram below:
 
 \begin{center}
-	Effective Access Time = $ h \times t_{c} + (1 - h) ( p \times t_{m} + (1 - p) \times t_{d})$
+\includegraphics[width=0.75\textwidth]{images/page-tables.png}\\
+The page tables as of (f) in the previous diagram~\cite{osi}.
 \end{center}
 
-This is good, but what is $t_{d}$? This is a measurable quantity so it is possible, of course, to just measure it\footnote{One of my favourite engineering sayings is ``Don't guess; measure.''}. We expect $p$ to be large if our paging algorithm is any good. But what needs to take place to handle a page fault (miss) is~\cite{osc}:
+The page table is used to map logical memory to physical memory, as in the diagram below:
+
+\begin{center}
+\includegraphics[width=0.5\textwidth]{images/page-table-mapping.png}\\
+Mapping of logical memory to physical memory via the page table~\cite{osc}.
+\end{center}
+
+For convenience, page size is usually a power of 2 (and the actual value is determined by hardware). The selection of a power of 2 makes translating a logical address into a tuple of the page number and offset easy. If the logical address space has size $2^{m}$ and the page size is $2^{n}$ bytes, $n$ obviously smaller than $m$, then the high order $m - n$ bits of the logical address are the page number and the lower $n$ bits are the page offset~\cite{osc}. 
+
+External fragmentation is eliminated as a problem in this scheme, because pages are all the same size. That also means that compaction is not an issue. Compaction, when it's possible, is painful enough in memory; it is excruciating to do on disk. It is therefore desirable to avoid it entirely. We accept some internal fragmentation because a process gets a whole page at a time. 
+
+But how much internal fragmentation do we have to live with? Not very much. If the memory required aligns perfectly with a multiple of the page size, then no memory is wasted. If a new memory allocation comes in, then a new page is allocated and added to the logical memory space of the process. The last frame, however, may not be completely full. In the worst case scenario, a full page less one byte is wasted. However, internal fragmentation of one page is not very much in the grand scheme of things.
+
+How big should page sizes be? If they are smaller, then less memory is wasted in internal fragmentation. However, having a large number of pages introduces a lot of overhead. The size of pages has tended to grow along with the size of main memory in computers~\cite{osc}. The key factor is actually disk: the disk operates on a certain block size and it is most efficient for the size of a page to be equal to a disk read/write size. That way when a page is to be swapped into or out of memory, it can be done in a single disk read or write. In a typical modern system, pages are 4~KB, but they can be bigger.
+
+Now we finally have a good answer to why the application developer can treat memory as if it is infinitely large and unshared. The program is scattered across physical memory, but appears to the application developer and running application as if it is all contiguous. 
+
+We also get protection in this scheme: a program cannot access any address outside of its memory space. There is simply no way to make a memory request outside of the logical memory space. No matter what address is generated, it could only be inside the page table, and the page table has only entries of that process.
+
+The operating system, however, can manage memory of all processes, so it will need another scheme. The OS will operate on the \textit{frame table}, a listing of all the frames, indicating which page of which process a frame currently holds, if any.
+
+\subsection*{Shared Pages}
+
+Another great advantage of paging is the possibility of sharing of common code. Users very often have multiple programs open; and sometimes they are duplicates (e.g., notepad, Microsoft Word, et cetera). In a multiuser system, different users may have some of the same program open (e.g., Skype, Firefox, et cetera). We could reduce memory consumption if common parts of this program are shared between all instances of that program.
+
+Example: consider the text editor \texttt{vi}. Imagine there are 5 users on the system, each of whom wants to use \texttt{vi}. Let's say the program itself uses 10 pages (made up number) on its own, and then some variable number of pages based on what file is being edited. Without sharing, each copy of \texttt{vi} that runs will consume 10 pages, so 50 pages are being used for the executable. If we can share those 10 pages, we have saved 40 pages worth of memory space.
+
+Other programs and code can easily be shared, such as compilers, libraries, and operating system utilities. In fact, any code can be shared as long as it is \textit{reentrant} (also sometimes called pure or stateless). This is code that does not change when it is executed. That means there is no state maintained by the code. Any function that accesses a global or static variable is non-reentrant, such as~\cite{mte241}:
+
+\begin{verbatim}
+int tmp;
+void swap( int *x, int *y ) {
+  tmp = *x;
+  *x = *y;
+  *y = tmp; 
+}
+\end{verbatim}
+
+\subsection*{Page Table Structure}
+In the simplest form, the page table is just a standard table. This structure is simple, but page tables can be very large. If the system is 32-bit, and page sizes are 4~KB ($2^{12}$), then the page table has $2^{32}/2^{12} = 2^{20}$ pages, or about 1 million entries. Given that page tables themselves can be quite large, we will examine three strategies for how to structure the page table, other than the simple table structure:
 
 \begin{enumerate}
-	\item Trap to the operating system.
-	\item Save the user registers and process state.
-	\item Identify this interrupt as a page fault.
-	\item Check that the page reference was legal. 
-	\begin{enumerate}
-		\item If so, determine the location of the page on disk.
-		\item If not, terminate the requesting program. Steps end here.
-	\end{enumerate}
-	\item Figure out where to place the page in memory (use our replacement algorithm).
-	\item Is the frame we have selected currently filled with a page that has been modified? 
-	\begin{enumerate}
-		\item If so, schedule a disk write to flush that page out to disk. The disk write request is placed in a queue.
-		\item If not, go to step 11.
-	\end{enumerate} 
-	\item Wait for the disk write to be executed. The CPU can do something else in the meantime, of course.
-	\item Receive an interrupt when the disk write has completed.
-	\item Save the registers and state of the other process if the CPU did something else.
-	\item Update the page tables to reflect the flush of the replaced page to disk. Mark the destination frame as free.
-	\item Issue a disk read request to transfer the page to the free frame.
-	\item As before, while waiting, let the CPU do something else.
-	\item Receive an interrupt when the disk has completed the I/O request.
-	\item Save the registers and state of the other process if the CPU did something else.
-	\item Update the page tables to reflect the newly read page.
-	\item Restore the state of and resume execution of the process that encountered the page fault, restarting the instruction that was interrupted.
+	\item Hierarchical paging.
+	\item Hashed page tables.
+	\item Inverted page tables.
 \end{enumerate}
 
-The slow step in all of this, is obviously, the amount of time it takes to load the page from disk. According to~\cite{osc}, restarting the process and managing memory and such take something like 1 to 100~$\mu$s. A typical hard drive in their example has a latency of 3~ms, seek time (moving the read head of the disk to the location of the page) is around 5~ms, and a transfer time of 0.05~ms. So the latency plus seek time is the limiting component, and it's several orders of magnitude larger than any of the other costs in the system. And this is for servicing a request; don't forget that several requests may be queued, making the time even longer.
+\paragraph{Hierarchical Paging.}
+Rather than have one big table, we have multiple levels in the page table; this means the page table can be broken up and need not be contiguous in memory. Suppose we have a two level system. If the page number is $p$, the first $k$ bits indicate the \textit{outer page}. The outer page then contains some information about where the \textit{inner pages} are. The remaining $p-k$ bits identify the inner page. After the inner page is identified, the displacement $d$ is then calculated from the inner page~\cite{osc}.
 
-Thus the disk read term $t_{d}$ dominates the effective access time equation. If memory access takes 200~ns and a disk read 8~ms, we can roughly estimate the access time in nanoseconds as $(1-p) \times 8~000~000$. 
+\paragraph{Hashed Page Tables.} 
+Instead of the page table being an array of entries, turn it into a hash table. There is a hash function to assign pages to ``buckets'' and each bucket is implemented as a linked list. Then each element of the list is examined to find the matching page.
 
-If the page fault rate is high, performance is awful. If performance of the computer is to be reasonable, say around 10\%, the page fault rate has to be very, very low. On the order of $10^{-6}$. 
+\paragraph{Inverted Page Tables.} 
+For 32-bit virtual addresses, a multilevel page table can work. But with 64-bit computers, with 4~KB pages, the page table requires $2^{52}$ entries, and if an entry is 8 bytes, then the table is over 30 million gigabytes (30~PB). Using this much memory for the page table is unrealistic. Instead, we can have an inverted page table: there is one entry per frame, rather than one entry per page. The entry keeps track of the process and page number. This saves a huge amount of space (1~GB of ram with a 4~KB page size means the page table requires only $2^{18}$ entries). The drawback is that it is no longer possible find a physical page by looking at the address; instead, we must search the entire inverted page table. Slow as this operation is, we can make it faster via hardware...~\cite{mos}.
 
-And now you also know why solid state drives, SSDs, are such a huge performance increase for your computer. Instead of spending time measured in the milliseconds to find a page on disk, SSDs produce the data much quicker, with times that look more like memory reads.
+\subsection*{Paging: Hardware Support}
+As we have repeatedly discussed, memory accesses are very frequent and often require additions and comparisons. After all, an operation as simple as adding two numbers requires fetching the add instruction, fetching the operands, and storing the result. To prevent abysmal performance, modern computers have hardware support, because hardware is much, much faster than doing these operations in software.
 
-We have not yet covered file systems, but files tend to come with a bunch of overhead for file creation and management. To avoid this, the system usually has a ``swap file'' which is just one giant file or partition of the hard drive. The system can get better performance by just dealing with the swap file as one big file (block) and not tiny individual files~\cite{osc}.
+The simplest implementation of the page table is to use a set of dedicated registers. Registers are the fastest form of storage. When a process switch takes place, these registers, just as all other registers, are replaced with those of the process to run. The PDP-11 was an example of a system that had this architecture. Addresses were 16 bits and the page size was 8~KB. Yes, it was a very long time ago. The page table was therefore 8 entries and kept in fast registers. This might work if the number of entries in the page table is small, but registers are expensive. A modern page table can easily be over 1 million entries, so it would be a little bit expensive to have that many registers. Instead, the page table is kept in main memory and a single register is used to point to the page table~\cite{osc}.
 
-\subsection*{Copy-on-Write}
-Recall that in UNIX we create a new process with a call to \texttt{fork()} and that this creates an exact duplicate of the parent process. That process may replace itself with the \texttt{exec()} system call immediately. Thus it seems like it might be a waste of time to copy the memory space of the parent if the child is just going to throw it away immediately. What UNIX systems do is use the \textit{copy-on-write} technique: the parent and child share the same pages, but they are marked as copy-on-write~\cite{osc}.
+Unfortunately, this solution comes with a big catch. To access a page from memory, we need to first figure out where it is, so that requires accessing the page table in main memory. Then after retrieving that, we can look in the page table to find the frame where the desired page is stored. Then we can access that page. So two memory accesses are required for every read or write operation. Remember that as far as the CPU is concerned, main memory already moves at a snail's pace. Doubling the amount of time it takes to do a read or write means it takes roughly forever. Thus, we will need to find a way to speed this up.
 
-If there is immediately an \texttt{exec()} invocation then the new memory pages for the child are brought in and the unnecessary work is avoided. But suppose the child is to remain a clone of the parent.
+Surprise surprise, the solution is hardware: a fast cache called the \textit{translation lookaside buffer} (TLB). You can think of the TLB as a key-value pair (think HashMap). The key is the logical address and the value is the physical address. To make the search fast, the comparison is done on all items simultaneously. To prevent this from being extremely expensive, the size of the TLB is limited; it's usually something around 32 to 1024 entries in size. Systems have evolved from having no TLBs to having multiple levels, over time~\cite{osc}.
 
-Initially, all pages are shared but marked. As soon as either the parent or child attempts to modify a page, a copy of the page is made and the modification is then applied to the new copy of the page. All unmodified pages remain shared, but only the pages that are actually modified will be copied, so there is no unnecessary copying.
+When a memory read or write is issued, the page number is checked against the TLB. If it is found in the TLB then the frame number is immediately known. If the page number is not found in the TLB, this is what we call a \textit{TLB miss} and we must look in the full page table, which unfortunately is slower because it requires reading from memory. See the diagram below:
 
-Some versions of UNIX, notably Solaris and Linux, have a system call \texttt{vfork()} which skips the copy-on-write procedure. The parent process is suspended and the child process uses the memory space of the parent~\cite{osc}. So any alterations the child makes will be visible to the parent when it resumes. Thus this is potentially dangerous, as the child can wreak a whole bunch of havoc. This is efficient if the intention is to immediately \texttt{exec()} and get a new memory space.
+\begin{center}
+\includegraphics[width=0.65\textwidth]{images/tlb-hardware.png}\\
+Mapping of logical memory to physical memory via the page table~\cite{osc}.
+\end{center}
+
+The TLB idea is a specific instance of the strategy of caching. Much earlier, when talking about the basics of computer hardware, we mentioned that memory comes at different levels and and different speeds. Caching is a critical idea in computers and operating systems, so we'll talk about it next!
 
 \input{bibliography.tex}
 

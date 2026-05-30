@@ -2,103 +2,138 @@
 
 \begin{document}
 
-\lecture{ 11 --- Virtual Memory II }{\term}{Jeff Zarnett}
+\lecture{ 11 --- Caching }{\term}{Jeff Zarnett}
 
-\section*{Virtual Memory, Continued}
-
-We will continue with our discussion of virtual memory by looking at a few advanced considerations in virtual memory.
-
-\subsection*{Memory-Mapped Files}
-When we talked about inter-process communication in a previous course, one option that we covered was based around memory-mapped files. Now we can actually talk about how it works.
-
-It should not be surprising, given what we know so far, that the basic premise is that disk blocks for the file are mapped to memory and if a chunk of the file is referenced that is not in memory, it is treated as if it is a normal page fault and a page-sized piece of the file is brought into memory~\cite{osc}. In this regard it is then expected that other accesses are just memory reads and writes on the data in memory without going to disk. When the file is closed, then the data is written back to disk in its modified format. 
-
-In the one-process-using-it scenario, we don't have to worry so much about synchronizing changes, but in the inter-process communication version it was important to make sure that we chose to synchronize the file because changes might not be visible immediately. If two or more processes have the same file in memory at a time, the memory-mapped file can be in the virtual address space for the two different processes. But remember, we only go and fetch a block of the file for this process if we need it, so some explicit synchronization is needed to be certain that the data is the same for everyone.
-
-\subsection*{Arbitrary Addresses: Memory-Mapped I/O}
-Another advanced consideration for I/O when we think of memory is the need for memory-mapped I/O -- to communicate with a certain hardware device, an area of memory is mapped to the I/O device's memory. This means that although it looks like an ordinary memory read or write to main memory, in reality it might be going over the bus to a totally different device. This simplifies some operations and implementations, because communicating with the device works exactly the same way as communicating with memory -- nothing special is needed.  Part of the reason behind treating everything like a file in UNIX is to simplify the operations; something similar applies here.
-
-This contrasts with the older-style \textit{port-mapped} I/O where there are different CPU instructions and separate registers used to communicate with the device. It's not that this does not work, but it's just more difficult to work with.
-
-\subsection*{Allocation of Frames}
-In a simple system where we do not do anything advanced, if there are $n$ frames free in the system, we will demand page all of them. So the initial state is that all frames are empty, and as needed, pages are read into those frames. Once all $n$ frames are filled with pages, page $n+1$ must replace a page already in a frame (because there is no more space). When a process terminates, all its frames are marked as free. In theory, one process could fill all the frames in the system. This is as simple as it can be; from there we can build on it.
-
-We might reserve a few pages to be free at all times for performance considerations. When we want to move a page into a frame, if all of the frames are full, we select a victim and write that victim out to disk if necessary. If we keep a few frames free, the newly-read page can be read into one of the free frames, and we can write the old page out to disk at a convenient time. The read does not need to wait for the write (flush of the old page) and therefore the user process gets to continue a bit sooner than it otherwise would.
-
-Assuming, as we did with cache, that we might want to allocate different numbers of frames to different processes (and not necessarily let one run wild), we are constrained in the number of pages we can allocate. The maximum number of frames a process could have is the maximum number of frames in the system (obviously), but the minimum is more interesting.
-
-The motivation behind allocating at least a minimum number of frames is ostensibly performance. As long as our page replacement algorithm is sane (i.e., not FIFO), adding more frames reduces the page fault rate. As we demonstrated earlier, a page fault is a huge performance decrease. 
-
-The absolute minimum number of frames is determined by the architecture of the system. Imagine a machine where a memory reference instruction may contain one memory address. In the worst case, the instruction and the address are in different pages, so we will need two frames to be able to complete this instruction. If the max frames for this process were 1, the instruction could never be completed. 
-
-Another possible thing that limits the number of frames that we can move around is the need to lock pages in memory. One possible cause of this locking is an I/O operation: if the I/O has been handed off to a DMA controller, the DMA has a source and destination address and one of those may be a specific memory location and we cannot move those pages to different frames or swap them out~\cite{osc}. When the I/O operation is started, lock the relevant frame or frames, and they are ineligible for replacement while locked; when the operation is complete, then unlock it/them. Frames is plural because it is possible that the data, even if small, crosses at least one page boundary. We could avoid the need for locking if, however, data reads and writes do not take place in user-level process memory and instead the data is copied to/from some kernel buffers.
-
-Assuming we do not allocate every process the minimum or maximum, there are a few allocation algorithms we might follow. We already got a glimpse at this when we talked about local vs. global cache replacement.
-
-If there are $m$ frames in the system and the operating system reserves $k$ of them for its own use, there are $m-k$ frames available for processes.
-
-\paragraph{Equal Allocation.}  If there are $n$ processes in the system, if we allocate them equally, each process gets $(m-k)/n$ frames. If this division produces a remainder, the leftover frames can be kept as a pool of free frames for performance purposes as above. There is an obvious flaw in this plan: why does a text editing program get the same amount of frames as a web browser and the same amount of frames as a game (which tends to be VERY demanding on memory).
-
-\paragraph{Proportional Allocation.} So how about proportional allocation: each process should get a share of the frames based on its needs. The strategy suggested in~\cite{osc} to do frame allocation runs something like this. Let the virtual memory size of a process $p_{i}$ be defined as $s_{i}$. Thus $S = \Sigma s_{i}$. If the total number of frames in the system is, once again, $m$, and the operating system reserves $k$ for itself, then we allocate $a_{i}$ frames to a process $p_{i}$ according to the following formula: $a_{i} = s_{i} / S \times (m - k)$.
-
-This value of $a_{i}$ is only an estimate. It may not divide evenly, and we can only allocate an integer number of frames to each process.  So we will have to raise or lower $a_{i}$ a bit to make it an integer. If $a_{i}$ is below the minimum number of frames, then it needs to get bumped up to that minimum. We also must respect the limits of the system: the sum of all $a_{i}$ values may not exceed the total frames of memory (minus the OS reserve), so a few of the larger processes may need to have their allocations nudged down.
-
-Note that with proportional allocation, as with equal allocation, there is no regard given to the priorities of the processes. Normally, we would want to give more frames to higher priority processes so their page fault rates are lower and they can therefore execute more quickly. So we could modify the $a_{i}$ values according to process priority, as well~\cite{osc}. The subject of priority is something we have not yet examined much yet, but will do so soon when we get to talking about scheduling; the next major topic. But, first, let's finish what we are doing with memory.
+\section*{Caching}
+\begin{quote}
+\textit{Caching is very... hit and miss.}
+\end{quote}
 
 
-\subsection*{Thrashing}
-Thrashing received a little bit of mention in the introduction to virtual memory, but it deserves some further consideration. The quick definition of thrashing still applies: the operating system is spending so much time moving pages into and out of memory that no useful work gets done. Aside from intentionally depriving the system of RAM (as in the NeXTStep scenario), how can we get into this state, and how can we get out of it?
+Caching is very important in computing, and not just memory. We examine the idea of caching in the context of memory, but it is applicable any time there is a large resource that is divided into pieces, some of which are used more often than others. Caching provides a significant benefit in some circumstances and not useful in others (hence ``hit and miss''). The goal of caching is to speed up operations. It is desirable to read information from cache, when possible, because it takes less time to get data from cache to the CPU than from main memory to the CPU. CPUs are a lot faster than memory and it is best if we do not keep them waiting.
 
-Let's consider a simple example from~\cite{osc}. In simple operating systems, the logic that controlled how many processes to run at a time would rely just on the CPU utilization. If CPU utilization is low, the CPU needs more work to do! Assign it more work by starting or bringing more processes into memory. The global page replacement policy is used here, so when a process gets a page fault, it takes a frame from another process. Under most circumstances, this works just fine.
+Caches do not have to operate on pages; they can operate on anything, but they are typically blocks of a given size. An entry in a cache is often called a \textit{line}. We will assume for the balance of this discussion that a cache line maps nicely to a page.
 
-This situation is not obviously wrong until one process starts to have a lot of page faults. This is not unreasonable; a compiler might be finished with reading and parsing the input files and moving to generation of binary code, for example, which requires a whole bunch of new instructions pages, plus the pages for the output. When this process does so, it starts taking pages from other processes. The victim processes need the pages they had, so when they get a turn to run, they too start generating page faults. So more and more requests are queued up for memory writes and reads, so the CPU is not very busy. Here's the fatal mistake: seeing that the CPU is not very busy, the OS schedules \textbf{more} programs to run.  
-
-A new process getting started will need at least the minimum number of pages to get started. These have to come from somewhere, so they will necessarily come from the pages currently belonging to other processes. This causes more page faults and more time spent paging and lower CPU utilization... prompting the OS to start more processes. No more work is getting done, because the system spends all its time moving pages into and out of memory, thrashing all around, acting like a maniac\footnote{Whiplash! ... If this joke means nothing to you, it's also because I'm old.}.
+As discussed, the CPU generates a memory address for a read or write operation. The address will be mapped to a page. Ideally, the page is found in the cache, because that would be faster. If the requested page is, in fact,  in the cache, we call that a cache \textit{hit}. If the page is not found in the cache, it is considered a cache \textit{miss}. In case of a miss, we must load the page from memory, a comparatively slow operation. A page miss is also called a \textit{page fault}. The percentage of the time that a page is found in the cache is called the \textit{hit ratio}, because it is how often we have a cache hit. We can calculate the effective access time if we have a good estimate of the hit ratio (which is not overly difficult to obtain) and some measurements of how long it takes to load data from the cache and how long from memory. The effective access time is therefore computed as:
 
 \begin{center}
-\includegraphics[width=0.5\textwidth]{images/thrashing.png}\\
-Thrashing~\cite{osc}.
+Effective Access Time = $h \times t_{c} + (1-h) \times t_{m}$
 \end{center}
 
-The solution is simple, actually; to increase CPU utilization we need to stop the thrashing which means we need fewer programs in memory at a time. What this really tells us is that CPU usage alone is not a sufficient indicator of whether more or fewer processes need to be running right now. It also matters \textit{why} the CPU utilization is low. Another reason that might cause low CPU usage is, as you may recall, deadlock. 
+Where $h$ is the hit ratio, $t_{c}$ is the time required to load a page from cache, and $t_{m}$ is the time to load a page from memory. Of course, we would like the hit ratio to be as high as possible. 
 
- What if we stop using a global replacement policy and instead force local replacement? This limits some of the damage; if Process $P_{1}$ is thrashing,it cannot steal pages from $P_{2}$ and we do not get a cascade where all processes are constantly fighting over who has how many pages. But, if $P_{1}$ is spending all its time paging to and from disk, any other process that wants to use the disk (whether to swap or to interact with files) is going to have to spend more time waiting for the disk to be free.  
- 
-We could decide whether we need to start or suspend programs not just based on CPU usage, but also on the number of page faults that occur in a given period of time. If there are too many page faults, it indicates we have too much going on. That is a reactive solution, however, and might only engage after a fair amount of time and effort has been wasted in thrashing. It would be better to be proactive and deal with this before thrashing has started.
- 
-As is typical, a bit of clairvoyance would help here: how many pages is the process going to need and when will it need them? Unfortunately, there is no good way to know or to figure this out. So we will have to rely on (educated) guessing. You may hate the idea of guessing. As a general engineering practice, ``let's do an experiment and find out'' is good, provided you can analyze the result and if things go horribly wrong, no damage is done. Those last conditions make it kind of infeasible to do medical experiments just to see what would happen, or for NASA to play around with satellites in orbit. So in those cases, a simulation is probably the better approach. Even so, sometimes we don't have (or can't get) the data we need and we will therefore need to ``make our best guess''. But we are digressing.
-
-What do we know about process memory accesses? They tend to obey the principle of locality, both temporal and spatial. Recall this from the discussion about caching. We could think of different parts of the program as different localities, as if they were areas on a map. And localities may overlap sometimes. So what we would like to do, then, is give a process enough frames for its locality. If we do so, it can operate in this little area without encountering (too many) page faults. If we give insufficient pages, the process will be thrashing. Eventually it will leave the locality and that will result in some more page faults, but this is generally unavoidable~\cite{osc}.  
-
-Before coming up with a solution that relies on locality, it is a good idea to check that the principle of locality holds. Fortunately we do not have to verify this for ourselves; someone else has already done so:
+Caches have limited size, because faster caches are more expensive. With infinite money we might put everything in registers, but that is rather unrealistic. Caches for memory are very often multileveled; Intel 64-bit CPUs tend to have L1, L2, and L3 caches. L1 is the smallest and L3 is the largest. Obviously, the effective access time formula needs to be updated and expanded, when we have multiple levels of cache with different access times and hit rates. See the diagram below:
 
 \begin{center}
-\includegraphics[width=0.75\textwidth]{images/locality.png}\\
-Graph showing the locality of memory accesses -- it is real!~\cite{locality}.
+\includegraphics[width=0.6\textwidth]{images/caches.png}\\
+Three levels of cache between the CPU and main memory~\cite{osi}.
 \end{center}
 
-The take-away from this graph is that yes, locality is real. Given that, we can now move on and use it.
+If we have a miss in the L1 cache, the L2 cache is checked. If the L2 cache contains the desired page, it will be copied to the L1 cache and sent to the CPU. If it is not in L2, then L3 is checked. If it is not there either, it is in main memory and will be retrieved from there and copied to the in-between levels on its way to the CPU. Because caches have limited size, we have to manage this storage carefully.
 
+\subsection*{Page Replacement Algorithms}
+Whenever a page fault occurs, the operating system needs to choose which page to \textit{evict} from (kick out of) the cache to make space for the new one. This assumes that the cache is full, which it likely is except at system startup. We could, of course, just select a random page, but we should do this task more intelligently, if we can.
 
-\subsection*{The Working-Set Model}
+To make an intelligent decision about what sort of strategy to choose, we need to know a few things about how data is accessed in a system. A few observations from~\cite{mte241}:
 
-A potential solution is the working-set model as described in~\cite{osc}. We retain the last $n$ pages in memory as they represent the locale of the program. Assuming that most memory accesses are local, the most recent $n$ pages will be the most frequently used. In the textbook descriptions, this $n$ is usually called $\Delta$,the working set window. Pages that have been recently used are in the working set. If a page has not been accessed recently, it will drop out of the working set after $\Delta$ time units since its last reference. 
+\begin{enumerate}
+	\item A rule of thumb in software engineering is that 10\% of the source code will be executed 90\% of the time. This is a variant on the Pareto Principle, also known as the 80/20 rule\footnote{Note that the 80/20 rule is not always applicable. For example, studying 20\% of the course material is unlikely to earn you 80\% of the marks on the exam.}. This may seem sensible to you given that code has a lot of handling of special cases and rarely used operations.
+	\item The principle of \textit{temporal locality}: a memory location that has been recently accessed is likely to be accessed again in the future. 
+	\item The principle of \textit{spatial locality}: a memory location near one that has recently been accessed is likely to be accessed again in the future.
+\end{enumerate}
 
-Suppose the window is defined as being ten accesses. Any page that was accessed in the last ten requests will then be considered part of the working set. If the next ten memory accesses are all in page $k$, then after those further ten accesses, the working set will contain only $k$. So the size of the working set will change over time and can be anywhere from 1 to $\Delta$ pages.
+An example of code that would involve both spatial and temporal locality might be a function that sums up all the values of an array. The sum variable is accessed repeatedly, and the fact that it was recently accessed means it is likely to be accessed again soon. The array being accessed at index $i$ now means it is likely that the array at index $i+1$ is likely to be accessed soon.
 
-If $\Delta$ is too small, the working set will not encompass the entire locale. If it is too large, it will cover multiple locales. Underestimating the size of the locale is bad, because it will mean more page faults being caused. Overestimating is also bad, because it means fewer processes will be allowed to run.
+If a page has been altered in cache, then that change has to be written to main memory at some point. It can be done immediately when the page is changed, or it can be done when the page is evicted from the cache. The second option means fewer main memory accesses, if a page is written to multiple times before it is sent to main memory. If that memory is shared, however, between multiple processors or an I/O device, then the delay in updating main memory may be intolerable. If a page has not been modified in cache, it can simply be overwritten. If all other factors are equal, we should replace a page that has not been modified, as the work to write it out to memory need not be done.
 
-If the working set of every process is summed up, we will get the total number of frames each process would ``like'' to have. If this sum exceeds the $(m-k)$ available frames in the system, at least one process is going to be unhappy because it does not have as many frames as it will need. And like unhappy workers who go on strike, unhappy process start thrashing.
+\paragraph{The Optimal Algorithm.}
+The optimal page replacement algorithm is fairly simple: replace the page that will be used most distantly in the future. For each page, make a determination about how many instructions in the future that page will be accessed. The selected page is the one with the highest value.
 
-Once a value of $\Delta$ is determined, the OS will monitor the working set of each process and use that to figure out if the system is currently overloaded. If it is, the OS will pick a victim and suspend it to prevent thrashing. If the system is underloaded (frame supply exceeds demand), more processes can be started to run.
+Unfortunately, there is a glaring flaw in this algorithm: it is impossible to implement. It requires clairvoyance (seeing into the future), and at least as far as I know, nobody has invented a way to do so reliably\footnote{Recall the joke ``Why do you never see the newspaper headline that a psychic has won the lottery?''}. The program and operating system have no real way of knowing which pages will be used in the future.
 
-Now we should examine how this solution works. The page fault rate of a process tends to vary over time. At the beginning, there will be a bunch of page faults as the program starts up. Then once established in its first locale, the rate will drop. When it come time to move to a new locale, the page fault rate rises until the program is ``settled'' in that new locale. See the graphic below:
+As it is unimplementable, it is mostly a benchmark against which other algorithms can be compared. If we know that a given algorithm is, say 1\% less efficient than the hypothetical optimal algorithm, then no matter how much we improve that algorithm, the best performance increase we can get is 1\%~\cite{mos}.
+
+\paragraph{Not-Recently-Used.}
+Operating systems may collect page usage statistics. If so, computers may have two status bits associated with each page, called $R$ and $M$. The $R$ bit is set when a page is referenced (either read or written) and the $M$ bit is set when the page is written to (modified). Once a bit is set, it remains so until the OS changes its value. The $R$ and $M$ bits can used to build a paging algorithm as follows~\cite{mos}:
+
+Initially, $R$ and $M$ are 0. Periodically, the $R$ bit is cleared to distinguish pages that have not been recently referenced. This may happen every clock interrupt, for example. When a replacement needs to take place, the operating system will examine all the pages and sort them into four buckets based on the $R$ and $M$ bits, in ascending order of precedence:
+
+\begin{enumerate}
+	\item Not referenced, not modified.
+	\item Not referenced, modified.
+	\item Referenced, not modified.
+	\item Referenced, modified.
+\end{enumerate}
+
+The OS will prefer to remove a page from the lowest-numbered class, when possible. This NRU algorithm is fairly easy to understand and may provide adequate performance.
+
+\paragraph{First-In-First-Out.}
+First-In-First-Out is quite easy to understand and implement; the idea is some sort of temporal locality. If there are $N$ frames, keep a counter that points to the frame that is to be replaced (the counter ranges from $0$ to $N-1$). Whenever a page needs to be replaced, replace the page at the counter index and increment the counter, wrapping around to 0 where necessary.
+
+Some of the time this strategy works: if a page is not going to be referenced again (or at least, for a very long time), it is a good choice to get rid of. Often times, however, the same page is referenced repeatedly, and this algorithm does not take that into account. If a page is referenced often, we want to keep it in memory, not evict it just because it has been in the cache the longest. So FIFO is probably not the best choice.
+
+\paragraph{A Second Chance (the Clock Algorithm).} 
+To improve on the FIFO algorithm, suppose we give pages a ``second chance'' based on whether or not the $R$ bit is set. If the oldest page has not been used recently (the $R$ bit is not set), then the oldest page is removed. If the oldest page has recently been referenced, the R bit is cleared. The search then goes backwards (to the next-oldest page) and repeats the procedure. This happens until a page is removed. Because the algorithm clears the $R$ bit as it goes, even if all pages have recently been referenced, eventually a  page will be selected and evicted. Thus the algorithm will eventually terminate. The index is updated whenever this happens so a page that got a second chance is not the ``oldest'' anymore. In some textbooks this is called the Clock replacement algorithm because we can think of the cache as a circular buffer and the current oldest page as being pointed to by the hand of the clock~\cite{mos}. 
+
+This addresses the problem of a page that is frequently used eventually becoming the oldest and being evicted, only to be brought back into memory again immediately afterwards.
+
+\paragraph{Least Recently Used (LRU).}
+The least recently used (LRU) algorithm means the page that is to be replaced is the one that has been accessed most distantly in the past. You might consider time stamps and searching a list, but because there are only two operations, it need not be that complex. When a page in the cache is accessed, move that page to the back of the list. When a page is not found in cache, the page at the front of the list is removed and the new page is put at the back of the list. This requires nothing more than a cyclic doubly-linked list. Both operations can be performed in $\Theta(1)$ time~\cite{mte241}.
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/workingset.png}
+\includegraphics[width=0.7\textwidth]{images/lru-linkedlist.png}\\
+A cyclic, doubly-linked list in which the \texttt{head} pointer indicates the least recently used page~\cite{mte241}.
 \end{center}
 
-Here's an analogy. Imagine that you have moved to a new city for a co-op term. When you have just moved, you will frequently rely on Google Maps (or whatever other map program you like... or even, dare I say it, the paper ones?!) to find what you are looking for and how to get there. You need to buy groceries, so you ask Google for directions to the nearest grocery store of choice. Once you've been there, you know the way so you don't have to ask again. Not knowing where the grocery store is equals a page fault, and asking Google is like asking the operating system to bring in that page from disk. Once you know the way to the grocery store, it is part of your working set and you do not have to ask again... until your next co-op term when you move somewhere else.
+\paragraph{Not Frequently Used (NFU).}
+The not frequently used (NFU) algorithm is similar to the LRU approach, but can be implemented in software rather than relying on hardware support that may not be present. Each page gets an associated software counter, which starts at 0. Whenever the $R$ bit would have been updated to 1, 1 is added to the counter. When a page is to be replaced, the page with the lowest counter value is the one that is replaced~\cite{mos}. 
+
+It may occur to you that this solution has a problem: like an elephant, it never forgets and counters can never decrease. A page that was accessed very frequently at the start of the program will accumulate a high counter value early on, and therefore might never be evicted, even though it is not needed again. What we need is a way for the count to decline over time. 
+
+The solution is called \textit{aging}: counters are shifted to the right by 1 bit before the 1 is added; and instead of adding 1 (which increments the rightmost bit), set the leftmost bit to 1. Now we have a bit array of byte size (no need for a 4-byte integer, most likely). Thus, a page that has not been referenced in a while has its value decrease over time. The page replacement algorithm still evicts the lowest value page when it is time to replace a page. We lose a certain amount of precision compared to the LRU approach: if pages $a$ and $b$ both have patterns of \texttt{00000001} we know they were both last accessed 8 cycles ago, but all history before that point is lost. Which page between $a$ and $b$ was least recently used is unknown~\cite{mos}. 
+
+\paragraph{Pre-Paging.}
+Thus far all of our strategies for putting things in the cache have been ``on-demand'': it is only when a page is needed and not found in the cache that a page is loaded into the cache. Suppose instead that the operating system takes some steps to guess about what pages might be needed next, based on the principle of temporal or spatial locality. This might reduce the amount of time spent waiting for a page in the future.
+
+Predicting which pages are likely to be used in the near future is, indeed, a matter of clairvoyance. There exist various techniques to determine the likely pages to be used frequently (called the ``working set''), but they are complex and will not be examined further right now.
+
+A situation in which pre-paging might be useful is when a program is started or swapped into memory. Technically, no pages of the process need to be loaded into the cache to start with; we can simply suffer through a whole bunch of page faults. This is rather slow; it might be better to load multiple pages into the cache to start with, though this will of course require some guesses about what pages will be needed~\cite{mos}.
+
+\subsection*{Choosing an Algorithm}
+Consider the following table that gives a quick overview of the algorithms we have discussed:
+
+\begin{center}
+\begin{tabular}{l|l}
+	\textbf{Algorithm} & \textbf{Comment} \\ \hline
+	Optimal & Impossible to implement, but a benchmark to compare against\\
+	Not Recently Used &  Not very good performance \\
+	First In First Out & Highly suboptimal \\
+	Second Chance & Much better than FIFO, but just adequate \\
+	Least Recently Used & Best performer, difficult to implement? \\
+	Not Frequently Used & Approximation of LRU \\
+	NFU + Aging & Better approximation of LRU\\
+\end{tabular}
+\end{center}
+
+If hardware is available to support it, the LRU algorithm is the best. If not, the NFU + Aging scheme is the next best thing we can implement. Unless there is a specific reason to choose one of the other algorithms, LRU is very likely to be the algorithm selected.
+
+\subsection*{Local and Global Algorithms}
+When a process switch occurs, we could dump the entire cache to make way for the next process to run, but this is most likely unnecessary work. If a process $P_{1}$ is suspended now, $P_{2}$ may run for a while and then $P_{1}$ runs again; it may be that when $P_{1}$ starts again, some of its pages are still in the cache and do not need to be loaded again. If $P_{2}$ did replace all the cache lines, then $P_{1}$ will have to load them all in again, but that is the worst case scenario. So we may have multiple processes with pages in the cache at a given time.
+
+Another important consideration in the page replacement algorithm is whether that algorithm should care about which process the page belongs to or not. Suppose we are using the LRU algorithm. If process $P_{1}$ has a page fault, do we replace the least recently used page in all the cache (global replacement)? Or do we replace the least recently used page in the cache that belongs to $P_{1}$ (local replacement)?
+
+Of course, different levels of cache might have different strategies: if the L1 cache is 16~KB and pages are 4~KB, there can be 4 pages in the L1 cache, so global replacement probably makes sense there. If L2 cache is 256~KB there are 64 pages and maybe local replacement makes sense there, but even 64 pages is fairly small. When caches are somewhat larger, however, things may be a bit more interesting.
+
+Local algorithms give each process some (roughly) fixed number of pages in the cache. Global algorithms dynamically allocate cache space to different programs based on their needs, so the number of pages in the cache for each process can vary over time. 
+
+According to~\cite{mos}, global algorithms work better, especially when processes' memory needs change over time. If the local algorithm is used, we may be wasting some of the space in the cache for a process that does not really need it. 
+
+Suppose we have a sufficiently large cache, and a dynamic allocation (global algorithm) with some intelligence to keep any process from having too many or too few pages in the cache. To manage the complexity of how much of the cache should be allocated to a particular process, we might wish to keep track of the number of page faults with a measure called the \textit{page fault frequency} or PFF. In simplest terms, the PFF is the guide for telling whether a given process has too few, too many, approximately the right number of pages. 
+
+If the PFF is above some upper threshold, that indicates that more cache space is needed for that process. If the PFF is below some lower threshold, it suggests that the process has too much cache space allocated and could stand to part with some.
+
+PFF relies on an assumption: that the page replacement algorithm has the property that fewer page faults will occur if a process has more pages assigned. This is the case for the LRU algorithm, but not necessarily true for the FIFO approach~\cite{mte241}.
+
 
 \input{bibliography.tex}
 

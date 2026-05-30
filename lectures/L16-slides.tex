@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture  16 --- Real-Time Scheduling Algorithms }
+\title{Lecture 16 --- Scheduling: Idling, Priorities, Multiprocessor }
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -16,552 +16,740 @@
  \end{frame}
 
 
-\begin{frame}
-\frametitle{Onward Then}
-
-We talked about what makes scheduling for real-time systems different.
-
-We already covered timeline scheduling.
-
-Let's go back to the uniprocessor world to start...
-
-\end{frame}
-
 
 \begin{frame}
-\frametitle{Earliest Deadline First}
-
-The earliest deadline first algorithm is, presumably, very familiar to students. 
+\frametitle{Scheduling Algorithms, Continued}
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/deadlines.jpg}
+	\includegraphics[width=0.3\textwidth]{images/theresmore.jpg}
 \end{center}
 
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Earliest Deadline First}
-
-Assignment due today, an assignment due next Tuesday, and an exam next month, then you may choose to schedule these things by their deadlines. 
-
-Do the assignment due today first. 
-
-After completing an assignment, decide what to do next (probably the new assignment, but perhaps a new task has arrived in the meantime?) and start.
-
+Carrying on from last time, we will examine some more scheduling algorithms.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Earliest Deadline First}
-
-The principle is the same for the computer. 
-
-Choose the task with the soonest deadline; if there is a tie, then random selection between the two will be sufficient (or other criteria may be used). 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Earliest Deadline First}
-
-If there exists some way to schedule all the tasks such that all deadlines are met, this algorithm will find it. 
-
-If a task is executing and another task arrives with a sooner deadline, the currently executing task should be suspended and the new task scheduled. 
-
-This may mean a periodic task being preempted by an aperiodic/sporadic task.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Implementing EDF}
-
-A priority queue is reasonable...
-
-Sort by deadline? Does that account for task type?
-
-Ah, but what if we're overloaded...?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deadline Interchange}
-
-This deadline-based approach is subject to a problem that very much resembles priority inversion.
+\frametitle{Highest Response Ratio Next}
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/takeit.jpg}
+	\includegraphics[width=0.8\textwidth]{images/responsive.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Deadline Interchange}
-Suppose a task $A$ has locked a mutex and then a new task $B$ arrives that also needs that mutex and has a sooner deadline than $A$. 
+\frametitle{Highest Response Ratio Next}
 
-Task $A$ would therefore be preempted in favour of $B$, at least until $B$ gets blocked. 
+We will introduce a new measure: \alert{normalized turnaround time}. 
 
-If there are other tasks $C, D, E$... that also want this resource, $A$ could be waiting a long time to proceed.
+This is the ratio of the turnaround time (the time waiting plus the amount of time taken to execute) to the service time (the time it takes to execute). 
 
-Even if $B$ misses its deadline!
+We can tolerate longer processes waiting a comparatively longer period of time. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Deadline Interchange}
+\frametitle{Highest Response Ratio Next}
 
-The best way to make that happen would be to assign to $A$ a new deadline, specifically the soonest deadline from all the tasks waiting for it. 
+Goal: minimize not only the normalized turnaround time for each process, but to minimize the average over all processes.
 
-Doesn't that look like priority inheritance?
 
 \end{frame}
 
+\begin{frame}
+\frametitle{HRRN}
+
+Calculate $R = \frac{w + s}{s}$ 
+where $w$ is the waiting time and $s$ is the service time. 
+
+The service time is, as always, a guess. 
+
+When it is time to select the next process to run, choose the process with the highest $R$ value. 
+
+A new process will have a value of 1.0 at the beginning, because it has spent no time waiting (yet). Thus it is not that likely to get selected.
+
+
+\end{frame}
 
 \begin{frame}
-\frametitle{Least Slack First}
+\frametitle{HRRN}
 
-A similar algorithm to earliest deadline first, is least slack first.
+Jobs with a small $s$, i.e., short jobs, are likely to get scheduled quickly. 
+
+The HRRN approach introduces something important: age of the process. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{HRRN}
+
+A process that has spent a long time waiting rises in priority until it gets a turn. 
+
+So processes will not starve, because even a process that is expected to have a very long $s$ will eventually have a high enough $R$ due to the growth of $w$.
+
+We still need to estimate $s$, which may or may not be simple guessing. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Multilevel Queue (Feedback)}
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/slack.png}
+	\includegraphics[width=0.6\textwidth]{images/levels1.jpg}
+	\includegraphics[width=0.6\textwidth]{images/levels2.jpg}
 \end{center}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Least Slack First}
+\frametitle{Multilevel Queue (Feedback)}
 
-\alert{Slack}: how long a task can wait before it must be scheduled to meet a deadline.
+For the most part, until now, we have treated processes more or less equally (except when we have taken the highest priority process). 
 
-If a task will take 10~ms to execute and its deadline is 50~ms away, then there are (50 - 10) = 40~ms of slack time remaining.
-
-Start the task before 40~ms are expired if we want to be sure that it will finish. 
+While it might seem very fair, it may not be ideal for a situation where processes behave differently. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Least Slack First}
-This does not mean, however, that we necessarily want to wait 40~ms before starting the task (even though many students tend to operate on this basis). 
+\frametitle{Multilevel Queue (Feedback)}
 
-All things being equal, we prefer tasks to start and finish as soon as possible. 
+A desktop or laptop has many processes running (foreground/background). 
 
-It does, however, give us an indication of what tasks are in most danger of missing their deadlines and should therefore have priority.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Rate-Monotonic Scheduling}
-
-The name doesn't explain this one super well.
-
-EDF and LSF don't really consider priorities.
-
-Rate-Monotonic scheduling is based around the idea of basing priority on the period -- tasks that execute more often are given higher priority.
+We can apply different scheduling algorithms to different types of process.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Not Quite Optimal}
+\frametitle{Multilevel Queue (Feedback)}
 
-This algorithm is, however, not perfect.
+The multilevel queue takes the ready queue and breaks it up into several. 
 
-It's possible to fail to schedule things in such a way that all tasks meet their deadlines even if utilization is less than 1.
+A process can be in one (but only one) of the queues. 
 
-Example: $n$ periodic tasks with the form $(C_{k}, \tau _{k})$: (1, 4), (3, 7), and (3, 10).
+It is assigned to the queue based on some attribute of the process (priority, memory needs, foreground/background, et cetera). 
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{That's Not Supposed to Happen}
-
-
-Utilization is less than 1 so it should be possible to solve this one: ($1/4 + 3/7 + 3/10 = 137/140$). 
-
-Earliest Deadline First would have been able to schedule this such that it met all deadlines. 
+\frametitle{Multilevel Queue (Feedback)}
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/deer.jpg}
+	\includegraphics[width=\textwidth]{images/choice-sweat.jpg}
+\end{center}
+
+The foreground queue, for example, could be scheduled by Round Robin, and the background by First-Come, First-Served.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Multilevel Queue (Feedback)}
+
+When there are multiple queues, we also need a way of choosing which of the queues to take from next. 
+
+We might say some queues have absolute priority over others, or we might have time slicing amongst the queues. 
+
+This could be balanced evenly (rotate through each) or give more time slices to some queues at the expense of others.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{MLQ Example: CTSS}
+
+An example of this was the Compatible TimeSharing System on the IBM~7094. 
+
+Give CPU-Bound processes longer blocks of time to execute so they would not have to spend so much time swapping. 
+
+In the highest priority class, a process got 1 time slice; in the next one down, a process got 2 time slices; the third class meant 4 time slices, and so on. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{MLQ Example: CTSS}
+
+If a process ran up against the limit of a time slice it was moved down a class. 
+
+So it got a lower priority, but when it did get selected to run, it was able to run with a lower chance of being interrupted.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{CTSS: Ratchet}
+
+Like a few schemes we have seen so far, this is a ratchet. 
+
+A process can move down in the priority list, but there does not appear to be a way for it to move up. 
+
+A process that needed a lot of CPU early on was going to be punished ``forever''.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{CTSS: Meddling Users}
+
+If the user pressed the Enter key, it might be a sign the process was likely to become interactive (and therefore should move up in priority). 
+
+Some genius user (there's always one), figured out that by pressing the enter button repeatedly, his long running processes would finish faster. 
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/meddling.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Take the Test}
+\frametitle{CTSS: Meddling Users}
 
-To figure out if it's possible to schedule things, there's a test. 
+This was a bit unfair; his processes got priority over the others. 
 
-It turns out that it's very difficult to do this dynamically in real-time, so we have to use a less-precise formula.
+Things really broke down when this individual decided to be nice:\\
+\quad ... He told all his friends. 
+
+Suddenly everyone was doing it and the benefit of the system was lost.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{MLQ/Feedback}
+
+This scheduling algorithm may also be referred to as \alert{feedback}. 
+
+We do not have any information in advance about how long processes will be. 
+
+Assign priority based on the amount of CPU time assigned so far. 
+
+A process that has used a lot of CPU so far gets lower priority.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Guaranteed Scheduling}
 
 \begin{center}
-	$\Pi^{n}_{k=1}( 1 + \dfrac{c_k}{\tau _k}) \leq 2$.
-\end{center}
-
-Remember: uncertain success is not certain failure.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deadline Monotonic}
-
-A variant of this is deadline-monotonic scheduling, in which case priority is assigned based on deadlines.
-
-The task with the shortest deadline is assigned the highest priority.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Aperiodic Servers}
-
-\begin{center}
-	\includegraphics[width=0.3\textwidth]{images/witchking.jpg}
-\end{center}
-
-A task with a soft deadline is challenging to schedule here, because it's hard for the scheduler to know whether a task is soft- or hard-real time.
-
-One possibility is to say that aperiodic or soft-deadline tasks are always lower in priority than any firm- or hard-real time task.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Polling Server}
-
-A polling server is, in its own way, a little container in which aperiodic tasks occur.
-
-\begin{center}
-	\includegraphics[width=0.3\textwidth]{images/redhour.jpg}
-\end{center}
-
-The server is itself a hard-deadline periodic task with a fixed execution time budget and a deadline equal to its period.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Periodic Server}
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/periodic-server.jpg}
-\end{center}
-
-During the execution time of the server task, the aperiodic tasks waiting will run sequentially.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Too Much or Too Little}
-
-If there are too many tasks or they otherwise take too long and they do not finish, the aperiodic tasks just carry over to the next time the server runs. 
-
-If there are not enough aperiodic tasks and there's time left over, just end the server task execution (throw away the extra time) and let something else run.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Periodic Server Analogy}
-
-\begin{center}
-	\includegraphics[width=0.75\textwidth]{images/lunchtime.jpg}
-\end{center}
-
-Do you have to use your lunch break for eating lunch?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Multiple Servers}
-
-We can have different servers that work on different kinds of tasks.
-
-In the lunch break analogy, what if there's lunch breaks and coffee breaks?
-
-\hfill \includegraphics[width=0.3\textwidth]{images/duo-peeking.png}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Does It Work?}
-Polling server does not affect the ability of the system to complete the hard-deadline tasks.
-
-The background server's behaviour is predictable!
-
-Downside: response time for aperiodic tasks.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Variant: Deadline-Deferrable}
-
-Improved version: deferrable server.
-
-Instead of throwing away the time budget if it's unused at the end of the period and there's nothing to do, save that leftover time.
-
-Either the time is used up or eventually expires.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deferrable Server}
-Finished with 40\% budget remaining?
-
-Polling server: Throw it away.\\
-\quad... Back to work even if lunch finished in 45 minutes; 15 mins lost.
-
-Deferrable server: Keep it until the end of the period.\\
-\quad Save those 15 minutes for later in the day, but can't carry over to tomorrow.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Reminder: Consult a Lawyer}
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/attorneys.jpg}
-\end{center}
-
-Note that none of this is a substitute for legal advice from an employment lawyer about the rules \& regulations around legally required breaks during the workday.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Variant 2: Deadline-Sporadic}
-
-Next idea: sporadic server!
-
-
-Instead of losing the extra unused period, it can be saved, indefinitely. 
-
-The replenishment of the budget forces execution to be spread out more evenly.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Why Does Spreading It Matter?}
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/balanced.jpg}
-\end{center}
-
-\begin{center}
-	\includegraphics[width=0.7\textwidth]{images/ttc.png}
+	\includegraphics[width=\textwidth]{images/guarantee.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Spreading It Out}
+\frametitle{Guaranteed Scheduling}
 
-Execution time for the server is broken down into chunks.
+Promise the users something and then fulfill that promise. 
 
-When a chunk is depleted, it's scheduled for replenishment in the future.
+If there are $n$ users, each gets an equal share (1/$n$) of the CPU time. 
+
+Or with $m$ processes, each process gets 1/$m$ of the CPU time.
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Replenishment is Familiar Maybe}
+\frametitle{Guaranteed Scheduling}
+
+The system must keep track of how much CPU time each process has received. 
+
+It then considers the how this value compares to the ideal. 
+
+If a process has a value of 0.5, it had only half the CPU it ``should'' have received. 
+
+If it has a value of 2.0, it has had double. 
+
+So the scheduling algorithm is then to run the process with the lowest score, trying to keep all values as close to 1.0 as we can
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Lottery}
+
+The lottery is a system to give predictable results with a simple implementation. 
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/duolingo-hearts.png}
-	\includegraphics[width=0.4\textwidth]{images/aws.jpg}
+	\includegraphics[width=0.5\textwidth]{images/lottery.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Variant 3: Deadline Exchange Server}
-Like Deadline-Deferrable server, but simplifies tracking the chunks.
+\frametitle{Lottery}
 
-Any remaining execution time is discarded when the request queue is empty and the wait for replenishment is based on the last chunk of execution time used.
+The premise is that every process gets some number of ``lottery tickets'' for each resource (e.g., CPU). 
 
-This is simpler to implement since there's only ever one replenishment to track and the replenishment is always the full quota. 
+When a decision has to be made, a lottery ticket is selected at random. 
 
-\end{frame}
-
-\begin{frame}
-\frametitle{But Does it Work?}
-
-Simulation studies show that different forms of the period server approach are effective for different workloads.
-
-Remember: it's possible to have different servers configured for different aperiodic tasks to give the best balance of prioritization and performance.
+The process that holds that ticket gets that resource.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Multiprocessor Math}
+\frametitle{Lottery}
 
-Now it's time to get out of uniprocessor and into multiprocessor scheduling.
+This system provides clarity; if a process has priority $p$, what does that mean? 
 
-Task $\rightarrow$ things that need doing.
+If a process has a fraction $f$ of the total tickets, then we can expect that process to get about $f$\% of the resource. 
 
-Job $\rightarrow$ specific instance of the task to run.
+When a process is created or terminates this may increase or decrease the number of tickets, or result in their redistribution.
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Three Relevant Questions}
-
-Is preemption permitted?
-
-Is job migration permitted?
-
-Is job parallelism permitted?
 
 \end{frame}
 
 \begin{frame}
-\frametitle{This Is Mine And You Can't Have It}
+\frametitle{Lottery}
 
-Dedicated CPUs are an option, possibly with manual assignment. 
+More important processes get more tickets \& have a higher chance of winning. 
 
-That makes it more like the uniprocessor situation.
+If there are 100 tickets outstanding, if a process has 25 of them, it has a 25\% chance of winning any given draw. 
+
+To increase a process's chance of winning, give it more tickets.\\
+\quad To decrease it, give it fewer. 
+
+Unlike in the real lottery, though, there is always a winner.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Lottery}
+
+Co-operating processes may be permitted to exchange tickets. 
+
+A client that sends a request to a server might then give its tickets to the server.
+
+This increases the chance the server gets the resources to run next and respond.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Lottery}
+
+This is a lot less overhead than guaranteed scheduling. 
+
+We do not keep track of how much of the resource a process has received. 
+
+Assuming that the lottery system is sufficiently random, over time the resource allocation will tend towards the proportions of the tickets each process holds. 
+
+If process $A$ has 20\% of the tickets, $B$ has 30\%, and $C$ has 50\%, then the CPU will be given to the processes in approximately a 20:30:50 ratio, as expected.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Idle Task}
+
+Sometimes our scheduling algorithm cannot produce a new process to run next because there is, quite frankly, nothing to do. 
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/yearsofexperience.jpg}
+	\includegraphics[width= \textwidth]{images/bored.jpg}
+\end{center}
+
+The actual implementation of the idle thread may vary across different systems. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Idle Task}
+
+In some cases it is just repeatedly invoking the scheduler.\\
+\quad In others it does a bit of useless addition.\\
+\quad Or it might just be a whole bunch of \texttt{NOP} instructions. 
+
+The CPU can be told to halt/switch to a low power state. 
+
+Whatever it actually ``does'', the idle thread never has any dependencies on anything else and is always ready to run.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Idle Task}
+
+Since the idle task does not necessarily do much, why have it? 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Idle Task}
+
+It prevents having special cases in the scheduler, first of all. 
+
+It also provides accounting information about how much of the time the CPU is not doing anything. 
+
+In fact, a lot of the time on the desktop or laptop, task manager will tell you that ``System Idle Process'' is taking up a large percentage of the CPU. 
+
+You will recognize that this just means the CPU is not doing anything;\\
+\quad It does not mean that some system process is using up all your CPU's time.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Making Use of The Time}
+
+Saving power by shutting down (parts of) the processor seems like a nice savings of energy (and potentially increases battery life). 
+
+But: time when the CPU is doing nothing might potentially be put to use.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Making Use of The Time}
+
+
+There are usually some accounting and housekeeping tasks that the CPU can be doing when it has nothing else. 
+ 
+For example, the OS could collect statistical data, or defragment the hard drive.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Bumping the Priority}
+
+Sometimes we get into a situation called a \alert{priority inversion}. 
+
+\begin{center}
+	\includegraphics[width=0.6\textwidth]{images/upsidedown.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Computer, Please Help}
-Asking the computer to do it? This is one of those NP-Complete problems.
+\frametitle{Bumping the Priority}
 
-Doing so in advance for an all-periodic system is doable.
 
-For systems with sporadic and aperiodic tasks, the cost of doing this math might be prohibitive at runtime. 
+A high priority process is waiting for a low priority process. 
 
-\end{frame}
+$P_{1}$ is high priority and is blocked on a semaphore, while $P_{2}$ is in a critical section. 
 
-\begin{frame}
-\frametitle{Migration}
-
-No migration does mean that there is a possibility that tasks are failing to meet their deadlines on CPU $X$ for lack of CPU time...
-
-Even though CPUs $Y$ and $Z$ have plenty of idle capacity.
-
-Things are more interesting if there is migration allowed.
+As $P_{2}$ is low priority, it might be a long time before $P_{2}$ is selected again to run and can finish and exit the critical section. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{It's Free Real Estate}
+\frametitle{Priority Inversion}
 
-Simple analysis: there's no cost to migrating a task from one CPU to another.
+$P_{1}$ cannot run, because it is blocked, and it could be blocked for a long time. 
 
-We know that's not true just because of cache misses.
+In the meantime, other processes with lower priority than $P_{1}$ (but higher than $P_{2}$) carry on execution. 
 
-So, do we allow migration or not?
+Having $P_{1}$ waiting for the lower priority processes is rather undesirable.
+
 
 \end{frame}
 
+\begin{frame}
+\frametitle{Priority Inheritance}
+
+The solution is \alert{priority inheritance}. 
+
+The right thing to do is to bump up the priority of $P_{2}$, temporarily, to be equal to that of $P_{1}$, so that $P_{1}$ can be unblocked as quickly as possible. 
+
+To generalize, a lower priority process should inherit the higher priority if a higher priority process is waiting for a resource the lower priority process holds. 
+
+So $P_{2}$ will get selected, will execute and exit the critical section. 
+
+Its priority then falls, meaning $P_{1}$ will be selected and may continue.
+
+\end{frame}
 
 \begin{frame}
-\frametitle{Back Up a Step}
+\frametitle{Priority Inheritance}
 
-Option 1: Global scheduling; all tasks go in one queue.
-
-Option 2: \alert{Partitioned} scheduling; tasks statically assigned to a CPU.
-
-Research shows this approach may only allow 50\% utilization.
+A famous case of priority inversion took place on the Mars Pathfinder rover.
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/wasted.jpg}
+	\includegraphics[width=0.5\textwidth]{images/pathfinder.jpg}
 \end{center}
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Next Idea?}
-
-What about half-and-half? \alert{Semi-partitioned} scheduling.
-
-Some tasks are fixed to specific processors, some may move.
-
-Intuitively this seems it might work.
+The solution was to enable priority inheritance.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Beg Your Pardon M'Lord?}
+\frametitle{Multiprocessor Scheduling}
 
-None of these approaches are actually solutions that ensure we have an optimal scheduling for multicore system. 
+If you thought scheduling for a single processor was complicated enough, well, things are about to get exponentially harder. 
 
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/trueking.jpg}
-\end{center}
+When we have more than one processor working on things at a time, then the complexity increases dramatically. 
 
-What we need is a different approach...
 
 \end{frame}
 
 \begin{frame}
-\frametitle{P-Fairness}
+\frametitle{Multiprocessor Systems}
 
-The P in P-Fair scheduling stands for ``proportional'' and the goal is to allocate CPU time in such a way that tasks make progress at steady rates.
+We can classify multiprocessor systems into three major buckets:
 
-An application can request time $x_i$ time units every $y_i$ time quanta (time slices).
-
-The system guarantees over any $T$ quanta ($T>0$) then a continuously-running application receives between $\lfloor x_i/y_i \times T\rfloor$ time and $\lceil x_i/y_i \times T\rceil$ quanta of service.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{P-Fair}
-
-The term \alert{lag} is used to reflect the difference between the allocated CPU time and the time the task should have.
-
-Lag greater than 0? Needs more CPU time.
-
-Lag less than 0? Has had more than it should have.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Task Classification}
-
-A task is \alert{urgent} if it has lag above 0;
-
-A task is \alert{tnegru} is its lag is negative.
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/notaword.jpg}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{P-Fair Algorithm}
-
-Then the scheduling algorithm consists of three parts:
 \begin{enumerate}
-	\item Schedule all urgent tasks.
-	\item Do not schedule tnegru tasks.
-	\item Schedule other tasks in order of highest lag to lowest until capacity is filled.
+	\item \textbf{Distributed}.
+	\item \textbf{Functionally Specialized}.
+	\item \textbf{Tightly Coupled}.
 \end{enumerate}
 
-Goal: keep the lag between $-1$ and $+1$ for all tasks!
+The third is our focus here.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Analysis of P-Fair}
+\frametitle{Multiprocessor: Granularity}
 
-Each task is broken down into small slices and each subtask executes on the CPU when it can, before its deadline.
+Then we have to worry about the interactions of various processes.
 
-Wasted spaces is limited.
+Specifically, how often they plan to interact.
 
-A P-Fair schedule is always periodic.
+\begin{center}
+\begin{tabular}{l|l|l}
+	\textbf{Grain Size} & \textbf{Description} & \textbf{Interval (Instructions)}\\ \hline
+	Fine & Single instruction stream & $< 20$ \\\hline
+	Medium & Single application & $20 - 200$ \\\hline
+	Coarse & Multiple processes & $200 - 2000$ \\\hline
+	Very Coarse & Distributed computing & $2000 - 1$M \\\hline
+	Independent & Unrelated processes & N/A \\
+
+\end{tabular}
+\end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Analysis of P-Fair}
+\frametitle{Granularity}
 
-There exist a number of papers building on the P-Fair approach to address some of its shortcomings and adapt it to some more scenarios.
+The finer-grained the parallelism, the more care and attention needs to be given to how we are going to schedule a process in a multiprocessor system. 
 
-It does require a lot of computation at each timeslice.
+If the processes are independent, then there is not too much to worry about. 
 
-Is it worth it? It's a lot better than losing 50\% of capacity...
+If we are taking a single process's thread and doing different instructions on different CPUs, then we have to be very careful.
 
 \end{frame}
+
+\begin{frame}
+\frametitle{Asymmetric vs Symmetric}
+Asymmetric multiprocessing: a boss processor and this one alone is responsible for assigning work and managing the kernel data structures. 
+
+Symmetric multiprocessing, each processor is responsible for scheduling itself. 
+
+We will need to make use of mutual exclusion and other synchronization techniques in the kernel to prevent errors.
+
+We do not want to have two processors trying to dequeue from the ready queue at the same time, after all.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Processor Affinity}
+
+Imagine that every processor has its own cache (e.g., the L1, L2, \& L3 caches).
+
+We want to have \alert{processor affinity}. 
+
+A process will have a bunch of its data in the cache of that processor. 
+
+If the process begins executing on another processor, all the data is in the ``wrong'' cache and there will be a lot more cache misses. 
+
+This desire to stick with a certain processor is called processor affinity.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Processor Affinity}
+
+If the OS is just going to make an effort but not guarantee that a process runs on a given processor, that is called \alert{soft affinity}. 
+
+A process can move from one processor to another, but will not do so if it can avoid it. 
+
+The alternative is \alert{hard affinity}: a process will only run on a specified processor (or set of processors). 
+
+Linux, for example, has both soft and hard affinity
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Affinity - NUMA}
+
+For the most part any memory read takes as much time as any other. 
+
+One bus connecting the CPU to all of main memory? That is a safe assumption.
+
+  If the CPU can access some parts of memory faster than others, the system has \alert{non-uniform memory access} (NUMA).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{NUMA}
+
+\begin{center}
+	\includegraphics[width=0.85\textwidth]{images/numa.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{NUMA}
+
+With NUMA: choice of processor should be based on where the memory of the process is located.
+
+The memory allocation routine should also pay attention to where to allocate memory requests.
+  
+If there is data in one of the other blocks of memory, it does not mean game over, but it means slower execution.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Load Balancing}
+
+If we have 4 processors, it is less than ideal to have one processor at 100\% utilization and 3 processors sitting around doing nothing. 
+
+We want to keep the workload balanced between all the different systems. 
+
+The process for this is \alert{load balancing}.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Load Balancing}
+
+Load balancing is typically necessary only where each processor has its own private queue of processes to run. 
+
+If there is a common ready queue then load balancing will tend to happen all on its own.
+
+A processor with nothing to do will simply take the next process from the queue. 
+
+But in most of the modern operating systems we are familiar with, each processor does have a private queue, so we need to do load balancing.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Push and Pull Load Balancing}
+
+There are two, non-exclusive approaches: \alert{push} and \alert{pull} migration. 
+
+
+Push migration: a task periodically checks how busy each processor is and then moves processes around to balance things out (to within some tolerance). 
+
+Pull migration: a processor with nothing to do ``steals'' a process from the queue of a busy processor. 
+
+The Linux and FreeBSD schedulers, for example, use both.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Balancing Affinity}
+
+Load balancing sometimes conflicts with processor affinity. 
+
+If a process has a hard affinity for a processor, it cannot be migrated. 
+
+If there is a soft affinity, it can be moved, but it is not our first choice.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Balancing Affinity}
+
+Should we always move a process despite the fact that it means a whole bunch of cache misses?
+
+Should we never do so and leave processors idle? 
+
+Perhaps the best thing to do is to put a certain ``penalty'' on moving.
+
+Only move a process from one queue to another if it would be worthwhile (i.e., the imbalance is sufficiently large).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Multicore Processors}
+
+Before the early 2000s, the only way to get multiple processors in the system was to have multiple physical chips. 
+
+If you open up your laptop you are likely to find one physical chip. 
+
+What gives? \alert{Multicore processors}. 
+
+As far as the operating system is concerned, a quad-core chip is made of four logical processors.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Multicore Processors}
+
+On a cache miss the CPU core can spend a lot of time (50\%?) of its time waiting for that read to take place.
+
+  We might refer to periods of time where there is computation as a compute cycle, and time spent waiting for memory as a \alert{memory stall}. 
+  
+  These tend to alternate, though the length of time for each will vary. 
+  
+  A question of how often memory is accessed and how many cache misses.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Compute Cycles and Memory Stalls}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/memory-stall.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Stall}
+
+During a memory stall, the processor core may have nothing to do. 
+
+You can sometimes move instructions around so that the memory read goes out ``early''.
+
+A few other instructions can be executed in the meantime. 
+
+(Take CPU design / programming for performance classes.)
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hyperthreading}
+
+To offset this problem, the solution was originally called \alert{hyperthreading}.
+
+Two threads are assigned to each core; if one thread does a memory access or stalls, the code can switch to another thread with a limited penalty. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hyperthreading}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/hyperthreading.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hyper- and Multithreading}
+
+Coarse-grained multithreading: flushing the instruction pipeline. 
+
+That is expensive. 
+
+Fine-grained multithreading: alternation between 2 threads in the pipeline. 
+
+The cost of switching between these two threads is small.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Two Levels of Scheduling}
+
+So now we have two different levels of scheduling.
+
+1. Assigning a process or thread to a processor (job of the operating system)
+
+2. When to swap between the two threads in the core (job of the hardware). 
+
+\end{frame}
+
 
 \end{document}
 

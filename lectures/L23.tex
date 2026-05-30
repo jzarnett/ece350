@@ -2,164 +2,123 @@
 
 \begin{document}
 
-\lecture{ 23 --- File Allocation Methods }{\term}{Jeff Zarnett}
+\lecture{ 23 --- Input/Output Devices \& Drivers}{\term}{Jeff Zarnett}
 
-\section*{File Allocation Methods}
-
-Much like memory allocation, there is a need to choose a strategy for how to allocate disk space. There are three major ways that we could allocate the disk space to files: contiguous, linked, and indexed; each has its advantages and disadvantages.
-
-\subsection*{Contiguous Allocation}
-The contiguous allocation strategy means that a file occupies a set of contiguous blocks on disk. So a file is allocated, starting at block $b$ and is $n$ blocks in size, the file takes up blocks $b, b+1, b+2, ..., b+(n-1)$. This is advantageous, because if we want to access block $b$ on disk, accessing $b+1$ requires no head movement, so seek time is nonexistent to minimal (if we need to move to another cylinder). 
-
-All that we need to maintain are the values of $b$ and $n$: the start location and length of the file. Both sequential and direct access are very easy: the first block of a file is at $b$. To access a block $i$ at some offset into the file, it is simply at the base address $b$ plus $i$. Checking if the access is valid is also an easy operation: if $i < n$ then it is valid.
-
-See the diagram below to get an example of contiguous allocation:
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/disk-contiguous.png}\\
-	Contiguous allocation of disk space~\cite{osc}.
-\end{center}
-
-This takes us back to a problem we have seen once before: the memory allocation problem. If we need a memory block of size $N$: (1) can we find a contiguous block of $N$ or greater to meet that allocation? and (2) if there is more than one block, which one do we choose? As before, we suffer the problem of external fragmentation, plus a bit of internal fragmentation in the last block of the file. 
-
-There was also talk on the subject of memory allocation of compaction. This was moving memory allocations around in memory to create some larger free spaces that can be allocated. But for languages like C, it was not realistic, because of the impossibility of updating all pointers (unlike Java where we can update all references). We can do compaction on disk, but it takes a very, very long time and is computationally expensive. Doing compaction can be done when the system has nothing else to do (idle priority operation) or on some schedule when it would be minimally disruptive (e.g., middle of the night... mind you... a lot of programmers do most of their work in the middle of the night...).
-
-Another problem, of course, with contiguous allocation is that old clairvoyance issue: how much space is a file going to take? If it is just a copy-paste operation, the copy is the same size as the original, so there is no problem. When a user opens a new document, how does the OS know how big the file is going to be? Is this a 3 page essay or a 300 page thesis? If we allocate too little space, we may be able to tack on space at the end, or that block may be allocated, forcing us to move the file and reallocate it. If the value we choose is too large, then significant space will be wasted for small files (and many files tend to be relatively small)~\cite{osc}. 
-
-\subsection*{Linked Allocation}
-Linked allocation is a solution to the problems of contiguous allocation: instead of a file being all in consecutive blocks, we maintain a linked list of the blocks, and the blocks themselves may be located anywhere on the disk. The directory listing just has a pointer to the first and last blocks (head and tail of the linked list).
-
-If a new file is created, it will be created with size zero and the head and tail pointers are null. When a new block is needed, it can come from anywhere and will just be added to the linked list. Thus, compaction and relocation are not really an issue. Unfortunately, however, accessing block $i$ of a file is no longer as simple as computing an offset from the first block; it requires following $i$ pointers (a pain).
+\section*{Input/Output Devices}
+Though the computer's name and typical use kind of suggests the purpose of the machine is computation, input/output is just as important to the usefulness of a computer. A computer that takes no inputs and produces no outputs is, presumably, not very useful\footnote{Schr\"odinger's computer: did the program actually run if there was no output to observe?}. I/O is, unfortunately, a messy business. Whereas there are only a small number of CPU types your typical desktop OS might run (and the AMD and Intel processors, for example, can execute the same binary code), there are uncountably many I/O devices in the world. And they're all different. Keyboards, hard drives, printers, and headsets are all I/O devices, but they serve very different purposes and work in different ways. This diagram shows the dramatic differences in speed between various devices of a typical PC:
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/disk-linked.png}\\
-	Linked allocation of disk space~\cite{osc}.
+	\includegraphics[width=0.75\textwidth]{images/io-device-rates.png}\\
+	Typical I/O Device Data Rates~\cite{osi}.
 \end{center}
 
-A possible solution to the problem of following so many pointers (and the overhead of maintaining so many) is to group up the blocks into \textit{clusters}, where a cluster is comprised of, say, four blocks. Then we waste less memory maintaining pointers and it improves disk accesses because there is less seeking back and forth to various disk locations~\cite{osc}. 
+We might like to think that USB has taken away some of the complexity, but that's just the way a device connects to the computer; managing the device itself is still as complicated as ever. All of the examples just listed in the previous paragraph can be connected via USB (Universal Serial Bus). And indeed, just because the computer and device have compatible physical connectors does not mean that the computer knows how to interact with the device. This can be kind of frustrating.
 
-One variation of linked allocation is the File Allocation Table (FAT), which was used by the MS-DOS operating system (FAT16 and FAT32 were used in Windows before NTFS came in with NT/2000/XP and their descendants). The FAT32 file system hangs on these days as the file system of choice for formatting USB flash drives because it means the data will be readable in Windows, Mac OS X, and Linux. This is primarily because Microsoft has not made the NTFS file system standard public and Windows systems do not support too many other file systems, and Windows has such a big marketshare. So the FAT32 option is used, despite its known problems (and limitations, like 4~GB max file size), because it's the one system everyone can understand. Isn't the state of personal computing so... uplifting?
+Disk I/O, when discussing magnetic hard disks, has a huge impact on system performance that it will receive its own discussion. But first, a little discussion about I/O in general.
 
-The FAT allocation scheme works like this: at the beginning of the disk, there is a table to maintain file allocation data (hence the name). The table has one entry for each block and is indexed by block number. It works like a linked list; the directory entry has the first block of the file and the table entry under that block number has the index of the next block. The chain continues until the last block where there is a special end-of-file value. An unused block has a table value of 0. Thus, to allocate a new block, find the first 0-valued entry, and replace the previous end-of-file value with the address of the new block~\cite{osc}. See the example below:
+\subsection*{Communication with Devices}
+There are three ways, realistically, that we can communicate with a hardware device: polling, interrupts, and DMA (direct memory access). This isn't a hardware course, but I think we should review this topic at least a little bit before we go on. It's fair to say that these options are not all equally good; polling would be something we do because we must, not because it's efficient.
 
+An I/O port represents the connection, and may typically have four registers: the data-in register (input), data-out register (output), status register, and control register~\cite{osc}. The control register is how the user or operating system gives commands to the device, and the status register tells us the current state of the device. Those aren't too exciting. 
+
+The literature tends to refer to the main system as the ``host'', because the code that's interacting with the device could be the OS or it could be user-level code depending on the situation. So we'll use the word host.
+
+\paragraph{Polling.} 
+The most basic way to interact is polling, and as we've just discussed, it is the last choice but there might be the only choice. When a command is issued, the controller uses a bit to mark the device as ``busy'' during the time that the operation is taking place. When the operation is done, the bit is cleared. After that the OS can take the next action, whether that's reading the data requested or scheduling the next write or moving on from the operation to the next thing. 
+
+This isn't super exciting, but it does work. The host has to check the state of the device repeatedly until the busy bit is cleared. It's not really efficient, because the CPU executes lots of instructions that are not doing useful work while it repeatedly reads the value of the busy bit. 
+
+A first thought would be to change the logic a bit such that instead of tight polling, the host checks periodically rather than immediately. That does decrease the wasted CPU cycles, but has a risk that the data is lost because the host does not respond in time. If the data storage for the device itself is very limited, if the data currently ready is not retrieved fast enough, then the data might be overwritten by new data, causing some input to be lost~\cite{osc}.
+
+\paragraph{Interrupts.}
+Interrupts are something we've spent a ton of time talking about, but remember that this will operate on the basis of there being some sort of interrupt request line (hardware) and when the CPU sees the signal that indicates the presence of an interrupt, the interrupt handler is executed to deal with it~\cite{osc}. The interrupt handler will do whatever it's supposed to do and then clear the interrupt signal.
+
+This description is fully correct, but overlooks some of the complexity around interrupts. For one thing, not all interrupts are equally important -- incoming phone call is not as urgent as a fire alarm. The other part is that interrupts should be something the CPU can (mostly) turn off it that makes sense. 
+
+The interrupt approach helps to deal with the problem of not responding in time to the availability of data: when the interrupt is triggered, take the data from the device and put it in memory somewhere. This does not mean that the data has to be processed immediately, and it might actually be preferable to delay handling it until enough data has arrived. But as long as the data is in memory it won't get overwritten unexpectedly. 
+
+\paragraph{Direct Memory Access.} 
+Direct Memory Access or DMA is based on the idea that it's preferable to hand off some work from the CPU to a delegate, the DMA controller. The idea is that the DMA controller is given instructions about what to do: the operation to perform (either a read or write), the source, the destination, and how much data to be transferred. This can be efficient -- if copying data from, say, a USB drive to the hard drive, the data doesn't have to go to the CPU in between.
+
+When the I/O operation is completed, the DMA controller will notify the CPU with an interrupt; but one thing that may not be obvious from the description is that the DMA controller might slow down the CPU a little bit because it's using the bus and that can make the CPU wait~\cite{osc}. That's still probably less than if it was an interrupt-based system. 
+
+\subsection*{Application I/O Interface}
+The use of DMA and interrupts are intended to increase the efficiency of the system, because we know that most devices are very slow when compared to the speed of the CPU and even memory~\cite{osi}. A lot of the efficiency gains, though, are based on what hardware is available so not necessarily something we can control when developing an operating system. Yes, the hardware is useless if the operating system does not use it, but the OS cannot compensate for the lack of a DMA module.
+
+Ideally, when a general-purpose operating system is written, it will accept new devices being added to the system without editing/reinstalling/recompiling the code. Your experience with object oriented programming gives you some familiarity with the solution of how we should accomplish this goal. We want to abstract away the details of the hardware, to the extent we can, and provide a uniform \textit{interface} to interact with. 
+
+In the very early days of operating systems, the hardware the computer shipped with was all the hardware it ever supported. If the vendor came out with a new module, they would have a new operating system update to introduce support for that device. This got to be unmanageable in the era of the IBM PC because anybody could create hardware and attach it via a standard interface. Relying on IBM or Microsoft or whoever your OS vendor was to implement support for a random piece of hardware was not realistic.
+
+And from the operating system developer point of view, it's hard to argue. How are they to know what hardware devices exist, and even if they did, how they work? Some sort of standard interface only gets you so far. You can have one printer masquerade as another -- many years ago my parents had a Panasonic printer that you could tell the operating system was an Epson printer. That sort of works, but what about a new type of device or a device that is similar to an existing one but has some additional features or functionality?
+
+Operating system developers thought they were very clever. They realized that they could shift the work to the hardware developers through a concept called \textit{device drivers}. The device driver plugs in to the operating system through a standard interface and tells the operating system a bit about the hardware and translates commands from the operating system to hardware instructions. Where this fell apart was the fact that hardware developers often made extremely poor drivers (whether this was due to inability or lack of caring is not clear).
+
+The problem was exacerbated by a Windows design decision that device drivers would run in the system at the same protection level as the kernel. Some other operating systems have user-mode drivers, where possible (in Mac OS X and Linux systems, for example, there is the ability to have file system drivers in user space through a program called FUSE) or at an intermediate level between that of user space and the kernel. In any event, in Windows, if a device driver is unhappy with the current state of the system, contains a programming error, or encounters a situation it cannot handle, the driver can invoke a system call that brings up everyone's favourite feature: the Blue Screen of Death (BSOD).
+
+Microsoft, rightly or wrongly, was blamed for a lot of those blue screens of death. If it appears after upgrading or patching the operating system, users blame the most recent thing changed, even if that's not what caused it. It also didn't help that the message said something about Windows has encountered a problem. That sounds like Windows is the one with the problem. 
+
+Microsoft took two approaches to remedy this problem. One was to write and include in Windows a lot more device drivers. Including the drivers isn't too bad, but writing them yourself is painful. But user experience is key, and some effort invested into this probably does pay off. ``It's not my job'' is nice to say but sometimes getting the customer to sign the deal is more important than feeling right on principle.
+
+The other approach Microsoft took was to introduce the static driver verifier, a complex piece of static analysis software used to test, at compile/build time, whether the driver will behave badly. Passing this test is required to get a sticker of approval from Microsoft to put on the box. So, the battle rages on about who is responsible for writing the drivers, unfortunately.
+
+Device drivers, when they exist, connect into the kernel's I/O subsystem to mediate between the kernel's I/O subsystem and the hardware device controller. See the diagram:
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/file-allocation-table.png}\\
-	File Allocation Table (FAT)~\cite{osc}.
+	\includegraphics[width=0.65\textwidth]{images/kernel-io-structure.png}\\
+	Kernel I/O structure, showing the placement of device drivers~\cite{osc}.
 \end{center}
 
-The FAT itself should be cached in memory, otherwise the disk is going to have to seek back to it unbearably often.
+Abstracting away details of the hardware makes the job of the operating system developer easier: the interface provides a standard way of interacting with the hardware device. In Windows and Linux, for example, there exists another layer to add some more indirection between the OS and platform-specific hardware. It is called, obviously, the hardware abstraction layer. The HAL is supposed to make it easier to port the operating system to new hardware.
 
-\subsection*{Indexed Allocation}
-If we stuck to pure linked allocation, we still have the problem that accessing some part in the middle of the file is a pain because we have to follow and retrieve a lot of pointers to the different blocks. The idea of indexed allocation is to take all the pointers and put them into one location: an index block. So, the first block of the file contains a whole bunch of pointers. To get to block $i$, just go to index $i$ of the index block and we can get the location of block $i$ much more efficiently than we could in linked allocation. All pointers to blocks start as null, and when we add a new block, add its corresponding entry into the index block~\cite{osc}. See the diagram below:
+
+Unfortunately, every piece of hardware could be completely different. Even if the goal is just classifying devices based on similarity, devices can vary on numerous dimensions. Here's a list of a few examples from~\cite{osc}:
+
+\begin{itemize}
+\item \textbf{Data transfer mode}. A device may operate on a character level (transfer one character at a time) like a keyboard, or may operate on a block (group of bytes) all at once, such as a disk operating on a 4~KB block.
+\item \textbf{Access method}. A device may allow only sequential access (that is, reading only the next element or piece of data or writing to the next location) such as a modem, or it could allow random access (reading from or writing to any point) as in a hard drive.
+\item \textbf{Transfer schedule}. The schedule may be synchronous (transferring data with predictable response times) as in the case of reading from tape, or asynchronous (with unpredictable response times), such as awaiting a response that will come over the network.
+\item \textbf{Dedication}. A device may be shareable (allows multiple concurrent threads) such as the speakers, or dedicated (allowing only one thread to use it at a time), such as a printer.
+\item \textbf{Device Speed}. Recall the diagram from earlier showing the dramatic differences in transfer speeds.
+\item \textbf{Transfer Direction}. Some devices are input only (such as a temperature sensor), other devices are output only (speakers), and some devices are capable of both (hard disk).
+\end{itemize}
+
+We would like to, as much as possible, keep the details above from the operating system, though devices will typically be grouped into a few categories so appropriate system calls can be issued. If a device is block-oriented, the OS should be issuing block read and write commands, not trying to do it one character at a time. Just for the sake of efficiency.
+
+Operating systems also usually have an \textit{escape} system call that allows passing of a command directly from an application or the kernel to a device driver. This allows us to issue commands to a device that the OS designers have not thought of and created system calls for. The UNIX system call for this is \texttt{ioctl} (``I/O Control'') and it takes three parameters: a file descriptor indicating the hardware device (everything in UNIX is a file, remember), the command number (an integer), and a pointer to an arbitrary data structure (presumably \texttt{void*}) that has any necessary control information and data~\cite{osc}.
+
+
+\subsection*{Block and Character I/O}
+
+The block device interface is used for block devices such as hard disk drives. Any device will support \texttt{read} and \texttt{write} commands, and if it is a random-access device, it will have a \texttt{seek} command to jump to a specific block. An application usually accesses the hard disk through the file system, but going even one level lower, the OS can work on the hard drive using these two/three commands without being concerned with how that command is actually transmitted to the physical hardware.
+
+We can abstract things a little bit further, from the perspective of the application developer, by having a memory-mapped file. Then, rather than using the block oriented operations directly, the application just writes to and reads from ``memory'' and the OS handles the behind-the-scene coordination to make writes go out to the correct block and read from the correct block.
+
+A character-oriented device is something like the keyboard; the system calls are \texttt{get} and \texttt{put}. Libraries and other structures may exist to work on a whole line at a time (compare to, for example, the Java constructs for reading and writing files: the default streams are one character at a time, but if you want anything other than terrible performance, use a buffered reader which can read a whole line). This is a good match for input devices that produce data in small amounts and at unpredictable times, and perhaps for printers and sound output which operate naturally on a linear stream of bytes~\cite{osc}.
+
+\subsection*{Network Devices}
+
+Network devices are fundamentally different from those that are directly attached to the system. Thus, the \texttt{read}, \texttt{write}, and \texttt{seek} routines are not really appropriate. The model we are most familiar with from previous courses is the socket model. A socket is treated like a file, and at a basic level we can just ignore the details.
+
+But we also learned about the \texttt{select} and \texttt{poll} functionality to support servers with multiple clients. That manages a set of sockets. Invoking this function returns information about what sockets have a packet waiting to be received and which are available for sending a packet. Proper use of \texttt{select/poll} eliminates polling and busy-waiting in a situation where delays are unpredictable (which is always the case with the network). Most likely, however, you remember that asynchronous I/O is difficult to manage. 
+
+\subsection*{Spooling and Reservations}
+A \textit{spool} is a buffer for a device, like a printer, that can serve only one job at a time. Unlike disk, where it might read for $P_{1}$ now and then write for $P_{2}$ immediately afterwards, a printer needs to finish a whole print job before it starts the next. Printing is the most obvious example, but it is by no means the only one. The operating system centralizes all communication to the printer and runs it through the spooling system. 
+
+\subsection*{I/O Protection}
+Recall from much earlier the idea of kernel mode and user mode instructions; some processor instructions are restricted such that only the OS can issue them (in kernel mode), otherwise it is an error (illegal instruction). We want all user accesses to I/O to be mediated through the operating system, so the OS can check to see if the request is valid. If it is, allow it to proceed; otherwise terminate the process with an error. This helps minimize errors and problems where people do bad things like cancel another process's request so theirs can go first. Our typical tradeoff: increased safety in exchange for reduced performance.
+
+In certain circumstances, for performance reasons, we might want to allow direct access. In the case of a game, for example, we want to allow the game to work directly on the graphics card's memory (despite the fact that it is an I/O device). Mediating every access through the kernel would result in unacceptably poor performance (which is to say, the other team would totally call us noobs). So a section of graphics memory, corresponding to a particular window on the screen, will be locked by the kernel to be accessible by the game's process~\cite{osc}.
+
+\subsection*{Kernel I/O Data Structures}
+The kernel must, as is rather obvious, keep track of what I/O devices are in use by which processes and the general state of the I/O device (``PC Load Letter''). The diagram below gives some indication of what the UNIX kernel structures are like for open files:
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/disk-indexed.png}\\
-	Indexed allocation of disk space~\cite{osc}.
+	\includegraphics[width=0.7\textwidth]{images/unix-io-kernel.png}\\
+	The UNIX structures to manage I/O~\cite{osc}.
 \end{center}
 
-Like many of the other systems we have examined, there is a need to make a decision about the size of a block. If a file needs only 1-2 blocks, one whole block is allocated for the pointers which contains only 1-2 entries. That suggests we want the index to be small, but what if we need more pointers than fit into one block? There are a few mechanisms for this~\cite{osc}:
-
-\begin{enumerate}
-	\item \textbf{Linked Scheme}: An index block is a disk block, and we can link together several index blocks. The last entry in the index block is either null or a pointer to the next index block.
-	\item \textbf{Multilevel Index}: A variant of the linked scheme that has multiple levels. The first level block points to the second level block; the second level block points to the actual file data. This can go to as many levels are necessary based on the maximum file size. If a block is 4~KB, we can have 1024 4-byte pointers, so two levels would allow a maximum file size of up to 4~GB.
-	\item \textbf{Combined Scheme}: The all-of-the-above option. This is used in UNIX. Keep the first 15 pointers of the index block in the inode structure; 12 of them point directly to file data. The next three pointers refer to indirect blocks. The 13th is an index block containing the addresses of blocks with data. The 14th points to a double indirect block (addresses of blocks containing addresses of blocks). The 15th points to a triple indirect block\footnote{Yo dawg, we heard you like index blocks...}.
-\end{enumerate}
-
-With that out of the way, we can finally show a visual representation of an inode.
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/unix-inode.png}\\
-	The UNIX inode. Triple indirection is left to the reader's imagination~\cite{osc}.
-\end{center}
-
-\subsection*{Other Disk Issues}
-As with memory, the system will keep track of the free space available.
-
-Bit vectors work just the way we would expect: create a structure in memory where a bit represents a block. If it is free, the bit is 1; allocated is 0. So a bit vector looks like \texttt{0100110111011111000000...}. The problem with this strategy is, of course, that the bigger the disk, the more overhead is needed to store this bit vector.
-
-The next rather obvious approach is a linked list: the head points to the first free space block, and we can traverse the list to get to the next free block. See the diagram below:
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/disk-linked-list.png}\\
-	Linked free-space list on disk~\cite{osc}.
-\end{center}
-
-Grouping makes this slightly more interesting: the first free block will be used to store the addresses of $n$ free blocks, the first $n-1$ of which are actually free. The last block contains a block with another set of $n$ free blocks. So if we need a large number of free blocks, we can find them quickly, instead of walking through the list one block at a time, which takes a lot of disk accesses. Counting is a slight improvement on this where we also store a number $k$ of free contiguous blocks after each address. So, if block 27 is followed by three consecutive free blocks, instead of having 27, 28, 29, 30 as entries, it will show (27, 4). The entries may be stored in a balanced tree for efficient operations~\cite{osc}.
-
-
-The efficient use of a disk depends on the disk-allocation and directory algorithms. UNIX inodes, for example, are preallocated, so even a disk containing no files has some of its space taken up by the inodes. Preallocation of inodes and distribution of them improves the file system performance, because the UNIX allocation and free-space algorithms keep the file data near the inode, where possible, to reduce seek time~\cite{osc}.
-
-\subsection*{Consistency Checking and Journalling}
-
-Unfortunately, an error, crash, or power failure or something similar may result in a loss of data or inconsistent data in the file system. The directory structures, pointers, inodes, FCBs, et cetera are all data structures and if they become corrupted it may lead to serious problems.
-
-We could check for inconsistent data periodically (e.g., on system boot up) and many operating systems do so. This is, of course, an operation that will consume a very large amount of time while the whole disk is scanned. The UNIX tool for this is \texttt{fsck} (... not exactly something you want to say out loud) and the Windows tool is \texttt{chkdsk} (check disk). These tools will look for inconsistent states (e.g., a file that claims to be 12 blocks but the linked list contains only 5) and will attempt to repair the data structures. Its level of success depends on the nature of the problem and the implementation of the file system.
-
-Obviously we would like to prevent the problem, if we can. Recall from much earlier the concept of atomic operations: an operation should either succeed completely, or not take place at all. Your first experience with such a structure may have been in version control, when using subversion: either a commit takes place in its entirety or it is as if it never happened. This approach is used in the Windows NTFS system as well as Mac OS HFS+ (if journalling is enabled). 
-
-Though we might be familiar, at this point, with the concept of the \textit{transaction}, now let us take a moment to see how it actually works. The simple explanation is: before making any changes, make a list of all the things we plan to do. Then do the things written down. Then we consider the transaction complete.
-
-All metadata changes are written sequentially to a log file; once the changes are written to the log, control may return to the program that requested the operation. Meanwhile, the log entries are actually carried out. As changes are made, a pointer is updated to indicate which of the log entries have really happened and which have not. When an entire transaction is completed, it is removed from the log file. If the system crashes, the log file will contain zero or more transactions. If there are zero there is no problem: nothing was in progress at the time of the crash. If there are some, then the transactions were not completed and the operations should still be carried out. If a transaction was aborted (not committed), we walk backwards through the log entries to undo any completed operations and go back to the state before the start of the transaction~\cite{osc}.
-
-Even though a particular write may not have taken place because of a crash, resulting in some data loss, at least the system will always remain in a consistent state. As a side benefit, we can sometimes re-order the writes to get better performance (e.g., schedule them in such a way that we get better disk utilization). 
-
-The approach in the Solaris ZFS approach is similar, but not identical. Blocks are never overwritten with new data. Instead, a transaction writes all data and metadata to new blocks. Only when the transaction is complete, any references to the old blocks are replaced with the location of the new blocks. Then the old pointers and blocks can be cleaned up (reused or disposed of). 
-
-\subsection*{Example: NTFS (Windows File System)}
-Though UNIX and similar systems have often been a focus of the examples, in this case, we will instead examine NTFS, the default file system for Windows since Windows NT and used in 2000, XP, Vista, 7, 8... NTFS supports large disks and large files, and uses journalling. 
-
-NTFS uses several different storage levels~\cite{osi}:
-
-\begin{enumerate}
-	\item \textbf{Sector}: Smallest physical storage unit on disk (usually 512 bytes).
-	\item \textbf{Cluster}: One or more contiguous sectors (grouped in a power of 2).
-	\item \textbf{Volume}: A logical partition on disk, consisting of one or more clusters. 
-\end{enumerate}
-
-The cluster is the fundamental unit of allocation of NTFS. This allows the file system to be independent of the size of physical sectors on the disk (which is convenient). A volume contains file system information, a collection of files, and free space. The logical volume may be some of a physical disk, all of one, or spread across multiple physical disks~\cite{osi}. A volume is laid out as follows:
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/ntfs-volume.png}\\
-	Standard layout of an NTFS volume~\cite{osi}.
-\end{center}
-
-The Master File Table (MFT) contains information about all the files and folders. Following the that, a block is allocated to system files that contain some important system information~\cite{osi}:
-
-\begin{enumerate}
-	\item \textbf{MFT2}: Mirror of the first few rows of the MFT (in case the original is damaged).
-	\item \textbf{Log File}: The journalling transaction log.
-	\item \textbf{Cluster Bitmap}: Bitmap showing which of the clusters are in use.
-	\item \textbf{Attribute Definition Table}: Attribute types supported on this volume.
-\end{enumerate}
-
-The table below shows the NTFS attributes for files and directories.
-
-\begin{center}
-	\includegraphics[width=0.8\textwidth]{images/ntfs-attrs.png}\\
-	NTFS File and Directory Attribute Types (green blocks are mandatory)~\cite{osi}.
-\end{center}
-
-NTFS uses journalling to ensure that the file system will be in a consistent state at all times, even after a crash or restart. There is a service responsible for maintaining a log file that will be used to recover in the event that things go wrong.  Note that the goal of recovery is to make sure the system-maintained metadata is in a consistent state; user data can still get lost. This was a decision on the part of Microsoft to make the recovery operations significantly simpler and faster.
-
-The actual implementation of journalling works as follows~\cite{russ}:
-
-\begin{enumerate}
-	\item Record the change(s) in the log file in the cache.
-	\item Modify the volume in the cache.
-	\item The cache manager flushes the log file to disk.
-	\item Only after the log file is flushed to disk, the cache manager flushes the volume changes.
-\end{enumerate}
-
-Or, to represent it visually (although, for some strange reason, with a floppy disk drive?!):
-
-\begin{center}
-	\includegraphics[width=0.65\textwidth]{images/ntfs-overview.png}\\
-	Overview of the NTFS recoverability elements~\cite{osi}.
-\end{center}
-
-\subsection*{Backups}
-
-One final note about hard disk drives. We often think of them as places for permanent storage of data, but hard drives can and do fail. So please, take backups of important data.
+This now explains why, if you print a file descriptor number and you see something like 3 or 4 -- that's the index into the per-process file table, which itself just references the system open-file table.
 
 \input{bibliography.tex}
+
 \end{document}

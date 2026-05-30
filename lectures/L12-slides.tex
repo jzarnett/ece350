@@ -1,6 +1,7 @@
 \input{configuration}
+\newcounter{pf}
 
-\title{Lecture 12 --- Uniprocessor Scheduling }
+\title{Lecture 12 --- Virtual Memory}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -16,473 +17,476 @@
  \end{frame}
 
 
-
 \begin{frame}
-\frametitle{Uniprocessor Scheduling}
-
-Scheduling is very complex with multiple threads and multiple processors.
+\frametitle{Push it to the Limit}
 
 \begin{center}
-	\includegraphics[width=0.56\textwidth]{images/makeplan.jpg}
+	\includegraphics[width=\textwidth]{images/limit.jpg}
 \end{center}
 
-To keep things simple, we'll start with one processor.
+\url{https://www.youtube.com/watch?v=7Mhb9D35pkc}
 
+\url{https://www.youtube.com/watch?v=M22rNPh6bHo}
 
 \end{frame}
 
 
 \begin{frame}
-\frametitle{Scheduling}
+\frametitle{Push it to the Limit}
 
-The basic premise: decide when a process gets to execute. 
+Paging helps, but there is a limit. 
 
-Four types of scheduling: 
+A program requiring more memory than the physical memory cannot run. 
+
+Maybe that seems ridiculous in the modern era of 16, 32+GB?
+
+Server or supercomputer systems working on large datasets may require more memory than is available in the machine.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{The Limits of Paging}
+
+What about multi-\{user, processor, process\} systems?
+
+The sum of memory requirements exceeds the available memory. 
+
+A processor may be waiting because a process that is otherwise ready to run cannot proceed because there are insufficient free frames for it to run.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{All or Nothing}
+
+The problem is: a process must be entirely in memory or entirely on disk. 
+
+In a lot of cases, the entire program is not needed at any given time. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{All or Nothing}
+
+Code to handle unusual situations may not be needed except occasionally.
+
+ Startup code is needed at the beginning of the program, but then never again. 
+ 
+Data structures and collections may be declared to be very large even when it is not actually needed (e.g., the \texttt{ArrayList} in Java defaults to 16 elements.)
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Partially in Memory?}
+
+Benefits if we could execute programs that are only partly in memory:
 
 \begin{enumerate}
-	\item \textbf{Long-Term Scheduling}
-	\item \textbf{Medium-Term Scheduling}
-	\item \textbf{Short Term Scheduling}
-	\item \textbf{I/O Scheduling} (for later)
+	\item A program is no longer constrained by the size of physical memory.
+	\item Each program could use up less physical memory.
+	\item Less I/O is needed to swap user programs in or out.
 \end{enumerate}
 
 \end{frame}
 
-
-
 \begin{frame}
-\frametitle{Long-Term Scheduling}
-
-The long-term scheduler determines which programs run at all.
-
-How many jobs do we plan to allow concurrently?
-
-Controls the transition from ``new'' to the ``ready state''.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Long-Term Scheduling}
-Does not happen much on desktop systems.\\
-\quad The user is responsible for deciding what programs to open.
-
-Sometimes there are per-user limits: e.g, max 100 processes.
-
-Long term example: server-based games (Diablo III) denying a request for a new game due to server load.
-
-Mobile OSes like Android can be more aggressive.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Medium-Term Scheduling}
-
-More interesting than long-term; related to swapping.
-
-A swapped out process cannot run in the immediate future.\\
-\quad But will before too long...
-
-When swapped in, the short term scheduler decides.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling}
-Sometimes called the \alert{dispatcher}. 
-
-The medium and long term scheduler are all about someday and sometime. 
-
-The short term scheduler is about ``what are we going to do \textit{right now}''. 
-
-The short term scheduler is going to run a lot, so it is very important. 
-
-It will often run after certain things occur. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling}
-
-Co-operative multitasking, short term scheduling will only take place if:\\
-\quad The currently executing process yields the CPU; or\\
-\quad The currently executing process terminates (voluntarily or with an error). 
+\frametitle{Good News, Everyone!}
 
 \begin{center}
-	\includegraphics[width=0.75\textwidth]{images/macos9.png}
+	\includegraphics[width=0.5\textwidth]{images/goodnews.jpg}
+\end{center}
+
+We have already discussed many of the key ideas to making this work. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Good News, Everyone!}
+
+The principle is really the same as caching. 
+
+Main memory can be viewed as yet another level of cache and the disk is the last stop where the data can be. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Virtual Memory and Physical Memory}
+
+\begin{center}
+\includegraphics[width=0.85\textwidth]{images/vmem-physmem.png}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Short-Term Scheduling}
+\frametitle{Virtual Memory: Loading}
 
-This is not how most operating systems work these days. 
+The typical approach is also like that of the cache; demand paging. 
+
+A page is loaded into memory only if it is referenced or needed, thus preventing unnecessary disk accesses. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Virtual Memory: Loading}
+
+This is also called the ``lazy'' approach.\\
+\quad Though lazy is typically an insult; in this case it is not necessarily bad.  
+
+Goal: involve disk as little as possible, because disk is extremely slow.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Thrashing}
+
+The fact that disk is so slow means we can get into a state called \alert{thrashing}. 
 
 \begin{center}
-	\includegraphics[width=0.6\textwidth]{images/remembers.jpg}
+	\includegraphics[width=0.4\textwidth]{images/thrashing2.png}
 \end{center}
 
+The operating system is spending most or all of its time swapping pages in and out of memory and very little actual work can get done.
 
-If the process does yield or terminate, then the short term scheduler will run.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling}
-
-What we will discuss from here on out is \alert{pre-emptive multitasking}.
-
-The operating system, and not the running process, is responsible for deciding when it's time to switch processes. 
-
-\begin{center}
-	\includegraphics[width=0.3\textwidth]{images/captainnow.jpg}
-\end{center}
+We will come back to the subject of thrashing later.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Short-Term Scheduling}
-
-Some pre-emptive systems still have the concept of yield, and that is still an occasion to run the scheduler. 
-
-Similarly, in pre-emptive systems, processes still terminate.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling: When?}
-
-The dispatcher will certainly run when a process becomes blocked.
-
-Examples: I/O operations (network?), block on mutex, page fault...
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling: When?}
-
-Another time to make a scheduling decision is after handling an interrupt.
-
-After the interrupt is handled, we can return to execution exactly where we left off, or we can go somewhere else.
-
-The original process is suspended already, so why not leave it in that state?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling: When?}
-
-System calls like \texttt{fork} and even signalling on a semaphore may also provide good opportunities to switch from one process to another. 
-
-By invoking the operating system (system call), the caller is suspended.
-
-So it is necessary to decide what process executes next. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling: When?}
-
-We acknowledged this in the discussion of \texttt{fork} by saying it was not known if the parent or child would execute next. 
-
-Semaphores: we do not even know which of the processes waiting on the semaphore will be the one to receive the signal. 
-
-\begin{center}
-	\includegraphics[width=0.3\textwidth]{images/canadianstandoff.jpg}
-\end{center}
-
-Even then, which of the signalling process and waiting process will resume?
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Short-Term Scheduling: When?}
-
-Finally, there is also time slicing. 
-
-\begin{center}
-	\includegraphics[width=0.2\textwidth]{images/initiative.jpg}
-\end{center}
-
-If time slices are defined as $t$ units, every $t$ time units, there will be an interrupt generated by the clock.
-
-The interrupt handler runs the short term scheduler to choose a process to run, so that different processes run (seemingly-)concurrently.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Process Behaviour}
-
-Processes tend to alternate periods of computing with input/output requests. 
-
-These tend to alternate; the CPU does a lot of work, called a \alert{CPU Burst},
-
-Then some I/O; the period where it is waiting is called the \alert{I/O Burst}. 
-
-After the I/O is completed, the CPU can go at it again. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Process Behaviour}
-
-How much of each a process does allows for classification of the process.
-
-Processes that spend most of their time computing are called \alert{CPU-Bound}.
-
-The alternative is a process that mostly waits for I/O: \alert{I/O-Bound}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CPU- and I/O-Bound Processes}
-
-\begin{center}
-\includegraphics[width=\textwidth]{images/cpu-io-bound.png}
-\end{center}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CPU- and I/O-Bound Processes}
-
-An I/O-Bound program will tend to have short CPU bursts, of course. 
-
-CPUs have gotten faster at a rate much higher than the rate of I/O speedup. 
-
-A new CPU comes out every few months and they get faster. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CPU- and I/O-Bound Processes}
-
-
-I/O standards like Serial-ATA and USB and such change very slowly, over the course of years. 
-
-\begin{center}
-	\includegraphics[width=0.7\textwidth]{images/ports.jpg}
-\end{center}
-
-So it makes sense that over time programs tend towards being I/O-Bound. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{CPU Burst Histogram}
-
-\begin{center}
-\includegraphics[width=\textwidth]{images/cpu-burst-histogram.png}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Bursts}
-
-But what does this have to do with scheduling? 
-
-The long term scheduler may attempt to keep a balance between CPU- and I/O-Bound tasks to get the best resource utilization. 
-
-This requires that the long term scheduler have some idea about which processes are which.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Bursts}
-
-
-Another is that if the disk is slow...
-
-When the disk has nothing to do, the short term scheduler should immediately schedule a process that is likely to issue a disk request.
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Scheduling Criteria}
-
-The goals of scheduling depend significantly on the objectives of the system. 
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/timetravel.jpg}
-\end{center}
-
-First we have to decide what we want.
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Scheduling Criteria}
-If the system is supposed to respond to events within a certain period of time (real time system), this matters a lot to scheduling. 
-
-Perhaps the goal is for the CPU to be used maximally (as in a supercomputer). 
-
-Or maybe the most important thing is for users to feel like the system answers them quickly when they issue a command.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Scheduling Criteria}
-
-As usual when making a decision, we could just decide randomly. 
-
-We need evaluation criteria.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Scheduling Criteria}
-
-We will examine and define the following scheduling criteria:
+\frametitle{Virtual Memory: Six Steps}
 
 \begin{enumerate}
-	\item Turnaround time.
-	\item Response time.
-	\item Deadlines.
-	\item Predictability.
-	\item Throughput.
-	\item Processor utilization.
-	\item Fairness.
-	\item Enforcing priorities.
-	\item Balancing resources.
+	\item Check if the memory reference is valid or invalid.
+	\item If the reference is invalid, terminate the program (segmentation fault).\\
+	 If it was valid, but the page referenced is not in memory, continue.
+	\item Find a free frame (or make one by evicting some other page).
+	\item Request a disk read (and possibly write) to bring in the new page.
+	\item When the disk read is complete, update the records.
+	\item Restart the instruction that referenced the page.
 \end{enumerate}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Scheduling Algorithm Goals}
-
-The priorities of these different goals depend on the kind of system it is. 
-
-All Systems:
-\begin{itemize}
-	\item Fairness
-	\item Priorities
-	\item Balancing Resources
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Scheduling Algorithm Goals}
-
-The priorities of these different goals depend on the kind of system it is. 
-
-Batch Systems:
-\begin{itemize}
-	\item Throughput
-	\item Turnaround time
-	\item CPU Utilization
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Scheduling Algorithm Goals}
-
-The priorities of these different goals depend on the kind of system it is. 
-
-Interactive Systems:
-\begin{itemize}
-	\item Response time.
-	\item Predictability.
-\end{itemize}
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{The (Ab)use of Priorities}
-
-Each process's priority is typically an integer. 
-
-In UNIX, a lower number is higher priority; Windows is the opposite. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Priorities}
-
-With a priority value assigned, it can be used to make decisions. 
-
-Imagine $P_{1}$ wants resource $R_{1}$ and $P_{2}$ wants that same resource. 
-
-If the priority of $P_{1} > P_{2}$, choose to assign the resource to $P_{1}$.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Priorities}
-
-The OS or the program author may be responsible for assigning a priority.
-
-These priorities may change over time with various criteria. 
-
-System administrators can change priorities, usually.
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Priorities}
-
-Yes, this does mean that some processes are treated better than others.\\
-\quad Sometimes solely as the result of inheritance.
+\frametitle{Virtual Memory: Handling a Page Fault}
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/aristocrat.jpg}
+\includegraphics[width=0.9\textwidth]{images/handling-page-fault.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Don't Waste Time}
+
+Note that between steps 4 and 5, a significant amount of time will take place.
+
+While the slow disk operations are going on, the process is blocked on that I/O.
+
+In the meantime, the processor can and should be working on something else.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Start Again (Nice Day for a..)}
+
+The key requirement is the ability to restart any instruction after the page fault.
+
+We save the state of the process, including all the registers and instruction pointer and so on, when the page fault occurs. 
+
+Restart the process exactly where it was. 
+
+After the restart, the page needed is in memory and is accessible.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Restarting Instructions}
+
+Page faults can occur on any memory access, even fetching the next instruction.\\
+\quad If it happens at that time, the fetch operation is done again. 
+
+If a fault happens when doing an operation that required fetching an operand, then we fetch and decode the instruction again and then fetch the operand. 
+
+So a little bit of work may be repeated.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Restarting an \texttt{ADD} Instruction}
+
+Imagine an \texttt{ADD} instruction that adds \texttt{A} to \texttt{B} and stores the result in \texttt{C}. 
+
+Fetch and decode the instruction.\\
+\quad That tells us about the two operands, which must be retrieved themselves. 
+
+Then we can add the two operands, and store the result in the target location.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Restarting an \texttt{ADD} Instruction}
+
+If a page fault occurs when trying to write to \texttt{C}, restart the instruction. 
+
+Back to step one: fetch the \texttt{ADD} instruction again, then get the operands, then perform the addition, and finally write it into the destination location.
+
+Some work is repeated here: fetching and decoding the instruction, as well as taking the operands and doing the addition. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Round and Round We Go}
+
+While fetching the page containing \texttt{C} from disk, the page that contains \texttt{A} or \texttt{B} could get swapped out...
+
+Meaning that the second run of the instruction will also produce a page fault. 
+
+This is unlikely if using a sane replacement algorithm, because the page with \texttt{A} and \texttt{B} having just been referenced, it is a poor candidate for eviction. 
+
+A random page replacement algorithm could result in that behaviour.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Do-Overs}
+
+Can every instruction be restarted without affecting the outcome? Nope.
+
+Example: an instruction modifies $> 1$ memory location. If we are moving a block of $n$ bytes, it is possible those bytes will straddle a page boundary.
+
+The move operation may not be restarted if the source and destination overlap.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Do-Overs}
+
+Solution: try to access the start and end addresses before the move begins. 
+
+If one of the pages is not in memory, the page fault is triggered before any data is changed, so we can be sure the move will succeed when it actually starts. 
+
+Another solution is temporary registers to hold overwritten location. 
+
+If a page fault occurs, then the temporary data is restored so the instruction may be restarted without affecting the operation's correctness.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Virtual Memory Performance}
+
+Finding something in cache is significantly faster than main memory. 
+
+Retrieving something from disk is dramatically slower, but computing how long it takes to retrieve a given page will follow the same principle. 
+
+Recall from earlier the effective access time formula:
+
+\begin{center}
+	Effective Access Time = $ h \times t_{c} + (1 - h) \times t_{m}$
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Virtual Memory Performance}
+
+Let's convert this to formula for virtual memory.
+
+Replace $t_{c}$ with $t_{m}$.
+
+Replace $t_{m}$ and $t_{d}$ (time to retrieve it from disk).
+
+Redefine $h$ as $p$, the chance that a page is in memory:
+
+\begin{center}
+	Effective Access Time = $ p \times t_{m} + (1 - p) \times t_{d}$
 \end{center}
 
 \end{frame}
 
+
+
 \begin{frame}
-\frametitle{User Priority Input}
+\frametitle{Virtual Memory Performance}
 
-Users may have a say in priority, in at least a limited way. 
+We can combine the caching and disk read formulae to get the true effective access time for a system where there is only one level of cache:
 
-In Windows, for example, as a user it may be possible to set a task priority. 
+\begin{center}
+	Effective Access Time = $ h \times t_{c} + (1 - h) ( p \times t_{m} + (1 - p) \times t_{d})$
+\end{center}
 
-Giving this to users was probably a bad idea, because users often do it wrong. 
+This is good, but what is $t_{d}$? 
+
+This is a measurable quantity so it is possible, of course, to just measure it.
+
+We expect $p$ to be large if our paging algorithm is any good.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Handling a Page Fault}
+
+Handling a page fault is a ``simple'' 16 step process!
+
+... You can see why it is something we wish to avoid.
+
+\begin{enumerate}
+	\item Trap to the operating system.
+	\item Save the user registers and process state.
+	\item Identify this interrupt as a page fault.
+	\item Check that the page reference was legal. 
+	\begin{enumerate}
+		\item If so, determine the location of the page on disk.
+		\item If not, terminate the requesting program. Steps end here.
+	\end{enumerate}
+	\setcounter{pf}{\theenumi}
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Handling a Page Fault}
+\begin{enumerate}
+	\setcounter{enumi}{4}
+	\item Figure out where to place the page in memory (use our replacement algorithm).
+	\item Is the frame we have selected currently filled with a page that has been modified? 
+	\begin{enumerate}
+		\item If so, schedule a disk write to flush that page out to disk. The disk write request is placed in a queue.
+		\item If not, go to step 11.
+	\end{enumerate} 
+	\item Wait for the disk write to be executed. The CPU can do something else in the meantime, of course.
+	\item Receive an interrupt when the disk write has completed.
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Handling a Page Fault}
+
+\begin{enumerate}
+	\setcounter{enumi}{8}
+	\item Save the registers and state of the other process if the CPU did something else.
+	\item Update the page tables to reflect the flush of the replaced page to disk. Mark the destination frame as free.
+	\item Issue a disk read request to transfer the page to the free frame.
+	\item As before, while waiting, let the CPU do something else.
+	\item Receive an interrupt when the disk has completed the I/O request.
+	\item Save the registers and state of the other process (if necessary).
+	\item Update the page tables to reflect the newly read page.
+	\item Restore the state of and resume execution of the process that encountered the page fault, restarting the instruction that was interrupted.
+\end{enumerate}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{User Priority Input}
+\frametitle{Page Faults are Slow}
 
-If you have a long, CPU-Bound task, the right thing to do is to give it a low priority and not a high one. 
+The slow step in all this the amount of time it takes to load the page from disk. 
 
-You might expect that the high priority will get the task done faster... 
+Restarting the process and managing memory and such take 1 to 100~$\mu$s.
 
-It kills the performance of the system and makes users unhappy...\\
-\quad Even though that's what they asked for!
+If a HDD has latency of 3~ms, seek time is 5~ms, and transfer time 0.05~ms. 
+
+So the latency plus seek time is the limiting component, and it's several orders of magnitude larger than any of the other costs in the system. 
+
+This is for servicing a request; don't forget that several requests may be queued, making the time even longer.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Page Faults are Slow}
+
+Thus the disk read term $t_{d}$ dominates the effective access time equation. 
+
+If memory access takes 200~ns and a disk read 8~ms, we can roughly estimate the access time in nanoseconds as $(1-p) \times 8~000~000$. 
+
+If the page fault rate is high, performance is awful. 
+
+If performance of the computer is to be reasonable, say around 10\%, the page fault rate has to be very, very low. On the order of $10^{-6}$. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{SSDs: The Way of the Future}
+
+And now you also know why solid state drives, SSDs, are such a huge performance increase for your computer. 
+
+Instead of spending time measured in the milliseconds to find a page on disk, SSDs produce the data with times that look more like memory reads.
+
+(Take the technical elective Programming for Performance to learn why this, while faster, is not fast enough.)
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Swap File}
+
+We have not yet covered file systems, but files tend to come with a bunch of overhead for file creation and management. 
+
+To avoid this, the system usually has a ``swap file'' which is just one giant file or partition of the hard drive. 
+
+The system can get better performance by just dealing with the swap file as one big file (block) and not tiny individual files.
 
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Choosing the Next Process}
+\frametitle{Copy-on-Write}
 
-In some systems, the highest priority non-blocked process will always run. 
+Recall that in UNIX we create a new process with a call to \texttt{fork()} and that this creates an exact duplicate of the parent process. 
 
-This is a great way of making sure that higher priority processes have right-of-way, but a terrible way of ensuring fairness and preventing starvation. 
+That process may replace itself with the \texttt{exec()} system call immediately. 
 
-So, scheduling is not as easy as just finding the highest priority thing to do...
+Thus it seems like it might be a waste of time to copy the memory space of the parent if the child is just going to throw it away immediately. 
+
+What UNIX systems do is use the \textit{copy-on-write} technique: the parent and child share the same pages, but they are marked as copy-on-write.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Copy-on-Write}
+
+If there is immediately an \texttt{exec()} invocation then the new memory pages for the child are brought in and the unnecessary work is avoided. 
+
+But suppose the child is to remain a clone of the parent.
+
+Initially, all pages are shared but marked. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Copy-on-Write}
+
+As soon as either the parent or child attempts to modify a page, a copy of the page is made and the modification is then applied to the new copy of the page. 
+
+All unmodified pages remain shared, but only the pages that are actually modified will be copied, so there is no unnecessary copying.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Copy-on-Write in Linux}
+
+Some versions of UNIX, notably Solaris and Linux, have a system call \texttt{vfork()} which skips the copy-on-write procedure. 
+
+The parent is suspended; the child process uses the parent's memory space. 
+
+So any alterations the child makes will be visible to the parent when it resumes. 
+
+Thus this is potentially dangerous, as the child can wreak a bunch of havoc.
+
+It is efficient if the intention is to immediately \texttt{exec()}.
+
 
 \end{frame}
 

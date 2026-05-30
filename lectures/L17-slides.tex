@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 17 --- Scheduling Algorithm Evaluation; UNIX \& Windows}
+\title{Lecture 17 --- Real-Time Scheduling}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -15,413 +15,474 @@
 
  \end{frame}
  
-\part{Algorithm Evaluation}
-
 \begin{frame}
-\partpage
-\end{frame}
- 
-\begin{frame}
-\frametitle{What Do We Choose?}
+\frametitle{Real-Time Scheduling}
 
-In some cases (real-time?) it's obvious what to choose.
-
-Otherwise, what gives the best overall performance?
-
-This requires a clear definition of best...\\
-\quad Let's assume we have one.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{How to Decide?}
-
-We need to evaluate the algorithms we've discussed in terms of how well they achieve that goal. 
-
-While it is possible to just have a theoretical discussion about it where we say we think $A$ is better than $B$ but worse than $C$, that's not a very scientific approach. 
-
-What we'd like to do instead is gather some data and make the decision using it.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deterministic Modelling}
-
-Looks like writing test scenarios for a lab project.
-
-Test scenario has inputs/outputs and check correctness/performance.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deterministic Modelling}
-
-An example of a simple test case looks like this, where all five processes arrive at time 0 in this order:
 
 \begin{center}
-\begin{tabular}{c|r}
-	\textbf{Process ID} & \textbf{Burst Time}\\ \hline
-	1 & 10 \\
-	2 & 29 \\
-	3 & 3 \\
-	4 & 7 \\
-	5 & 12 \\
-\end{tabular}
-\end{center}
-
-Then run the target scheduling algorithms.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Deterministic Modelling}
-
-Wait times:
-
-FCFS: 28\\
-SJF: 13\\
-RR(10): 23
-
-Total time of execution is the same... right?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Process Switch Penalty}
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/free-realestate.jpg}
-\end{center}
-
-A more precise version of this evaluation would assign a penalty to the process switch.
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Context Switches}
-
-FCFS and SJF have 4 switches; RR has 7.
-
-Maybe context switch time is so small as to be irrelevant?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{More Realistic}
-
-Test cases that look more realistic will not have everything be statically initialized at the beginning and all tasks waiting.
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/simulations.jpg}
-\end{center}
-
-The nice thing about the deterministic modelling approach is that the tests are reproducible and produce consistent results on every run.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Oh no, Math}
-
-The real behaviour of most systems looks very different from how the deterministic approach models it.
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/dnd.jpg}
-\end{center}
-
-Real systems have a lot of randomness in them...
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Queueing Theory}
-
-Example: login times are somewhat random, but not totally.
-
-That leads us to queueing theory.
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/math.jpg}
-\end{center}
-
-That's too advanced for this course.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Simulations and Emulation}
-
-The simulation, if designed appropriately, will account for more things like clock interrupts and context switch times.
-
-It's possible to do an all-software simulation...
-
-The simulation is only as accurate as you make it and there are a lot of things that might be difficult to simulate accurately.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Embedded Platform?}
-
-Your system may come with an emulator that saves you a lot of work!
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/emulator.jpg}
+	\includegraphics[width=0.7\textwidth]{images/tiktok.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Simulation Limitation}
+\frametitle{Real-Time Scheduling}
 
-Simulations are always based on some assumptions.
+Real-Time scheduling is just scheduling for real-time systems.
 
-A general purpose OS also needs to work for many different HW configurations...
+But what is a real-time system?
 
-Actually, let's consider some real OS algorithms.
+Supposed to respond to events within some real (wall-clock) time. 
 
-\end{frame}
+There are deadlines, and there are consequences for missing deadlines. 
 
-
-\part{Windows \& UNIX Scheduling}
-
-\begin{frame}
-\partpage
-\end{frame}
-
-\begin{frame}
-\frametitle{Scheduling in Desktop OSes}
-
-In this lecture we will examine how real commercial operating systems schedule their processes and threads. 
-
-We will examine UNIX and Windows scheduling. 
-
-We will see what approaches are used and what is interesting/novel about them.
-
+Fast is not as important as predictable.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Traditional UNIX}
+\frametitle{Task Management}
 
-The traditional UNIX scheduling is really ancient; as in System V R3 and BSD 4.3.\\
-\quad It was replaced in SVR4 (which had some real-time support).
+The term \alert{task} is used to refer to something that needs doing.
 
-Multilevel feedback system using Round Robin within each of the queues. 
+Yes, the scheduler operates on threads rather than specific things to do.
 
-Time slicing is implemented and the default time slice is a (very long) 1 second. 
-
-So if a process does not block or complete within 1~s, then it will be preempted. 
-
-Priority is based on the process type as well as the execution history.
+Let's say each task corresponds to a thread trying to some work.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Traditional UNIX}
-
-Processor utilization for a process $j$ is calculated for an interval $i$ with measuring the actual CPU usage and aging implemented as:
+\frametitle{Task Types}
 
 \begin{center}
-$CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$
+	\includegraphics[width=0.4\textwidth]{images/tofu.jpg}
 \end{center}
 
-And the priority is for process $j$ at interval $i$ is calculated by the formula:
+Not quite... Hard, Firm, Soft.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard and Soft Real-Time}
+
+\alert{Hard real-time}: it has a deadline that must be met to prevent an error, prevent some damage to the system, or for the answer to make sense. 
+
+If a task is attempting to calculate the position of an incoming missile, a late answer is no good. 
+
+A \alert{soft real-time} task has a deadline that is not, strictly speaking, mandatory; missing the deadline degrades the quality of the response, but it is not useless.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Firm}
+
+Firm is about severity of consequences. 
+
+A firm deadline is one in which the response is useless if it arrives a little too late.
+
+A hard deadline is one in which the system itself fails if it doesn't meet the deadline.
+\end{frame}
+
+\begin{frame}
+\frametitle{Desktop OSes and Real-Time}
+
+Most of the operating systems you are familiar with (standard Desktop/Server Linux, Mac OS, Windows) are not very suitable to real time systems. 
+
+They make few guarantees, if any, about service. 
+
+When there are consequences for missing deadlines, this kind of thing matters. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Userspace?}
+
+Remember Java's ``stop the world'' garbage collector scenario.
+
+Why is the OS not suitable for real-time operations?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Arbitrary Timelines}
+
+How long does it take to run a system call?
+
+If you measure it, is that the average scenario? Worst-case?
+
+Interrupts? Concurrency-control mechanisms?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{It's Different}
 
 \begin{center}
-$P_{j}(i) = B_{j} + \dfrac{CPU_{j}}{2} + N_{j}$
+	\includegraphics[width=0.4\textwidth]{images/thinkdifferent.png}
 \end{center}
 
-where $B_{j}$ is the base priority of process $j$ and $N_{j}$ is the ``nice'' value of process $j$.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Be Nice}
-
-The ``nice'' value is a UNIX way to allow a user to voluntarily reduce the priority of a process to be ``nice'' to other users (but honestly, who uses this?).
-
-Actually, the answer to that question is: system administrators. 
-
-An admin can ``re-nice'' a process and make it somewhat nicer than it would otherwise be.
-
+Much of the difference of real-time systems is in scheduling.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Traditional UNIX}
+\frametitle{Hard Real-Time Failure}
 
-The $CPU$ and $N$ components of the equation are restricted to prevent a process from migrating outside of its assigned category. 
+If a task is hard real-time, there are two scenarios in which it might not complete before its deadline. 
 
-A process is assigned to a given category based on what kind of process it is. 
+The first is that it is scheduled too late; like an assignment that will take two hours to complete being started one hour before the deadline. 
 
-To put it in simple terms, the OS puts its own needs first and tries to make the best use of resources it can.
-
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/notime.jpg}
+\end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Traditional UNIX}
+\frametitle{Hard Real-Time Failure}
 
-From highest to lowest priority, the categories are:
+If that is the case, the system will likely reject the request to start the task, or perhaps never schedule the task to run at all. 
+
+Why waste computation time on a task that will not finish in time? 
+
+... Could it have been completed if scheduled better?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard Real-Time Failure}
+
+The second scenario is that at the time of starting, completion was possible. 
+
+For whatever reason (e.g., other tasks with higher priority have occurred) it is no longer possible to meet the deadline. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Hard Real-Time Failure}
+
+In that case, execution of the task may be terminated partway through so that no additional effort is wasted on a task that cannot be completed.
+
+... Could this task have been completed if scheduled better?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Properties of Real-Time Systems}
+
+Real-time systems are considered to be unique in five key areas:
 
 \begin{enumerate}
-	\item Swapper (move processes to and from disk)
-	\item Block I/O device control (e.g., disk)
-	\item File manipulation
-	\item Character I/O device control (e.g., keyboard)
-	\item User processes
+	\item Determinism
+	\item Responsiveness
+	\item User (administrator) control
+	\item Reliability
+	\item Fail-Soft operation
 \end{enumerate}
 
 
-
 \end{frame}
 
 \begin{frame}
-\frametitle{Traditional UNIX}
-
-Yes, unfortunately, user processes get piled at the bottom of the list. 
-
-It should provide for efficient use of I/O devices and tends to penalize processor-bound processes at the expense of I/O bound processes. 
-
-CPU-bound processes should be able to carry on executing when an I/O-bound process waits for the I/O operation to complete. 
-
-When an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting.
-
-This strategy is reasonably effective for a general-purpose, time-sharing operating system.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Upgrading to SVR4}
-
-SVR4: highest priority to real-time, then kernel, then user-mode.
-
-Big differences are:\\
-\quad (1) more priority levels -- 160 broken down into three types\\
-\quad (2) preemption points
-
-Preemption points were needed!
-
-\end{frame}
-
-\begin{frame}
-\frametitle{FreeBSD}
-FreedBSD has a scheduling process that's quite similar to that of SVR4.
-
-Interactivity scoring mechanism: which are user-interactive?
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Scoring Mechanism}
-
-We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$ and the sleep time of the thread as $s$. 
-
-More sleep time than run time? The interactivity score is calculated as $(\dfrac{m}{2})(\dfrac{r}{s})$
-
-For those that have more run time than sleep time:
-  $(\dfrac{m}{2})(1 + \dfrac{r}{s})$. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Affinity and Load-Balancing}
-
-We already covered affinity and load-balancing.
-
-FreeBSD has push and pull mechanisms.
-
-Pull: bit mask to indicate it's idle.
-
-Push: Twice per second tasks to equalize highest and lowest CPUs.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Windows Scheduling}
-
-Windows schedules threads using a priority-based, preemptive scheduling algorithm, ensuring that the highest priority thread runs. 
-
-The official name for the selection routine is the \alert{dispatcher}.
-
-A thread runs until it is preempted, blocks, terminates, or its time slice expires. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Windows Scheduling}
-
-If a higher priority thread is unblocked, it will preempt a lower priority thread. 
-
-Windows has 32 different priority levels, the regular (priority 1 to 15) and real-time classes (16 to 31). 
-
-A memory management task runs at priority 0.
-
-The dispatcher maintains a queue for each of the scheduling priorities and goes through them from highest to lowest until it finds something to do.
-
-If there is nothing else currently ready, the System Idle Process will ``run''.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Windows Priority Classes}
-
-There are six priority classes you can set a process to via Task Manager:
-
-\begin{enumerate}
-	\item Realtime
-	\item High
-	\item Above Normal
-	\item Normal
-	\item Below Normal
-	\item Low
-\end{enumerate}
-
-A process is usually in the Normal class.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Windows Thread Priorities}
+\frametitle{Determinism}
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/windows-thread-priorities.png}
+	\includegraphics[width=0.4\textwidth]{images/predictable.jpg}
+\end{center}
+
+Determinism: operations are predictable.
+
+Perfect determinism probably won't happen; just need guarantees.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Nondeterminism?}
+
+Nondeterminism isn't necessarily bad: e.g., caching.
+
+The presence of caching makes the worst case no worse and the best case much better -- this sounds like free performance to me! 
+
+Can you think of something else?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Responsiveness}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/notresponding.jpg}
+\end{center}
+
+Responsiveness includes not only the time to execute the interrupt handler...
+
+Also the time it takes to start the interrupt handler and what happens if the interrupt is itself interrupted by another higher-priority interrupt.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Administrator Control}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/twup.png}
+\end{center}
+
+Administrator control could be much less or much more!
+
+Typical OS is somewhere in between.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Reliability \& Fail-Soft}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/silvermedal.jpg}
+\end{center}
+
+
+Fail-soft: do our best even if it's not possible to succeed at all tasks.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Scheduling is Central}
+
+\begin{center}
+	\includegraphics[width=\textwidth]{images/captainschair.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Windows Time Slicing}
+\frametitle{Scheduling Algorithm Selections}
 
-If a process reaches the end of a time slice, the thread is interrupted.
+Choosing the wrong algorithm guarantees failure.
 
-Unless it is in the real-time category, its priority will be lowered, to a minimum of the base priority of each class. 
+Scheduling algorithms we've discussed so far are inadequate.
 
-When a process that was blocked on something (e.g., a wait or I/O), its priority is temporarily boosted (unless it is real-time, in which case it cannot be boosted). 
-
-The amount of the boost depends on what the event was.
-
-A process that was waiting for keyboard input gets a bigger boost than one that was waiting for a disk operation, for example.
+Fairness and minimizing average response time are irrelevant.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Windows Priority: UI}
+\frametitle{Stay On Target!}
+The goal is to make sure hard real-time tasks complete.\\
+\quad And as many as possible of the soft real-time tasks.
 
-The operating system also gives a priority to whatever process is running in the selected foreground window. 
+Right algorithm? Success is possible but not guaranteed.
 
-This is different from foreground vs. background processes, because the definition of a foreground process was one that was user-interactive. 
-
-Here, the distinction is which of the user-interactive processes is currently ``on top'' in the UI. 
-
-Not only does this process get a priority boost, but it also gets longer time slices. 
-
-It highlights the different heritages of Windows and UNIX...
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/physics.jpg}
+\end{center}
 
 \end{frame}
 
+\begin{frame}
+\frametitle{Preemption is the Priority}
+
+Non-preemptive algorithms won't work here.
+
+Immediate preemption makes sense.
+
+Why, when we can make timeslices super small?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{What Kind of Tasks?}
+
+Every task can be categorized as one of the four kinds:
+
+\begin{enumerate}
+	\item Fixed-Instance
+	\item Periodic
+	\item Aperiodic
+	\item Sporadic
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Fixed Instance}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/oneping.jpg}
+\end{center}
+
+This kind of task happens only a fixed number of times (usually once).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Periodic Tasks}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/periodic.jpg}
+\end{center}
+
+If a task repeats at regular intervals, it's \alert{periodic}.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Periodic Tasks}
+
+Periodic tasks have two relevant attributes:\\
+\quad $\tau_{k}$, the period; \\
+\quad $c_{k}$, the worst-case computation time
+
+We can calculate the utilization of periodic tasks:
+
+\begin{center}
+$U = \sum\limits_{k=1}^n\dfrac{c_{k}}{\tau_{k}}$
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Overloaded}
+
+If $U > 1$, it means the system is overloaded: there are too many periodic tasks. 
+
+We cannot guarantee that the system can execute all tasks and meet the deadlines.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/allshesgot.jpg}
+\end{center}
+
+Otherwise, we can devise a schedule.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Only Periodic?}
+
+If the only tasks in the system are periodic ones, then we can create a fixed schedule for them.
+
+Example: classes at UW.
+
+But life is rarely so nice.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Aperiodic Tasks}
+
+Aperiodic tasks occur irregularly with no minimum interval.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/aperiodic.jpg}
+\end{center}
+
+If we expect an average arrival rate of 3 requests per second, there is still a 1.2\% chance that eight or more requests appear within 1~second
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Sporadic Task}
+
+Sporadic tasks are aperiodic, but they require meeting deadlines.
+
+\begin{center}
+	\includegraphics[width=0.3\textwidth]{images/sporadic.jpg}
+\end{center}
+
+We need a guarantee that there is a minimum time $\tau_{k}$ between occurrences of the event.
+
+They can overload the system?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Estimation}
+
+Where do task execution times come from?
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/estimates.jpg}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Worst Case Scenario}
+
+We always assume the worst case scenario! 
+
+There's two ways to do it: source code analysis and empirical testing.
+
+Err on the side of caution... More money? Worse battery life?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Airline Example}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/cancelled-flights.jpg}
+\end{center}
+
+Caused by lack of capacity...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Code Analysis}
+
+Code analysis is exactly what it sounds like.
+
+Try to figure out how long the execution takes on the longest path.
+
+Overestimate; ignores pipelining and compiler optimizations...
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Estimation is Hard}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/nasa-logo.png}
+\end{center}
+
+NASA/JPL Guidelines:
+\begin{enumerate}
+	\item No recursion and no \texttt{goto}
+	\item Loops must have a fixed bound
+	\item No dynamic memory allocation after init
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Empirical Observation}
+
+If you already have a version $n$ of the system and want to build version $n+1$: extrapolate?
+
+Otherwise, simulate.
+
+Simulation must be representative or misleading.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Confidence Intervals}
+
+It's possible to estimate using known mathematical techniques the worst case runtime with the \alert{confidence interval}.
+
+We might say that the maximum time is $t$ with 99\% confidence, based on the standard deviation.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Ready to Schedule Some?}
+
+Now that we understand real-time systems and classification...
+
+Let's actually schedule some!
+
+\end{frame}
 
 
 \end{document}

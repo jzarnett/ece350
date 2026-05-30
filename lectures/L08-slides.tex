@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 8 --- Memory: Segmentation \& Paging }
+\title{Lecture 8 --- Memory }
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -16,497 +16,399 @@
  \end{frame}
 
 
-
 \begin{frame}
-\frametitle{Memory Segmentation}
-
-You've been repeatedly told that memory is a linear array of bytes. 
-
-You have also been told that there's the stack and the heap, libraries and instructions.
+\frametitle{Main Memory}
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/pov.jpg}
+	\includegraphics[width=0.65\textwidth]{images/ram.jpg}
 \end{center}
+
+Fetch instructions from memory, fetch operands, write result.
+
+... All to or from memory!
 
  \end{frame}
 
 
-
 \begin{frame}
-\frametitle{Memory Segmentation}
-
-Both are true; they are views of memory at different levels of abstraction. 
-
-Each of the elements such as the stack, the heap, the standard C library, et cetera, are known as \alert{segments}.
+\frametitle{Main Memory}
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/segfault.png}
+	\includegraphics[width=0.5\textwidth]{images/waiting-for-the-bus.jpg}
+\end{center}
+
+A single simple instruction like an addition could result in 4 memory accesses. 
+
+Therefore, we are spending a lot of time interacting with memory.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory as a Resource}
+
+Application developers behave as if:\\
+\quad (1) main memory is unlimited; and \\
+\quad (2) all of main memory is at the program's disposal. 
+
+
+Why do program developers pretend that memory is infinite and unshared?
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Size Matters Not}
+
+Compared to the early days of computing, memory available is huge. 
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/yoda.jpg}
 \end{center}
 
 
-\end{frame}
+The Commodore~64, introduced in 1982, had a whopping 64~KB of memory. 
 
-\begin{frame}
-\frametitle{Memory Segmentation}
-
-Programmers do not necessarily give much thought to whether variables are allocated on the stack or the heap.
-
-Or where program instructions appear in memory. 
-
-In many cases it does not matter, though C programmers are well advised to know the difference.
-
+A 4-byte (32-bit) integer was a significant fraction of memory. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Memory Segments}
+\frametitle{Size Matters Not}
 
-A full program has a collection of different-sized segments, made by the compiler.
+Application developers had to scrimp and save to avoid wasting even a single integer's worth of memory. 
 
-\begin{enumerate}
-	\item The code (instructions).
-	\item Global variables.
-	\item The heap.
-	\item The stack (one per thread).
-	\item The standard C library.
-\end{enumerate}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Segments from the Programmer's Perspective}
+This is why languages like C and Java support types like \texttt{short}.
 
 \begin{center}
-\includegraphics[width=0.55\textwidth]{images/segments.png}
-\end{center}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Thinking about Segments}
-
-Rather than thinking about memory as just a pure address, we can think of it as a tuple: \textit{$<$segment, offset$>$}. 
-
-Given that, we need an implementation to map these tuples into memory addresses. 
-
-The mapping has a segment table.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Thinking about Segments}
-
-Each entry in the table contains two values: the base and the limit.
-
-So there will be some addition involved as well as a comparison to see if the address lies within that range.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Segment Table: Hardware}
-
-Memory accesses are such a common operation that we will need another rescue from the hardware folks to make this not painfully slow.
-
-\begin{center}
-\includegraphics[width=0.75\textwidth]{images/segmentation-hardware.png}
+	\includegraphics[width=0.4\textwidth]{images/pennypincher.jpg}
 \end{center}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Segmentation: Contiguous}
+\frametitle{Size Matters Not}
 
-With segmentation, memory need no longer be contiguous. 
+Now: if 1000 integers were wasted unnecessarily, would anyone notice or care?
 
-We can allocate different parts of the program in different segments. 
+``Kicking the can down the road''
 
-Different segments can be located in different areas of memory.
-
-(Want to find out where something is? Use the \texttt{\&} [address-of] operator...)
+Even though memory might be big enough for every process to have its own area, that would not work if every developer assumes memory is unshared. 
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Paging}
+\frametitle{The OS as Manager}
 
-Fixed \& variable sized partitions suffer from fragmentation, external or internal. 
+Modern operating systems manage the shared resource of memory for them. 
 
-Divide memory up into small, fixed-size chunks of equal size, called \alert{frames}. 
+This was not always the case; applications used to be responsible for it.
 
-Divide each process's memory into chunks the same size as a frame: \alert{pages}. 
-
-Then a page can be assigned to a frame. 
-
-A frame may be empty or may have exactly one page in it. 
+There were third party programs to let the user do some, too. 
 
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Paging: Picture Frame}
 
-Imagine, as an analogy, a simple picture frame. 
+\begin{frame}
+\frametitle{The Empire is on the Verge of Success}
 
 \begin{center}
-	\includegraphics[width=0.5\textwidth]{images/pictureframe.jpg}
-\end{center}
-
-The frame may be empty or it may contain a picture. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Paging: Picture Frame}
-
-If the picture frame is empty, all that is necessary is to put a picture in it. 
-
-To put in a different picture, first, take out the picture that is already there. 
-
-Taking out the picture to empty the frame is allowed, too. 
-
-A picture is always aligned to be completely in a frame; not half in and half out. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Paging: Picture Frame}
-
-
-Now expand this scheme by having a very long row of picture frames. 
-
-Each frame can contain one picture at a time, at most. 
-
-A picture can be in at most one frame at a time. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Paging: Process Start}
-
-A process starts, is loaded into memory, and has initial memory requirements. \\
-\quad (e.g., the stack and global variables).
-
-The number of pages can \& will change over time as memory is allocated/freed. 
-
-A process may also be swapped out to disk, but to run it needs to be swapped in. 
-
-A process will take up a certain number of pages in memory at any given time.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Page Benefits}
-
-Pages separate the logical address from the physical address.
-
-Programmers may pretend the address space of the computer is $2^{64}$ bytes.
-
-Not just how many GB of memory are in the physical machine. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Page Example}
-
-\begin{center}
-\includegraphics[width=0.6\textwidth]{images/loading-pages.png}
+	\includegraphics[width=0.7\textwidth]{images/empire-success.jpg}
 \end{center}
 
 
-\end{frame}
+\url{https://www.youtube.com/watch?v=KMFycV3SS9o}
 
-\begin{frame}
-\frametitle{Page Tables}
-
-Now that we have multiple segments for each process and they are no longer contiguous, it is insufficient to have a base address and a limit.
-
-Each process needs a page table, to keep track of which pages are located where in memory. 
-
-A list of free frames is also necessary
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Page Table Diagram}
+\frametitle{No Memory Management}
+
+The simplest way to manage memory is, well, not to manage memory at all.
+
+Early mainframe computers and even personal computers into the 1980s had no memory management strategy. 
+
+Programs would just operate directly on memory addresses. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Memory Management}
+
+The section of memory that is program-accessible depended a lot on the operating system, if any, and other things needed (e.g., the BASIC compiler). 
+
+So to write a program, we need to know the ``start'' \& ``end'' address. 
+
+
+These would differ from machine to machine, making it that much harder to write a program that ran on different computers.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Memory Management - No Rules}
+
+A program executed an instruction directly on a memory address, such as writing 385 into memory location 1024. 
+
+Suppose you wanted to have two programs running at the same time. 
 
 \begin{center}
-\includegraphics[width=\textwidth]{images/page-tables.png}
+	\includegraphics[width=0.3\textwidth]{images/chaos.jpg}
 \end{center}
 
+If the first program writes to address 1024, and the second program writes to address 1024, the second program overwrote the first program's changes. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Page Table}
+\frametitle{No Memory Management - No Rules}
 
-The page table is used to map logical memory to physical memory.
+Alternatively, the first program can use memory locations less than, say, 2048 and the second uses memory locations above 2048. 
+
+This level of co-ordination gets more and more difficult as more and more programs are introduced to the system.
+
+It is next to impossible if we do not control (have the source code to) all the programs that are to execute concurrently.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{No Memory Management - A Solution}
+
+On every process switch, save the entire contents of memory to disk.\\
+\quad Then restore the memory contents of the next process to run. 
+
+This kind of swapping is, to say the least, incredibly expensive.
+
+But the problem is avoided; only 1 process is ever in memory at a time.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Jumping without a Parachute}
+
+Another problem: there is no protection for the operating system. 
 
 \begin{center}
-\includegraphics[width=0.65\textwidth]{images/page-table-mapping.png}
+	\includegraphics[width=0.7\textwidth]{images/wileecoyote.jpg}
 \end{center}
 
 \end{frame}
 
-
 \begin{frame}
-\frametitle{Page Sizes}
+\frametitle{Jumping without a Parachute}
 
-For convenience, page size is usually a power of 2.\\
-\quad (and the actual value is determined by hardware). 
+The operating system is typically placed in either low memory or high memory, or in some cases, a bit of both. 
 
-The selection of a power of 2 makes translating a logical address into a tuple of the page number and offset easy. 
+An errant memory access might overwrite a part of the OS in memory.
 
-If the logical address space has size $2^{m}$ and the page size is $2^{n}$ bytes:\\
-\quad The high order $m - n$ bits of the logical address are the page number;\\
-\quad The lower $n$ bits are the page offset. 
+This can not only lead to crashes, but also corrupting important files on disk.
+
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Pages: External Fragmentation}
+\frametitle{IBM 360 Solution}
 
-External fragmentation is eliminated as a problem in this scheme, because pages are all the same size. 
-
-That also means that compaction is not an issue. 
-
-Compaction, when it's possible, is painful enough in memory. \\
-\quad It is excruciating to do on disk. 
-
-We accept some internal fragmentation because a process gets a whole page. 
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Pages: Internal Fragmentation}
-
-How much internal fragmentation do we have to live with? Not very much. 
-
-If the memory required aligns perfectly with a multiple of the page size, then no memory is wasted. 
-
-If a new memory allocation comes in, then a new page is allocated and added to the logical memory space of the process. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Pages: Internal Fragmentation}
-
-The last frame, however, may not be completely full. 
-
-In the worst case scenario, a full page less one byte is wasted. 
-
-Internal fragmentation of one page is not very much overall.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Pages: Does Size Matter?}
-
-How big should page sizes be? 
-
-If they are smaller, then less memory is wasted in internal fragmentation. 
-
-However, having a large number of pages introduces a lot of overhead. 
-
-The size of pages has tended to grow along with the size of main memory.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Page Size: Disk Size}
-
-The key factor is actually disk: the disk operates on a certain block size and it is most efficient for the size of a page to be equal to a disk read/write size. 
-
-That way when a page is to be swapped into or out of memory, it can be done in a single disk read or write. 
-
-In a typical modern system, pages are 4~KB, but they can be bigger.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Pages: Size and Protection}
-
-Now we finally have a good answer to why the application developer can treat memory as if it is infinitely large and unshared. 
-
-\begin{center}
-	\includegraphics[width=0.5\textwidth]{images/explained.png}
-\end{center}
-
-The program is scattered across physical memory, but appears to the application developer and running application as if it is all contiguous. 
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Pages: Size and Protection}
-
-We also get protection in this scheme.
-
-A program cannot access any address outside of its memory space. 
-
-There is no way to make a memory request outside of the logical memory space. 
-
-No matter what address is generated, it could only be inside the page table, and the page table has only entries of that process.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Pages: The OS View}
-
-The operating system, however, can manage memory of all processes, so it will need another scheme. 
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/frametable.png}
-\end{center}
-
-The OS will operate on the \alert{frame table}, a listing of all the frames, indicating which page of which process a frame currently holds, if any.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Shared Pages}
-
-Another great advantage of paging is the possibility of sharing of common code. 
-
-Users very often have multiple programs open; sometimes they are duplicates.
-
-In a multiuser system, different users may have some of the same program open.
-
-We could reduce memory consumption if common parts of this program are shared between all instances of that program.
-
-\end{frame}
-
-
-\begin{frame}
-\frametitle{Sharing is Caring: \texttt{vi}}
-
-Imagine there are 5 users on the system, each of whom wants to use \texttt{vi}. 
-
-Let's say the program itself uses 10 pages (made up number) on its own, and then some variable number of pages based on what file is being edited. 
-
-Without sharing, each copy of \texttt{vi} that runs will consume 10 pages, so 50 pages are being used for the executable. 
-
-If we can share those 10 pages, we have saved 40 pages worth of memory space.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Sharing Code}
-
-Other programs and code can easily be shared, such as compilers, libraries, and operating system utilities. 
-
-In fact, any code can be shared as long as it is \alert{reentrant} (also sometimes called pure or stateless). 
-
-This is code that does not change when it is executed. 
-
-That means there is no state maintained by the code. 
-
-
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Non-Reentrant Code}
-
-Any function that accesses a global or static variable is non-reentrant.
-
-\begin{verbatim}
-int tmp;
-void swap( int *x, int *y ) {
-  tmp = *x;
-  *x = *y;
-  *y = tmp; 
-}
-\end{verbatim}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Page Table Structure}
-
-In the simplest form, the page table is just a standard table. 
-
-This structure is simple, but page tables can be very large.
-
-If the system is 32-bit, and page sizes are 4~KB ($2^{12}$), then the page table has $2^{32}/2^{12} = 2^{20}$ pages, or about 1 million entries.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Page Table Structure}
-
-We will examine three strategies for structuring the table:
-
-\begin{enumerate}
-	\item Hierarchical paging.
-	\item Hashed page tables.
-	\item Inverted page tables.
-\end{enumerate}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Hierarchical Paging}
-
-Rather than have one big table, we have multiple levels in the page table. 
-
-The page table can be broken up and need not be contiguous in memory. 
-
-Suppose we have a two level system. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Hierarchical Paging}
-
-If the page number is $p$, the first $k$ bits indicate the \alert{outer page}. 
-
-The outer page contains some information about where the \alert{inner pages} are. 
-
-The remaining $p-k$ bits identify the inner page. 
-
-After the inner page is identified, the displacement $d$ is then calculated.
-
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Hashed Page Tables}
-
-Instead of the page table being an array of entries, turn it into a hash table.
-
-There is a hash function to assign pages to ``buckets'' and each bucket is implemented as a linked list. 
+ The IBM 360 solved this problem by dividing memory into 2~KB blocks and each was assigned a 4-bit protection key, held in special registers in the CPU. 
  
-Then each element of the list is examined to find the matching page.
+The Program Status Word (PSW) also contained a 4 bit key. 
+
+The 360 hardware would then identify as an error an attempt to access memory with a protection code different from the PSW key. 
+
+The OS was the only software allowed to change the protection keys. 
+
+Thus, no program could interfere with another or with the operating system
+
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Inverted Page Tables}
+\frametitle{Base and Limit}
 
-For 32-bit virtual addresses, a multilevel page table can work. 
+We can generalize this solution by having two values maintained: 
 
-But with 64-bit computers, with 4~KB pages, the page table requires $2^{52}$ entries.
+The \alert{base} and \alert{limit} addresses. 
 
-If an entry is 8 bytes, then the table is over 30 million gigabytes (30~PB).
+These define the start and end addresses of the program's memory.
+
+Every memory access is compared to the base and the [base + limit] address. 
+
+If an attempted memory access falls outside that acceptable range: error. 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Inverted Page Tables}
+\frametitle{Base and Limit}
 
-Does your computer have that much memory?\\
-\quad ... If so, can I borrow it?
+The base \& limit variables are often registers; comparison is done via hardware.
 
 \begin{center}
-	\includegraphics[width=\textwidth]{images/datacentre.png}
+\includegraphics[width=0.9\textwidth]{images/memory-baselimit.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Base and Limit}
+
+Imagine we have two programs numbers simply 1 and 2, each 16~KB in size.
+
+We will load them into memory in different consecutive areas:
+
+\begin{center}
+\includegraphics[width=0.70\textwidth]{images/os360.png}
+\end{center}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Base and Limit Problem}
+
+Program 1 will execute as expected. 
+
+The problem is immediately obvious when Program 2 runs. 
+
+The instruction at address 16384 is executed: \texttt{JMP 28} takes execution to memory address 28 and not the expected address of 16412. 
+
+The problem is that both programs reference absolute physical locations. 
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Static Relocation}
+
+The IBM 360's stopgap solution to this was to do static relocation.
+
+If a program was being loaded to a base address 16384 the constant 16384 was added to every program address during the load process. 
+
+While slow, if every address is updated correctly, the program works.
+
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Static Relocation is Hard}
+
+A command like \texttt{JMP 28} must be relocated, but the 28 in a command like \texttt{ADD~R1,28} is a constant and should not be changed. 
+
+How do we know which is an address and which is a constant? 
+
+It gets worse: in C a pointer contains an address, but addresses are just numbers. 
+
+So in theory we could just dereference any integer variable and it would take us to a memory address (whether it's valid or not is not the point here). 
+
+That makes it even harder to know if a number is just a number or an address.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Variable Names}
+
+When we are writing a program, unless it's in assembly, we do not usually refer to variables by their memory locations.
+
+The command we write looks something like \texttt{x = 5;} 
+
+We know that variable \texttt{x} is stored in memory, the question arises: when is the variable assigned a location in memory?
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Assigning a Variable a Location}
+
+There are three opportunities to assign a variable a place in memory:
+
+\begin{enumerate}
+	\item \textbf{Compile time}
+	\item \textbf{Load time}
+	\item \textbf{Execution time}
+\end{enumerate}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Address Space}
+
+It is clear that having no memory management leaves us with a number of problems. 
+
+We need an abstraction; a layer of indirection. 
+
+We do this with a concept called \alert{address space}. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Address Space}
+
+An address space is a set of addresses that a process can use.
+
+Each process has its own address space, independent of other processes'.\\
+\quad Except when we create shared memory.
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Address Space: Telephone Numbers}
+Telephone numbers in Canada and the USA take the form of NNN-NNNN.
+
+In theory, any number in the range 000-0000 to 999-9999 could be issued, but in practice certain numbers are reserved (like the 000 or 555 prefixes).
+
+Given the number of phones in the countries, 7 digits can't possibly be enough.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Address Space: Telephone Numbers}
+
+\begin{center}
+	\includegraphics[width=0.9\textwidth]{images/areacodes.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Area Codes for Memory}
+
+This is the idea we want to apply: let each process have its own area code. 
+
+So process can write to location 1024 and process 2 can write to location 1024 and these are two distinct locations, perhaps 21024 and 91024 respectively.
+
+Now, instead of altering the addresses in memory, we will effectively prefix every memory access with an area code.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Area Codes for Memory}
+
+The address that is generated by the CPU, e.g., the 28 in \texttt{JMP 28}, is the \alert{logical address}. 
+
+We then add the area code to it to produce the \alert{physical address} (the actual location in memory and the address that it sent over the bus). 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Relocation Register}
+
+In practice, to speed this up, it is done via some hardware, and the ``area code'' is a register called the \alert{relocation register}:
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{images/relocation-register.png}
 \end{center}
 
 
@@ -514,148 +416,106 @@ Does your computer have that much memory?\\
 \end{frame}
 
 \begin{frame}
-\frametitle{Inverted Page Tables}
+\frametitle{Relocation Register}
 
-Inverted page table: one entry per frame, rather than one entry per page.
+The process itself does not know the physical address (14346 in the example).
 
-The entry keeps track of the process and page number. 
+It knows only the logical address (346). 
 
-This saves a huge amount of space.\\
-\quad (1~GB of ram with a 4~KB page size $\rightarrow$ page table requires only $2^{18}$ entries).
+This is a run-time mapping of variables to memory.  
 
-The drawback: no longer possible find physical pages by looking at the address.\\
-\quad Instead, searching (slow).
+We get some protection between processes.
 
-\end{frame}
-
-\begin{frame}
-\frametitle{Paging: Hardware Support}
-
-Memory accesses are very frequent and require additions and comparisons. 
-
-Recall an operation as simple as adding two numbers requires fetching the add instruction, fetching the operands, and storing the result. 
-
-To prevent abysmal performance, modern computers have hardware support.
-
-Hardware is much, much faster than doing these operations in software.
-
+We would get more protection if we brought back the limit register and compared the physical address to the base and [base + limit] values again. 
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Paging: Hardware Support}
+\frametitle{The Other Kind of Relocation}
 
-The simplest implementation is to use a set of dedicated registers.
+This scheme also gives us something new: we can relocate a process in memory if we change the relocation register's value accordingly. 
 
-Registers are the fastest form of storage. 
+A process that is currently loaded into memory with a relocation register value of 14000 can easily be moved to another location. 
 
-When a process switch takes place, these registers, just as all other registers, are replaced with those of the process to run. 
+Copy all the memory from relocation register to the limit to a new location and then update the relocation register to the new starting location (90000). 
 
-The PDP-11 was an example of a system that had this architecture.\\
-\quad Addresses were 16 bits and the page size was 8~KB.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Paging: Hardware Support}
-
-The page table was therefore 8 entries and kept in fast registers. 
-
-This might work if the number of entries in the page table is small (~256 entries). 
-
-The page table can easily be something like 1 million entries.\\
-\quad Does your CPU have 1 million registers? If so...?
-
-The page table is in main memory. A single register points to the page table.
-
+After that, the old location of the process's memory can be marked as available or used by another process.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{There's Always a Catch}
+\frametitle{The Price We Pay}
 
-To access a page from memory, we need to first figure out where it is, so that requires accessing the page table in main memory. 
+Every memory access now includes an addition (or 2 if the limit register is used). 
 
-Then after retrieving that, we can look in the page table to find the frame where the desired page is stored. 
+Comparisons are pretty quick for the CPU, but addition can be quite a bit slower, because of carry propagation time.
 
-Then we can access that page. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{There's Always a Catch}
-
-So two memory accesses are required for every read or write operation. 
-
-As far as the CPU is concerned, main memory already moves at a snail's pace. 
-
-Doubling the amount of time it takes to do a read or write means it takes roughly forever. 
-
-Thus, we will need to find a way to speed this up.
+So every memory access has a penalty associated with it: \\
+\quad The addition of the relocation register value to the issued CPU address.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Hardware to the Rescue, Again}
-
-A fast cache called the \alert{translation lookaside buffer} (TLB). 
-
-You can think of the TLB as a key-value pair (think HashMap). 
-
-The key is the logical address and the value is the physical address. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Translation Lookaside Buffers}
-
-To make the search fast, the comparison is done on all items simultaneously. 
-
-To prevent this from being extremely expensive, the size of the TLB is limited.
-
-It's usually something around 32 to 1024 entries in size. 
-
-Systems have evolved from having no TLBs to having multiple levels, over time.
-
-\end{frame}
+\frametitle{Swapping}
 
 
-\begin{frame}
-\frametitle{Check the TLB}
+To run, a process must be in main memory. 
 
-When a memory read/write is issued, the page number is checked.
+Given enough processes, sufficiently demanding processes, it will not be possible to keep all of them in memory at the same time. 
 
-If it is found in the TLB then the frame number is immediately known. 
+Processes that are blocked may be taking up space in memory. It might be logical to make room for processes that are ready to run.
 
-If the page number is not found in the TLB, this is what we call a \alert{TLB miss}.
-
-We must look in the full page table, which unfortunately is slower because it requires reading from memory.
+Moving a process from memory to disk (or vice-versa) is called \alert{swapping}.
 
 \end{frame}
 
 \begin{frame}
-\frametitle{TLB Operation}
-
+\frametitle{Swapping}
 \begin{center}
-\includegraphics[width=0.9\textwidth]{images/tlb-hardware.png}
+\includegraphics[width=0.75\textwidth]{images/swapping1.png}
 \end{center}
 
 
 \end{frame}
 
 \begin{frame}
-\frametitle{Caching}
+\frametitle{Swapping is Painful}
 
-The TLB idea is a specific instance of the strategy of caching. 
+Unfortunately, swapping a process to disk is very painful. 
 
-Much earlier, when talking about the basics of computer hardware, we mentioned that memory comes at different levels and and different speeds. 
+If the process is using 1~GB of memory, to swap a process out to disk, we need to write 1~GB of memory to disk. 
 
-Caching is a critical idea in computers and operating systems. 
-
-In fact, caching is such an important topic, that it will be the next topic...
+To load that process back later, it means reading another 1~GB from disk and putting it into main memory.
+ 
+So, swapping is something we would like to do as little as possible.
 
 \end{frame}
 
+\begin{frame}
+\frametitle{Swapping and Relocation}
+
+When swapping a process back in from disk it is not necessary to put it back in exactly the same place as it originally was.
+
+Just update the relocation register.
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{images/swapping2.png}
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Memory Allocation}
+
+Thus far we have considered process memory as a large, fixed-sized block.
+
+ A process gets a big section of memory and operates in that area.
+ 
+As you know from previous programming experience, use of the \texttt{new} keyword in some languages, or \texttt{malloc()} in C, will result in dynamic memory allocation. 
+
+We will have to deal with this next...
+
+\end{frame}
 \end{document}
 
