@@ -4,23 +4,67 @@
 
 \lecture{ 21 --- Power Management and Energy-Aware Scheduling }{\term}{Jeff Zarnett}
 
-\section*{Placeholder}
+\section*{Limited Power}
 
-\textit{This lecture has not yet been written. The detailed outline lives in
-the plan file \texttt{let-s-look-at-containers-structured-sprout.md}.}
+Motivating why we should care about power consumption is easy: the consumer market for buying laptops that last only an hour is tiny, if it exists at all. Similarly, you would not be very happy with a phone that doesn't make it through the average day. In fact, if your phone is not lasting long enough, you probably have decided you need either a new phone or, at least, a new battery. Even if we're not talking about running on battery, electricity has some cost to it. Energy is a resource, and something the operating system can manage (if it's aware of it). Operating systems can discover and configure power states through a standard interface called \textit{ACPI}: Advanced Configuration and Power Interface. This has existed for decades now.
 
-The intended sections are:
+While it might be possible to manage power consumption across different devices in the system, given the limited time available to us in this course, we'll restrict the discussion to managing the power state of the CPU. 
 
-\begin{enumerate}
-	\item CPU P-states and C-states
-	\item DVFS --- the physics
-	\item Linux CPU governors and schedutil
-	\item Energy-Aware Scheduling (EAS)
-	\item System sleep states (ACPI S-states)
-	\item Wake events and wakeup sources
-	\item Power in the datacenter
-	\item Userspace knobs
-\end{enumerate}
+\paragraph{ACPI States.} It's also important to differentiate this discussion from the general ACPI states of the device. The ACPI states are the ones the user typically thinks of: powered off, powered on, sleeping, and hibernating (off but state stored to disk to restore on wake-up). 
+
+If you close the lid of your laptop without selecting to shut down or power-off, it probably goes to a ``sleep'' mode. If it thinks that battery is getting low, it might transition to a ``hibernate'' mode by writing the contents of RAM to disk to restore when power comes back. 
+
+In this topic, we are considering the ACPI state to be that the computer is powered on. 
+
+\subsection*{Lay in a Course, Maximum Warp}
+
+There are certainly times where we want to use the CPU to its maximum power. If the laptop is plugged in to the charger and the user has a very CPU-intensive task running (play a game, render a video, execute a simulation, etc.) then it makes sense to go as hard as we can. Running the CPU at its maximum power means it delivers the best performance. But even in Star Trek, they don't go everywhere at Maximum Warp, do they?
+
+You already know one reason why we should not run the CPU at 100\% at all times from the title of this topic: energy consumption and therefore battery life. The other reason, of course, is heat. Heat can be uncomfortable if the laptop is in your lap or the phone in your hand, but heat is also the enemy of reliability. Running the components very hot will shorten their lifespan and leads to increased errors in calculations -- but we'll come to that in the reliability topic.
+
+Maybe a helpful way of looking at it: for the CPU to be at 100\% is like running everywhere you go. Run to class, run to the lab, run to lunch... You \textit{can} do it, sure, but depletes your energy way faster than walking and on a hot day you will definitely start feeling the negative effects of the heat. There's a time and place for it, but you don't run all the time. Instead, you adapt your pace of travel to the urgency of the situation and the state of resources. Want to go to class? Leisurely pace. Going to miss your bus? Jog for it, but not at max effort. Late for the exam? Maximum warp, Mr. Sulu. 
+
+The CPU has what are referred to as P-States and C-States. P is for ``performance'' and C is for ``CPU idle''. Broadly, P-States control the voltage and CPU frequency and C-States determine what the CPU does to reduce power consumption when no code is running (idle). For this section on P- and C-states, we'll dive into this helpful guide~\cite{cpu-power} that builds on some Intel Xeon data sheets, developer guides, and some kernel sources. Other CPUs with the same or other architectures also have comparable power management features, so the concepts here apply even if there are different names of things and different levels.
+
+So, we have two levers available to reduce power consumption. Performance level and turning things off.
+
+\paragraph{P-States.} The first is the performance level setting, which says what clock speed we want to run the CPU at. This works because, to a first approximation, the power consumption of the CPU is linear with respect to frequency and quadratic with respect to voltage (the source writes it as $P ~\alpha~f V^{2}$ which is oversimplifying but directionally correct). A small amount of hardware knowledge helps in explaining why.
+
+Your first-year electromagnetism course includes the formula $P = V\times I$ so increasing the voltage very obviously would increase the power consumption. The less-obvious component of this is that increasing the frequency is going to require a higher voltage to drive the components faster. This is, not coincidentally, why CPU clock speeds today are about the same as they were in 2005 (yes, Intel had a 3.8 GHz processor then!): going faster requires more voltage and more power and it quickly becomes a huge problem in terms of heat, power draw, error rates, and battery life. So CPU manufacturers have stopped chasing higher clock speeds.
+
+P states are numbered: \texttt{P0} is maximum frequency; any of the other number represent one of the lower frequency options offered by this hardware (typically, higher number is slower speed). The more modern multi-core CPUs permit having different power states for different cores, and thus there exists the idea of power states for the package (all cores) and for individual cores. But let's not get bogged down in that for now.
+
+So, one way that we can immediately see improvement on power consumption is to set a lower P-state for the CPU and therefore run the CPU slower. Some devices do this automatically, e.g., a laptop moves to a lower-power state when unplugged from the charger. Or it can be user-initiated, when they choose the ``low power'' or ``battery saver'' mode. Some devices -- including a previous phone I had -- gave you the option of more than one battery-saver level.
+
+Now, on your phone (and probably other devices) it's more complicated than this, because going to low power mode changes more than the clock speed of the CPU. It also changes things like how often apps are permitted to refresh data in the background. We'll come back to that later in this topic.
+
+\paragraph{C-States.} C-States are a lot simpler conceptually, because they are simply shutting down parts of the processor that are not currently being used. Akin to turning off the lights when you are not in a given room, or turning off wifi when you're out in the woods far away from any wifi access points, so that your phone doesn't waste any energy searching for a connection it will never find.
+
+C-States are numbered with \texttt{C0} meaning everything is turned on and actively executing instructions. Any higher number than that means turning some things off. The ACPI standard 6.4 \footnote{ \url{https://uefi.org/htmlspecs/ACPI_Spec_6_4_html/08_Processor_Configuration_and_Control/processor-power-states.html} } describes states C1, C2, and C3:
+
+\begin{itemize}
+	\item C0: CPU is executing instructions and running normally.
+	\item C1: CPU is halted (not executing instructions) but maintains cache and can resume very quickly if needed.
+	\item C2: Lower-power than C1 and takes more time and higher transition energy cost to wake back up to C0 than from C1.
+	\item C3: Even lower-power than C2, caches not kept up to date, slowest time and highest energy cost to return to C0 state.
+\end{itemize}
+
+As with the P-states, modern multicore CPUs often have many more states than the minimum the spec requires, and differentiate between package-level and core-level C states. 
+
+If there is demand for the CPU, then the operating system may need to wake up a sleeping core (send it back to the C0 state). It can similarly send things to sleep with instructions. Hardware interrupts can also wake up a sleeping core. So when do we send cores to sleep? That's a really interesting topic.
+
+\subsection*{Energy-Aware Scheduling}
+
+%\begin{enumerate}
+%	\item CPU P-states and C-states
+%	\item DVFS --- the physics
+%	\item Linux CPU governors and schedutil
+%	\item Energy-Aware Scheduling (EAS)
+%	\item System sleep states (ACPI S-states)
+%	\item Wake events and wakeup sources
+%	\item Power in the datacenter
+%	\item Userspace knobs
+%\end{enumerate}
 
 \input{bibliography.tex}
 
