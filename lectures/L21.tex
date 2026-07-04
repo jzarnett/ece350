@@ -32,15 +32,15 @@ So, we have two levers available to reduce power consumption. Performance level 
 
 Your first-year electromagnetism course includes the formula $P = V\times I$ so increasing the voltage very obviously would increase the power consumption. The less-obvious component of this is that increasing the frequency is going to require a higher voltage to drive the components faster. This is, not coincidentally, why CPU clock speeds today are about the same as they were in 2005 (yes, Intel had a 3.8 GHz processor then!): going faster requires more voltage and more power and it quickly becomes a huge problem in terms of heat, power draw, error rates, and battery life. So CPU manufacturers have stopped chasing higher clock speeds.
 
-P states are numbered: \texttt{P0} is maximum frequency; any of the other number represent one of the lower frequency options offered by this hardware (typically, higher number is slower speed). The more modern multi-core CPUs permit having different power states for different cores, and thus there exists the idea of power states for the package (all cores) and for individual cores. But let's not get bogged down in that for now.
+P states are numbered: \texttt{P0} is maximum frequency; any of the other number represent one of the lower frequency options offered by this hardware (the spec says a higher number is slower speed). The more modern multi-core CPUs permit having different power states for different cores, and thus there exists the idea of power states for the package (all cores) and for individual cores. But let's not get bogged down in that for now.
 
-So, one way that we can immediately see improvement on power consumption is to set a lower P-state for the CPU and therefore run the CPU slower. Some devices do this automatically, e.g., a laptop moves to a lower-power state when unplugged from the charger. Or it can be user-initiated, when they choose the ``low power'' or ``battery saver'' mode. Some devices -- including a previous phone I had -- gave you the option of more than one battery-saver level.
+So, one way that we can immediately see improvement on power consumption is to set a higher-numbered P-state for the CPU and therefore run the CPU slower. Some devices do this automatically, e.g., a laptop moves to a lower-power state when unplugged from the charger. Or it can be user-initiated, when they choose the ``low power'' or ``battery saver'' mode. Some devices -- including a previous phone I had -- gave you the option of more than one battery-saver level which you can imagine corresponds to different P-state settings.
 
 Now, on your phone (and probably other devices) it's more complicated than this, because going to low power mode changes more than the clock speed of the CPU. It also changes things like how often apps are permitted to refresh data in the background. We'll come back to that later in this topic.
 
 \paragraph{C-States.} C-States are a lot simpler conceptually, because they are simply shutting down parts of the processor that are not currently being used. Akin to turning off the lights when you are not in a given room, or turning off wifi when you're out in the woods far away from any wifi access points, so that your phone doesn't waste any energy searching for a connection it will never find.
 
-C-States are numbered with \texttt{C0} meaning everything is turned on and actively executing instructions. Any higher number than that means turning some things off. The ACPI standard 6.4 \footnote{ \url{https://uefi.org/htmlspecs/ACPI_Spec_6_4_html/08_Processor_Configuration_and_Control/processor-power-states.html} } describes states C1, C2, and C3:
+C-States are numbered, with \texttt{C0} meaning everything is turned on and actively executing instructions. Any higher number than that means turning some things off. The ACPI standard 6.4 \footnote{ \url{https://uefi.org/htmlspecs/ACPI_Spec_6_4_html/08_Processor_Configuration_and_Control/processor-power-states.html} } describes states C1, C2, and C3:
 
 \begin{itemize}
 	\item C0: CPU is executing instructions and running normally.
@@ -56,11 +56,8 @@ If there is demand for the CPU, then the operating system may need to wake up a 
 \subsection*{Energy-Aware Scheduling}
 
 %\begin{enumerate}
-%	\item CPU P-states and C-states
 %	\item DVFS --- the physics
 %	\item Linux CPU governors and schedutil
-%	\item Energy-Aware Scheduling (EAS)
-%	\item System sleep states (ACPI S-states)
 %	\item Wake events and wakeup sources
 %	\item Power in the datacenter
 %	\item Userspace knobs
