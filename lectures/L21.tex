@@ -38,6 +38,8 @@ So, one way that we can immediately see improvement on power consumption is to s
 
 Now, on your phone (and probably other devices) it's more complicated than this, because going to low power mode changes more than the clock speed of the CPU. It also changes things like how often apps are permitted to refresh data in the background. We'll come back to that later in this topic.
 
+Some CPUs also offer ``boost'' power where clock speed exceeds the nominal maximum for short periods of time. This only works when the chip is cool enough to do this without exceeding its heat limit, because the heat increases quite rapidly in this mode. This can, however, provide a meaningful performance boost that reduces latency if the workload is short but intense.
+
 \paragraph{C-States.} C-States are a lot simpler conceptually, because they are simply shutting down parts of the processor that are not currently being used. Akin to turning off the lights when you are not in a given room, or turning off wifi when you're out in the woods far away from any wifi access points, so that your phone doesn't waste any energy searching for a connection it will never find.
 
 C-States are numbered, with \texttt{C0} meaning everything is turned on and actively executing instructions. Any higher number than that means turning some things off. The ACPI standard 6.4 \footnote{ \url{https://uefi.org/htmlspecs/ACPI_Spec_6_4_html/08_Processor_Configuration_and_Control/processor-power-states.html} } describes states C1, C2, and C3:
@@ -49,11 +51,30 @@ C-States are numbered, with \texttt{C0} meaning everything is turned on and acti
 	\item C3: Even lower-power than C2, caches not kept up to date, slowest time and highest energy cost to return to C0 state.
 \end{itemize}
 
-As with the P-states, modern multicore CPUs often have many more states than the minimum the spec requires, and differentiate between package-level and core-level C states. 
+As with the P-states, modern multicore CPUs often have many more states than the minimum the spec requires, and differentiate between package-level and core-level C states. It's hard to do a real demo of this because it requires loading a kernel module, but we might be able to get an idea of it by looking at this CoreFreq GitHub project: \url{https://github.com/cyring/CoreFreq}.
 
 If there is demand for the CPU, then the operating system may need to wake up a sleeping core (send it back to the C0 state). It can similarly send things to sleep with instructions. Hardware interrupts can also wake up a sleeping core. So when do we send cores to sleep? That's a really interesting topic.
 
 \subsection*{Energy-Aware Scheduling}
+
+Energy-Aware Scheduling is, unsurprisingly, exactly what it sounds like: it's the scheduler making choices that reduce energy usage. We can break this down into a few different areas: sending cores to sleep \& waking them up, choosing which cores are active at all, and managing background data \& refreshes.
+
+\paragraph{It's Bedtime.} The OS can issue commands to the cores to send them to sleep; the idle task, for example, may contain the \texttt{HLT} (halt) instruction which puts it in C1. The OS can also use other instructions to send cores to other states above C1. The cost of waking up from C1 is negligible, but it's more expensive to come back from other states. So we would not send cores to this state unless we are reasonably sure that we won't be bringing it back for at least a little bit. 
+
+Putting a core to sleep (C1 or above) means the scheduler should not schedule threads to run on that core because it's not really ready to run threads right now. If demand for CPU is increasing and this seems like more than just a transient blip, it makes sense to re-activate some cores -- starting first with the ones in C1 state and bringing up the other cores only if truly needed.
+
+The specification makes clear that interrupts (the hardware kind) are a trigger to send a core back to the C0 state if it needs to be handled. More advanced CPUs can route hardware interrupts to core(s) that are already in the C0 state to reduce the impact on energy.
+
+\paragraph{Big Cores and Little Cores.} The kind of CPU organization in this course is and remains Symmetric Multiprocessing (SMP), but there's a little twist on this that is common in mobile devices: heterogeneous CPU topology, which is fancy words for saying we have cores of different size and power. The Linux kernel documentation about this topic\footnote{ \url{https://www.kernel.org/doc/html/v5.8/scheduler/sched-energy.html} } provides a good guide for how to handle this situation.
+
+\paragraph{Hold On Now.}
+
+
+User control is sometimes possible! In the settings of your phone you can choose whether apps are permitted to refresh in the background or if they can use cellular data (or only wifi). You could do this intentionally to save battery -- but you probably don't want to limit it for everything. Turning it off for social media seems sensible -- when you open the app it will show you whatever ads it was going to show you anyway -- but you don't want to miss important notifications from messaging apps. 
+
+\paragraph{Background Killing.}
+Mobile operating systems also kill background processes to stop them from running. This guarantees that the app isn't executing in the background and isn't using data. Since apps are rarely closed on the phone (yes, you can, but you have to go out of your way to do this), the OS is aggressive about this. You have probably experienced a symptom of this if you've been away from your mobile browser for a bit and when you switch to it, the page re-loads.
+
 
 %\begin{enumerate}
 %	\item DVFS --- the physics
