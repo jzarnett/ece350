@@ -23,10 +23,11 @@ As you may imagine, the consequences of getting this wrong are potentially sever
 \subsection*{Patching with \texttt{kpatch} and \texttt{kGraft}}
 If you're familiar with Linux and open source software in general, it won't surprise you to know that there were two competing approaches to this that came out around the same time in 2014: \texttt{kpatch} and \texttt{kGraft}. The final version of live patching in the kernel took some parts of each of these, but we can examine each of them individually and then see how they came together in the end.
 
+A quick walkthrough of the challenges and differences between these approaches will help. Fortunately, one exists~\cite{first-kpatch}. Both mechanisms aim to do a replacement of a function within the running kernel; the new code is loaded as a module (akin to a driver) into that kernel. Then, calls to the old function are intercepted and redirected to the new implementation. 
 
-The \texttt{kpatch}~\cite{kpatch} approach...
+The challenge that was referenced earlier is how to make this change safely. Replacing function \texttt{f()} \textit{while} it is executing does not work; it can be replaced if nobody is executing it right now. The \texttt{kGraft} approach keeps the old and new versions of \texttt{f()} around and each process transitions when it's a good time. This is similar to what was referenced earlier in the application rollout view of the world: let old requests finish in the old system, then pull the plug on the old one when everything has moved. The \texttt{kpatch} approach is a little more disruptive and feels more like surgery or Java's (older) garbage collection mechanism: it stops all program execution on all CPUs (briefly), then looks at the execution stack of every running process to see if any of them are inside the function being patched. If yes, then the patch fails and we'll have to try again later; if no, the patch can be applied -- everyone sees the new version from then on -- and then we can resume execution of other processes.
 
-The \texttt{kGraft}~\cite{kgraft} approach...
+It's acknowledged in that article that there are some functions that can never be patched in the \texttt{kpatch} approach because they will \textit{always} be running somewhere inside the kernel, including the scheduler. One may hope this is a minority of sit
 
 %\begin{enumerate}
 %	\item What's hard about hot-patching
