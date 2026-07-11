@@ -4,7 +4,7 @@
 
 \lecture{ 21 --- Power Management and Energy-Aware Scheduling }{\term}{Jeff Zarnett}
 
-\section*{Limited Power}
+\section*{We Got The Power}
 
 Motivating why we should care about power consumption is easy: the consumer market for buying laptops that last only an hour is tiny, if it exists at all. Similarly, you would not be very happy with a phone that doesn't make it through the average day. In fact, if your phone is not lasting long enough, you probably have decided you need either a new phone or, at least, a new battery. Even if we're not talking about running on battery, electricity has some cost to it. Energy is a resource, and something the operating system can manage (if it's aware of it). Operating systems can discover and configure power states through a standard interface called \textit{ACPI}: Advanced Configuration and Power Interface. This has existed for decades now.
 
@@ -53,12 +53,13 @@ C-States are numbered, with \texttt{C0} meaning everything is turned on and acti
 
 As with the P-states, modern multicore CPUs often have many more states than the minimum the spec requires, and differentiate between package-level and core-level C states. It's hard to do a real demo of this because it requires loading a kernel module, but we might be able to get an idea of it by looking at this CoreFreq GitHub project: \url{https://github.com/cyring/CoreFreq}.
 
-Discussion question: should we go fast temporarily and get to the idle state sooner, or go slower for a longer period of time? What factors would we need to know to answer that? You can imagine this is perhaps viewed as $t_1 \times e_1$ (``race to idle'') vs $t_2 \times e_2$ ( ``slowdown'') where $t_1$ is the time to run at full power and $e_1$ is the energy cost for running at full power; and $t_2$ is the time to run at a lower power and $e_2$ that energy cost. It's tempting to say that lower and slower produces the best results (this might be true for cooking), but that's not always true. 
+Can C-states be disabled to reduce latency? Yes, many CPUs do permit this option -- or at the very least, we can configure the operating system not to issue the commands that order a shift to a lower-power state.
 
+Discussion question: should we go fast temporarily and get to the idle state sooner, or go slower for a longer period of time? What factors would we need to know to answer that? You can imagine this is perhaps viewed as $t_1 \times e_1$ (``race to idle'') vs $t_2 \times e_2$ ( ``slowdown'') where $t_1$ is the time to run at full power and $e_1$ is the energy cost for running at full power; and $t_2$ is the time to run at a lower power and $e_2$ that energy cost. It's tempting to say that lower and slower produces the best results (this might be true for cooking), but that's not always true. 
 
 Based on a research paper~\cite{race-to-idle}, it is of course the case that there's variation based on workload. It is Customizing the approach, the authors claim, can net something like 13-18\% energy savings. 
 
-One of the most important determining factors is leakage: how much power is burned (for no good reason) when the core is active. Intel CPUs, allegedly, are big offenders in this area. For memory-bound work, slowdown might be better, though.
+One of the most important determining factors is leakage: how much power is burned for no good purpose; that is, due to electricity flowing through places where, in the ideal model of the transistor, it would not flow at all. Intel CPUs, allegedly, are big offenders in this area. For memory-bound work, slowdown might be better, though.
 
 If there is demand for the CPU, then the operating system may need to wake up a sleeping core (send it back to the C0 state). It can similarly send things to sleep with instructions. Hardware interrupts can also wake up a sleeping core. So when do we send cores to sleep? That's a really interesting topic.
 
@@ -72,26 +73,52 @@ Putting a core to sleep (C1 or above) means the scheduler should not schedule th
 
 The specification makes clear that interrupts (the hardware kind) are a trigger to send a core back to the C0 state if it needs to be handled. More advanced CPUs can route hardware interrupts to core(s) that are already in the C0 state to reduce the impact on energy.
 
-\paragraph{Big Cores and Little Cores.} The kind of CPU organization in this course is and remains Symmetric Multiprocessing (SMP), but there's a little twist on this that is common in mobile devices: heterogeneous CPU topology, which is fancy words for saying we have cores of different size and power. The Linux kernel documentation about this topic\footnote{ \url{https://www.kernel.org/doc/html/v5.8/scheduler/sched-energy.html} } provides a good guide for how to handle this situation.
+This covers the what, but there remains the question of how. The kernel docs\footnote{ \url{https://docs.kernel.org/admin-guide/pm/cpuidle.html}}reference the idea of \textit{governors}, saying ``The role of the governor is to find an idle state most suitable for the conditions at hand.''. The description of each idle state, from the view of the governor, involves two figures: target residency and worst-case exit latency. Those are, respectively, the minimum time the hardware needs to spend in that state, which includes the time to enter that low power state, and the maximum time it could take to bounce back to C0 from that state. 
 
-The scheduler effectively has to guess where it should assign work to minimize the energy consumption without lowering performance (too much). 
+Given this information, the governor can likely rule out some states immediately from consideration if it thinks that the idle period is likely to be short. If the expected idle period is less than the sum of these two times, then, it's impractical to enter into that state; choose another one with smaller numbers. Predicting when there will be more work to do is difficult, of course. The kernel knows about internal timers -- e.g., time slicing -- so it can use that as input, but other, unexpected things can wake up the CPU. 
+
+Actually, the scheduler interrupt is something that the kernel should handle differently than other timers. A different timer is for a specific event to be finished, but the scheduler one is specifically to run the scheduler. If there's nothing to do and CPUs are idle, then waking up the low-power CPU just for it to run the scheduler and decide to go back to sleep is a little wasteful. You may or may not enjoy hitting snooze on your alarm six times before getting out of bed, but I'm guessing that is not optimal for sleep. So the kernel doesn't do the scheduler interrupt on those idle CPUs (usually).
+
+There are multiple different governor implementations supported, but we'll restrict ourselves to just one example, called the \texttt{menu} governor. It uses past data to predict the idle duration, and then uses the output of that calculation to select the best idle state. The kernel docs explain how the prediction is calculated: use the last 8 observed idle duration values; if the variance is small or small relative to the average, use that value, otherwise drop outliers and try again. There are more components to the algorithm than this, including a correction factor, but let's not get bogged down in the details; the part that should not be hand-waved away is how to get an estimate the length of a sleep and the answer is recent history. Once that estimate is reached, then the governor can look at the list of idle states and choose the one that is best match based on the target residency and exit latency. The approach of using past behaviour to come up with an estimate of the future idle state is something we've observed in a few situations and is a common pattern we've used in other scheduling algorithms before.
+
+\paragraph{Big Cores and Little Cores.} The kind of CPU organization in this course is and remains Symmetric Multiprocessing (SMP), but there's a little twist on this that is common in mobile devices: heterogeneous CPU topology, which is fancy words for saying we have cores of different size and power. It's still SMP in the absolute sense because they are general-purpose CPUs and have their own private ready queues and all that. They are just not identical in always. This is not a niche thing: modern phones like the Samsung Galaxy S26 follow this strategy and have more than two. In this topic, we will just consider big (high performance, high power) and little (lower performance, lower power), even if real devices might have more than two options.
+
+The Linux kernel documentation about this topic\footnote{ \url{https://www.kernel.org/doc/html/v5.8/scheduler/sched-energy.html} } provides a good guide for how to handle this situation and we'll use that. It's a little dense to read but a high-level description of the logic follows.
+
+The scheduler effectively has to guess where it should assign work to minimize the energy consumption without lowering performance (too much). It is easy enough for the kernel to have a good idea what the capacity (performance capabilities) for each kind of core. Similarly, the kernel has plenty of information about how much work there is to do right now and how busy each core is. The unknown variable is, how big is the thing to do?
+
+If the task is estimated to be ``too big'', it will have to go to a big core and not the small ones. Sensible. But for smaller tasks, they could go to either one. Much like the race-to-idle question, we have to ask the question about whether it makes more sense to run the task on a smaller core for a longer time or on the larger core for a shorter time. Although I did not find a specific research paper to back this up (okay, I also did not look for one), it is almost certainly task-behaviour dependent: CPU-bound or I/O-bound. 
+
+The kernel implementers seem to agree with that assessment, because, Unsurprisingly, the strategy to guess what the energy consumption would be is to look at the utilization average, i.e., when this thread has previously been selected to run, how much CPU time has it consumed on average? With a normalization factor to account for the fact that time on a small CPU is not exactly the same as time on a big CPU. The best predictor of future behaviour is, once again, past behaviour.
+
+Let's imagine the specific task being considered now is small enough that it could go in a little or big core. The scheduler will find the CPU with the lowest usage in each of the size classes. For each of those, guess what the energy consumption would be, and select the one with the lowest predicted cost. 
+
+There's a threshold where the kernel stops trying to do the energy-aware scheduling: 80\% utilization. Once demand is that high, trying to save energy is out the window since it probably won't help much and wastes time. 
 
 \paragraph{Hold On Now.}
 
-
 User control is sometimes possible! In the settings of your phone you can choose whether apps are permitted to refresh in the background or if they can use cellular data (or only wifi). You could do this intentionally to save battery -- but you probably don't want to limit it for everything. Turning it off for social media seems sensible -- when you open the app it will show you whatever ads it was going to show you anyway -- but you don't want to miss important notifications from messaging apps. 
+
+There is also sometimes a middle setting that defers work until later; iOS, for example, introduced the ability for background tasks to be deferred until later, such as when the device is plugged into the charger \footnote{ We can see this in a 2019 WWDC talk~\url{https://developer.apple.com/videos/play/wwdc2019/707/?time=942}}. The nature of the task determines what conditions need to be true to execute the deferred task: presence of WiFi, being on the charger, time of day, et cetera. 
+
+The Android developer guide does suggest batching or bundling operations. If the radio of your mobile device is off, it takes some time and energy to turn it on and connect. So a given app would be more energy-efficient if it groups up requests, so that the cost of powering up the radio is minimized. 
+
+That's voluntary, though. The docs for the Android ``Doze'' feature describe how it will restrict data (forcibly) to designated windows. In practice, this also gives the benefit of reducing the number of times the radio powers up and therefore reducing energy consumption. I did not find anything explicitly declaring an equivalent feature in iOS, but Apple is occasionally pretty quiet about the internals of things, so it may exist.
+
+The ability to restrict background data is not only for power management; it can also control the consumption of data when the connection is metered. If there is a dollar price per gigabyte (or even a speed slowdown beyond some cliff), it might be the user's preference to restrict background data to stop an app from chewing up their monthly usage unnecessarily. 
+
+\paragraph{How Much Precision?} Timers are usually not super precise in mobile systems either; some amount of fuzziness permits lining things up. This means that if a wake-up was meant to happen at time $x$ and then the system would go back to idle and then immediately wake up at $x+\epsilon$, the OS will nudge the first timer back a bit so both wake-ups happen together. 
+
+This is not insane, given what we know of the semantics of \texttt{sleep()} or \texttt{usleep()} as a system call: it puts the thread to sleep for \textit{at least} the duration provided as the argument but it could be longer. And on top of that, when the process or thread is woken up by the expiration of the timer, there are no guarantees about when that thread is selected to run by the scheduler anyway. So even if the thread is woken up exactly at time $x$ it could easily have been $x+\epsilon$ before it runs. The size of the nudge the OS is willing to make is probably larger on a mobile device than on a desktop one, but that's just a question of degree, not legality.
+
+If you are thinking that sounds imprecise and you need timers to be more exact than that -- that level of precision is for real-time systems! Which the user-accessible OS of the mobile device is not (even if the radio might contain an embedded one). 
 
 \paragraph{Background Killing.}
 Mobile operating systems also kill background processes to stop them from running. This guarantees that the app isn't executing in the background and isn't using data. Since apps are rarely closed on the phone (yes, you can, but you have to go out of your way to do this), the OS is aggressive about this. You have probably experienced a symptom of this if you've been away from your mobile browser for a bit and when you switch to it, the page re-loads.
 
+Both iOS and Android have CPU-usage-based background task killing. You could argue that this is also a nice security feature because it means that advertised mobile loot-box (gambling) ``game'' (if I could make those quotes bigger, I would) can't also mine cryptocurrency on your phone while it's in the background. However, sometimes your app can ask to opt out of these things. That may have legitimate uses -- training a machine learning model, for example -- but it would be reasonable to be suspicious of an app that asked permission to do that.
 
-%\begin{enumerate}
-%	\item DVFS --- the physics
-%	\item Linux CPU governors and schedutil
-%	\item Wake events and wakeup sources
-%	\item Power in the datacenter
-%	\item Userspace knobs
-%\end{enumerate}
+Still, this antagonizes some app developers! There is a whole website dedicated to complaining about Android devices aggressively terminating apps. This is, as far as I can see, another one of those ``some people are jerks'' problems: if all app developers behaved nicely, then there would be no need for automatic killing or CPU-usage restrictions. But alas, left to their own devices people will do things that hurt overall performance. Rightly or wrongly, it is sometimes the device vendor that's blamed for poor battery life in these circumstances. 
 
 \input{bibliography.tex}
 
