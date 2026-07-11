@@ -5,19 +5,23 @@
 \lecture{ 31 --- Live Kernel Patching }{\term}{Jeff Zarnett}
 
 \section*{Can't Stop, Won't Stop}
-When people are counting on a system -- particularly life and safety-critical ones -- it might be difficult to have a maintenance window for it. Let's say that we cannot, or at least do not want to, have a system restart for the purposes of updating the kernel. It is perhaps not the right choice to disrupt a long-running task, but also not great to leave security vulnerabilities unaddressed. We need a third option: change the kernel without a reboot.
+When people are counting on a system -- particularly life and safety-critical ones -- it might be difficult to schedule a maintenance window for it. Let's say that we cannot, or at least do not want to, have a system restart for the purposes of updating the kernel. It is perhaps not the right choice to disrupt a long-running task, but also not great to leave security vulnerabilities unaddressed. We need a third option: change the kernel without a reboot.
 
-Many modern software projects allow for some sort of staged or transitional rollout where you start sending new requests to the new system and let the old system finish out old requests before you shut it down. But the kernel of the operating system doesn't permit this sort of thing,
+Many modern software projects allow for some sort of staged or transitional rollout where you start sending new requests to the new system and let the old system finish out old requests before you shut it down. But the kernel of the operating system doesn't permit this sort of thing; there can be only one kernel and we can't start a second one and shift things over to the new one. Not on the same machine anyway -- we could do this kind of warm handover if we're replacing a machine with another. But that's not what we want to talk about here, we're thinking about updating the currently-running kernel. 
 
-Kernels do have the ability to load new modules; this is what we do with device drivers on a regular basis. So if what we need is to unload and reload a kernel module, that's not difficult. What we're talking about here, though, is the idea of changing the kernel's main functionality. And doing it live. Can we load some code into the kernel and have it replace existing things?
+Kernels do have the ability to load new modules; this is what we do with device drivers on a regular basis. So if what we need is to unload and reload a kernel module, that's not too difficult. Let's say the vulnerability we want to fix is that there's a bug in the device driver for an attached sensor. Great, we can probably pause (quickly!) things that use it, unload the kernel module, load the new one, and resume execution. Seems possible given what we know.
+
+But if the bug is in the kernel itself? changing the kernel's main functionality. And doing it live. Can we load some code into the kernel and have it replace existing things?
 
 In practice, this is a little bit like the kernel doing a surgery on itself. There is a precedent of sorts in the real world: a Soviet doctor who was stuck in Novolazarevskaya Station, Antarctica needed to do a surgery to remove his own appendix\footnote{ \url{https://en.wikipedia.org/wiki/Leonid_Rogozov} }. That was perhaps a little risky, but what choice did he have? It was 1961 in Antarctica. Still, it's doable if we adhere to some restrictions and do it well.
 
 The basic plan has a few steps. Step one is validating that we can even make this change at all; changes to functions is fine, but data structures cannot be changed on the fly. Then, prepare the patch; making the compiled binary code that we intend to replace some part of the existing kernel. Then we need to make sure that it's safe to make the swap (details below in the implementation description) and execute the replacement. After that, future system calls then run the new code. This high-level view makes it seem easy, but the challenge is in the details, particularly the part about making sure it's safe to make the swap.
 
-The good news is that many patches are relatively straightforward in terms of the size of the change. In fact, the Kernel docs around this say: ``Many fixes do not change the semantic of the modified functions. For example, they add a \texttt{NULL} pointer or a boundary check, fix a race by adding a missing memory barrier, or add some locking around a critical section. Most of these changes are self contained and the function presents itself the same way to the rest of the system.''\footnote{ \url{https://docs.kernel.org/livepatch/livepatch.html} } In other words, a we're changing a few lines within the function, but the function's main logic, purpose, signature, return type, etc. do not change. This makes the size of the problem a lot more manageable than wholesale replacement. Though, in theory, the patching mechanism can be used to do a larger change than just one of these ``typical'' cases. (Ask me some time about using the Ruby monkey-patching mechanism on Rails \texttt{ActiveRecord} to parameter-bind large arrays of IDs in SQL \texttt{IN(...)} queries.)
+The good news is that many patches are relatively straightforward in terms of the size of the change. In fact, the Kernel docs around this say: ``Many fixes do not change the semantic of the modified functions. For example, they add a \texttt{NULL} pointer or a boundary check, fix a race by adding a missing memory barrier, or add some locking around a critical section. Most of these changes are self contained and the function presents itself the same way to the rest of the system.''\footnote{ \url{https://docs.kernel.org/livepatch/livepatch.html} } In other words, we're changing a few lines within the function, but the function's main logic, purpose, signature, return type, etc. do not change. 
 
-As you may imagine, the consequences of getting this wrong are potentially severe. It could lead to a crash (kernel panic), but it could also lead to silent corruption of the system and its data. Or we could introduce some security vulnerabilities or data leakage, which is rather the opposite of the purpose. 
+This makes the size of the problem a lot more manageable than wholesale replacement. Though, in theory, the patching mechanism can be used to do a larger change than just one of these ``typical'' cases. The mechanism does not have size restrictions, though for a large change in terms of lines of code or changing the signature of something, it would be right for a code reviewer to question whether the change is minimal or if this ie even the best approach to solving the issue. (Ask me some time about using the Ruby monkey-patching mechanism on Rails \texttt{ActiveRecord} to parameter-bind large arrays of IDs in SQL \texttt{IN(...)} queries.)
+
+As you may imagine, the consequences of getting this wrong are potentially severe. It could lead to a crash (kernel panic), but it could also lead to silent corruption of the system and its data. Or we could \textit{introduce} some security vulnerabilities or data leakage, which is rather the opposite of the purpose. 
 
 
 \subsection*{Patching with \texttt{kpatch} and \texttt{kGraft}}
@@ -25,14 +29,49 @@ If you're familiar with Linux and open source software in general, it won't surp
 
 A quick walkthrough of the challenges and differences between these approaches will help. Fortunately, one exists~\cite{first-kpatch}. Both mechanisms aim to do a replacement of a function within the running kernel; the new code is loaded as a module (akin to a driver) into that kernel. Then, calls to the old function are intercepted and redirected to the new implementation. 
 
-The challenge that was referenced earlier is how to make this change safely. Replacing function \texttt{f()} \textit{while} it is executing does not work; it can be replaced if nobody is executing it right now. The \texttt{kGraft} approach keeps the old and new versions of \texttt{f()} around and each process transitions when it's a good time. This is similar to what was referenced earlier in the application rollout view of the world: let old requests finish in the old system, then pull the plug on the old one when everything has moved. The \texttt{kpatch} approach is a little more disruptive and feels more like surgery or Java's (older) garbage collection mechanism: it stops all program execution on all CPUs (briefly), then looks at the execution stack of every running process to see if any of them are inside the function being patched. If yes, then the patch fails and we'll have to try again later; if no, the patch can be applied -- everyone sees the new version from then on -- and then we can resume execution of other processes.
+There's little nuance about how to find the place to patch in the compiled kernel. At first glance, you might think that the approach here is to just search for the right function in the compiled binary, and edit the instructions of the kernel as it exists in memory (just overwrite these 1s and 0s with the better ones!). This does not work. Even if we do not have to worry about the code sections being different in size -- and they almost certainly are if we are changing the logic or adding something, we forgot something important. Replacing function \texttt{f()} \textit{while} it is executing does not work; it can be replaced if nobody is executing it right now. So, is anybody executing it right now? That has to be accounted for.
 
-It's acknowledged in that article that there are some functions that can never be patched in the \texttt{kpatch} approach because they will \textit{always} be running somewhere inside the kernel, including the scheduler. One may hope this is a minority of sit
+In any event, recognizing that we want the ability for a patch to be a different size than the original binary code (without resorting to any weird trickery where we rewrite more than just the function we want to change), there's a better way. We can redirect execution instead of overwriting the old version.
+
+That's the job of \texttt{ftrace}, the kernel tracing infrastructure\footnote{ \url{https://docs.kernel.org/trace/ftrace-uses.html} }. The original purpose of this was, as the name suggests, was to be able to record the execution flow of the kernel. This is a debugging and programming-for-performance technique that lets us both understand what functions call what other functions, but also how long things take. The \texttt{ftrace} implementation allows the user to attach callbacks to a function. For performance or debugging purposes, you would want to be taking notes about the execution state.
+
+Normally, those callbacks would be observation-based and not change the function being observed. But the key insight here is that \texttt{ftrace} can register ANY hook you like, including one that redirects control flow. That does not break any rule, because there are few restrictions on what can be in the callback. The \texttt{ftrace} docs do talk about restrictions on them about the fact that they can get called from anywhere and the risk of recursion resulting in an infinite loop or stack overflow. But nothing prevents the redirection of control flow. So it's legal, even if it might not have been intended by the people who created \texttt{ftrace}.
+
+To apply the change, use \texttt{ftrace} to add a hook that is triggered before running function \texttt{f()} so that it sends control flow over to function \texttt{f2()} and then \texttt{f2()} executes. The return from \texttt{f2()} answers the original call (returns to where \texttt{f()} would have returned to). Can we do that? Sure, remember from the execution model conversations that the keyword \texttt{return} in C looks for a return address further up the call stack so we know where to pick up in the calling function. We do not have to go back to the hook, and the fact that we never entered \texttt{f()} does not matter. Control of execution flow is pretty much the kernel's favourite thing to do, so this is easy.
+
+The \texttt{kGraft} approach keeps the old and new versions of \texttt{f()} around and each process that's currently executing with the old version can continue, but new calls go to the new function. This is similar to what was referenced earlier in the application rollout view of the world: let old requests finish in the old system, then pull the plug on the old one when all old calls are done.
+
+The \texttt{kpatch} approach is a little more disruptive and feels more like surgery or Java's (older) garbage collection mechanism: it stops all program execution on all CPUs (briefly), then looks at the execution stack of every running process to see if any of them are inside the function being patched. If yes, then the patch fails and we'll have to try again later; if no, the patch can be applied -- everyone sees the new version from then on -- and then we can resume execution of other processes.
+
+It's acknowledged in that article that there are some functions that can never be patched in the \texttt{kpatch} approach because they will \textit{always} be running somewhere inside the kernel, including the scheduler. One may hope this is a minority of situations.
+
+\subsection*{Livepatch}
+As previously mentioned, the final version that went into the kernel takes some from each of the two proposed approaches above and creates what its own docs describe as a hybrid approach. Let's go off the doc to understand it\footnote{ \url{https://docs.kernel.org/livepatch/livepatch.html} }; this subsection walks us through those docs.
+
+The term \textit{consistency model} is used to describe the behaviour of the live patching functionality. The model is used to have some assurance that the system's behaviour is consistent. 
+
+The docs introduce a new scenario that we did not previously consider: if the patch changes lock ordering in multiple functions, we actually want those changes to take effect all at once instead of one at a time (otherwise, we could get a deadlock from lock ordering problems!). 
+
+As you might expect from the predecessors of this, when a patch is created it's loaded into the kernel as a module. 
+
+
+
+
+
+
+There are the following states for a live patches life cycle: loading, enabling, disabling, removing, and a bonus one, replacing. Replacing and disabling are mutually exclusive.
+
+\paragraph{Loading.} Loading sounds like it's what happens when you bring the module into the kernel, and it is, but it triggers the enabling step immediately in its initialization. It happens this way for some internal reasons, but primarily in case an error in enabling happens, which results in rejecting the load of the module. 
+
+\paragraph{Enabling.} Enabling begins application of the patch and the new version starts to get used. Running tasks are moved over to the new version according the consistency model rules until they're all moved.
+
+\paragraph{Disabling.} Disabling starts the reverse of the process of enabling, just as the name would lead you to believe. The previous version starts to get used and tasks move from the new version to the old one until they're all migrated.
+
+\paragraph{Removing.} If the patch ahas been disabled and no uses of it exist anymore, it can be removed.
+
+\paragraph{Replacing.} As if live-patching isn't complicated enough, there exists an even more complex version of this: Atomic Replace and Cumulative Patches, which is complicated enough to get its own documentation page rather than being a section of the live patching doc\footnote{ \url{https://docs.kernel.org/livepatch/cumulative-patches.html} }.
 
 %\begin{enumerate}
-%	\item What's hard about hot-patching
-%	\item ftrace as the patching backbone
-%	\item The historical pair --- kpatch vs.~kGraft
 %	\item The consistency model
 %	\item Shadow variables
 %	\item What live patching can't do
