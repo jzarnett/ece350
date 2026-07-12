@@ -4,23 +4,41 @@
 
 \lecture{ 26 --- Flash Storage, SSDs, and Log-Structured File Systems }{\term}{Jeff Zarnett}
 
-\section*{Placeholder}
+\section*{Solid Snake? No, Solid State}
 
-\textit{This lecture has not yet been written. The detailed outline lives in
-the plan file \texttt{let-s-look-at-containers-structured-sprout.md}.}
+Just as the previous topic started off with talking about the physical construction of a magnetic hard drive, let's start by talking about solid state drives work. You might have even had a hard drive that died on me in 2014 in your hands, to allow you to explore its mechanical components. The SSD version of this does not involve quite as much hands-on experience with the device, for two reasons. For one, I don't have a dead SSD device to show you. The other is that it's much less interesting when you hold it in your hands. It looks like a RAM stick, honestly.
 
-The intended sections are:
+Once again, solid state drives are called that because they have no moving parts. That means the question is not the scheduling algorithm for reads and writes; it's a uniform access time device and therefore it can be FCFS or perhaps that with some variation to reflect priorities. And yet, SSDs have some nuances to them that make this more interesting than ``hard drives, but faster and uniform''. 
 
-\begin{enumerate}
-	\item NAND flash 101
-	\item The Flash Translation Layer (FTL)
-	\item Wear leveling
-	\item TRIM / discard
-	\item Write amplification
-	\item Disk scheduling revisited
-	\item Log-Structured File Systems
-	\item NVMe in one slide
-\end{enumerate}
+SSDs are typically built using NAND Flash memory. The details of that are interesting, but perhaps too low-level for us to think about. The important thing that matters for the discussion here, however, is that SSDs are write-limited devices. That is, they have a maximum number of write cycles and after that, they're finished. Should I have said cooked? They're cooked.
+
+This is profoundly weird as compared to everything else in the system. Yes, we understand that nothing is forever, or things can break or get damaged. But for the other components of the system (CPU, RAM, magnetic drive, etc.) there's no maximum number of things. Can you imagine? Sorry, your CPU has reached its instruction execution maximum and cannot do any more, guess you have to buy a new one. Wait. I'm wrong. Printers from predatory companies do this and I \textit{hate} it. Don't buy a printer that does this. The toner cartridge is finished when it is completely empty, not when HP (yes, I'm naming names) has decided you should  have to buy a new one. In perhaps a less infuriating example, Lithium-Ion batteries also have a lifecycle that's measured in the number of discharge cycles. And that is a limitation imposed by the chemistry of the battery, not arbitrary manufacturer ``shareholder value'' calculations.
+
+Why do the NAND flash chips break down with writing? It's the physics of the thing: the high field and current stress from writing to the chip breaks down the oxide which eventually renders a given cell useless~\cite{nand-flash}. Once that has happened to enough cells, the device is no longer capable of writing data. Maybe you can read it. The device is rated for $N$ cycles for each of the cells, but exactly how many depends on the specific drive and its technology. Under normal use, you will probably never encounter this: your laptop, phone, or other device will likely be retired for other reasons before you ever get close to exhausting the ability to write to disk.
+
+How big is $N$ cycles, though? It's typically something like 3000 cycles for an individual cell. You might think that's a lot or you might think it's very little. Let's say it's your laptop. Lots of files on the laptop are written once or rarely. Even these lecture notes -- yes, I write them and I revise them from time to time but once the course material is written and all the typos have been fixed (haha, as if), will it change again? Not for a long time. But we learned about the swap file earlier: the swap file is read and written a lot! 3000 writes the swap file can happen in a day, easily, so then what? 
+
+This has led us to something important: when the SSD writes to the same file, that data might not be in the same place(s) on disk anymore. In fact, even if we wanted to, it would be slow: to write data to a particular block, we have to erase what's there and then write the new block. But erasing is slow. So the solution is to write to a new location and then we can go back and erase the old location at a later date. This has some similarities with page faults: if there is an empty frame in memory, it means we can do the read into that frame immediately and evict another page from a frame later, asynchronously.
+
+The consequences of this idea that physical locations move immediately leads to three things that matter in the implementation: (1) there has to be some indirection so when the OS says ``read block 9876'' we map that to a physical location; (2) some sort of wear-levelling to distribute the writes to preserve write-capacity, and (3) a form of garbage collection. There's more to SSDs than those things, but let's do these and come back to the rest later.
+
+\paragraph{Flash Translation Layer.}
+The level of indirection is called FTL (Flash Translation Layer, not Faster Than Light). 
+
+\paragraph{Wear-Levelling.} Given that every block is as fast as any other, it truly does not matter from the perspective of access speed where the data is. That means that it is possible for the device to always choose to write things to the available area that has the fewest number of write cycles accumulated. 
+
+Recognizing that a lot of files don't change very often, it's possible that you have some areas of the disk that are allocated but written to only once. A thorough wear-levelling program would move those things around periodically to ensure that we are really wearing things down as evenly as possible. 
+
+%\begin{enumerate}
+%	\item NAND flash 101
+%	\item The Flash Translation Layer (FTL)
+%	\item Wear leveling
+%	\item TRIM / discard
+%	\item Write amplification
+%	\item Disk scheduling revisited
+%	\item Log-Structured File Systems
+%	\item NVMe in one slide%
+%end{enumerate}
 
 \input{bibliography.tex}
 
