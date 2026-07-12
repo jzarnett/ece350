@@ -6,7 +6,7 @@
 
 \section*{Solid Snake? No, Solid State}
 
-Just as the previous topic started off with talking about the physical construction of a magnetic hard drive, let's start by talking about solid state drives work. You might have even had a hard drive that died on me in 2014 in your hands, to allow you to explore its mechanical components. The SSD version of this does not involve quite as much hands-on experience with the device, for two reasons. For one, I don't have a dead SSD device to show you. The other is that it's much less interesting when you hold it in your hands. It looks like a RAM stick, honestly.
+Just as the previous topic started off with talking about the physical construction of a magnetic hard drive, let's start by talking about solid state drives work. You might have even held in your hands a hard drive that died on me in 2014, to allow you to explore its mechanical components. The SSD version of this does not involve quite as much hands-on experience with the device, for two reasons. For one, I don't have a dead SSD device to show you. The other is that it's much less interesting when you hold it in your hands. It looks like a RAM stick, honestly.
 
 Once again, solid state drives are called that because they have no moving parts. That means the question is not the scheduling algorithm for reads and writes; it's a uniform access time device and therefore it can be FCFS or perhaps that with some variation to reflect priorities. And yet, SSDs have some nuances to them that make this more interesting than ``hard drives, but faster and uniform''. 
 
@@ -30,9 +30,9 @@ The level of indirection is called FTL (Flash Translation Layer, not Faster Than
 
 Recognizing that a lot of files don't change very often, it's possible that you have some areas of the disk that are allocated but written to only once. A thorough wear-levelling program would move those things around periodically to ensure that we are really wearing things down as evenly as possible. 
 
-\paragraph{Garbage Collection.} Just like in languages that do this for memory, garbage collection is a period process of cleaning up things that are no longer referenced/needed. The process requires a way of keeping track of what is needed and what is not; with that information, the device can iterate over the pages that we have and reclaim the space to make it available again. A more complex algorithm can reduce the amount of work done, but the basic idea does not change. Part of the motivation for doing it with garbage collection rather than disposing of the data immediately is that the garbage collection process can run at any convenient (i.e., low-utilization) time rather than synchronously when the drive is under heavy use. 
+\paragraph{Garbage Collection.} Just like in languages that do this for memory, garbage collection is a periodic process of cleaning up things that are no longer referenced/needed. The process requires a way of keeping track of what is needed and what is not; with that information, the device can iterate over the pages that we have and reclaim the space to make it available again. A more complex algorithm can reduce the amount of work done, but the basic idea does not change. Part of the motivation for doing it with garbage collection rather than disposing of the data immediately is that the garbage collection process can run at any convenient (i.e., low-utilization) time rather than synchronously when the drive is under heavy use. 
 
-\paragraph{Write Amplification.} Write Amplification is the term that is used to express how much additional writing takes place above the logical write that the OS or application asked for. For example, if the write is a 4~KB chunk of a file, the bytes written within the flash varies. How much extra depends on the workload and thee hardware of the SSD device but it can be 1.2 - 3.0 times (so a 4~KB write results in, on average, 4.8 to 12~KB changed on the drive~\cite{writeamp}. Knowing that every write is consuming some of the limited lifespan of the chips, it almost goes without saying that write amplification is undesirable and something that we'll aim to minimize.
+\paragraph{Write Amplification.} Write Amplification is the term that is used to express how much additional writing takes place above the logical write that the OS or application asked for. For example, if the write is a 4~KB chunk of a file, the bytes written within the flash varies. How much extra depends on the workload and the hardware of the SSD device but it can be 1.2 - 3.0 times (so a 4~KB write results in, on average, 4.8 to 12~KB changed on the drive~\cite{writeamp}. Knowing that every write is consuming some of the limited lifespan of the chips, it almost goes without saying that write amplification is undesirable and something that we'll aim to minimize.
 
 \subsection*{FTL Organization}
 Before we get into the details here, it's important to note that the word ``block'' is used to refer to a unit of physical storage and does not necessarily have the same size as a page. This does mean we sometimes have device characteristics like what Wikipedia shows where a 4~KB page is the logical unit for a page but if we do an erase operation we end up erasing 256~KB. Exact numbers will, of course, vary based on the device purchased.
@@ -48,18 +48,15 @@ This approach does lead to garbage, in the sense of garbage collection mentioned
 Moving things around to make the data compact does help with wear-levelling by ensuring that data can move to new locations periodically, but it also results in more writes to the device that consume its limited lifespan...
 
 \subsection*{TRIM}
+All of this discussion might have led to the idea that this is all internal to the SSD device itself, and of little concern to the operating system. That's not quite true, because of the existence of the \texttt{TRIM} command. Its purpose is for the operating system to inform the SSD what data is no longer needed and can be cleaned up. 
+
+The command is needed because many file systems work similar to C's approach to deallocation of memory: when a file is deleted, it is just be marked as no-longer in use but the actual data is not explicitly deleted/cleared. So the metadata about the files is updated, but the SSD has never been informed that the data of that file on the disk is garbage now. Remember, this didn't matter for HDDs because if the OS knows that block $9876$ is free, it can directly issue a write to that location and the HDD does not track or care about which parts of the storage medium are used.
+
+There is a design decision as to when to issue the \texttt{TRIM} command. The Red Hat Enterprise Linux docs\footnote{ \url{https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/managing_file_systems/discarding-unused-blocks_managing-file-systems} } say there are three options for this: online (continuous), batch, and periodic. The names explain pretty much what they do: the online version triggers the command immediately when a file is deleted; batch happens on-demand and cleans up all the things that are pending; and periodic of course means it runs regularly on a schedule. 
+
+The potential disadvantage of the continuous approach is that it does make this operation synchronous and it can lead to latency spikes on the system. The Arch Linux docs\footnote{ \url{https://wiki.archlinux.org/title/Solid_state_drive} } reference the idea that the problem has to do with how the TRIM command was implemented in the hardware standard. No need for us to get into the details there, but let's leave it that periodic is the right choice in most circumstances.
 
 
-%\begin{enumerate}
-%	\item NAND flash 101
-%	\item The Flash Translation Layer (FTL)
-%	\item Wear leveling
-%	\item TRIM / discard
-%	\item Write amplification
-%	\item Disk scheduling revisited
-%	\item Log-Structured File Systems
-%	\item NVMe in one slide%
-%end{enumerate}
 
 \input{bibliography.tex}
 
