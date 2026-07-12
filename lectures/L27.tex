@@ -2,72 +2,9 @@
 
 \begin{document}
 
-\lecture{ 27 --- File System Implementation }{\term}{Jeff Zarnett}
+\lecture{ 27 --- File System Implementation and Allocation Methods }{\term}{Jeff Zarnett}
 
-\section*{File System Implementation}
-Now it is time to go behind the scenes of how the file system lives up to the interface we have just finished discussing. The implementation is somewhat complicated, and to keep the size of the problem manageable we will worry about storing files on hard disks. Hard disks themselves make a good choice for this: they are sufficiently large and sufficiently cheap, to start with, to store the data that we want to store. We can read an arbitrary part of the disk. Finally, we can write to the same part of disk as many times as we want (disks don't, at least on the time frames that we are concerned about, wear out). Recall also that disks operate on blocks which, in their physical representation, comprise one or more sectors.
-
-Let us take a look at the layers of the file system's design, from~\cite{osc}.
-
-\paragraph{The File System.} The file system user interface is intended for the convenience of the user and for application programmers. This is the level we have just examined in the previous topic; the more interesting part is what happens when we need to fulfill the promises that the file system makes.
-
-\paragraph{I/O Control.} At the I/O control level, we are dealing with device drivers and interrupt handlers to transfer data. The inputs are fairly high-level commands, along the lines of ``read block 1234''. Its outputs are hardware specific-instructions to the hardware controller. Usually this is by writing bit patterns in the I/O controller memory.
-
-\paragraph{Basic File System.} Despite the awful name, this is the level at which we start to deal with physical blocks on the disk. A physical block is identified by its numerical physical address: drive 0, cylinder 12, track 7, sector 1. This layer is also responsible for buffers and caches that are used to hold various commonly-accessed regions (e.g., the temporary directory). Yes, caching and buffers can appear in the hard disk as well, with performance improvements traded off against the risk of data loss if power is suddenly cut.
-
-\paragraph{File Organization Module.} This module is aware of files and their logical and physical blocks. This translates a logical block address to a physical block address and keeps track of free space (unallocated blocks).
-
-\paragraph{The Logical File System.} This last level is for managing metadata: file system structure, directory structure, and maintaining the file structure. File data is maintained in a \textit{file control block} (FCB). The UNIX term for this is \textit{inode} and it is the place where file info is stored: ownership, permissions, locations of the file contents.
-
-\subsection*{Disk Organization}
-
-Although there are a million different file systems (UFS, HFS+, ZFS, NTFS, ext3, FAT32...) that are all significantly different, there are some general principles that we can examine. A file system will need to keep track of the total number of blocks, the number and locations of free blocks, the directory structure, and the files themselves.
-
-On at least one disk somewhere in the system, there will need to be some information about how to boot up the operating system. Not every disk has the operating system on it, but if there is an OS the boot loader is usually put in the first block. When the power button is pressed on the case, the BIOS starts up and transfers control to whatever is found at that first block (which is hopefully your boot loader that launches the OS, or gives you the option of which OS to start).
-
-Disks may be split, logically, into several different areas, or \textit{partitions}. Accordingly, there will be a partition table (sometimes called the superblock or master file table) that indicates what part of the disk belongs to which partition. In the Windows world we often see the whole disk is in one logical partition (the C: drive, for example, taking the whole primary disk). In Linux we often see the disk divided up to have partitions for different things: temporary/swap directory, home directories, boot partition, et cetera...
-
-There are several structures that are likely to be in memory for performance reasons~\cite{osc}:
-
-\begin{enumerate}
-	\item \textbf{Mount Table}: Information about each mounted volume (disk/partition).
-	\item \textbf{Cache}: Directory info for recently accessed directories.
-	\item \textbf{Global Open File Table}: Copy of the FCB for each open file.
-	\item \textbf{Process Open File Table}: References to the global open file table, sorted by process.
-	\item \textbf{Buffers}: places where data read from or to be written to disk resides after or before the actual disk operation.
-\end{enumerate}
-
-Creating a new file is the job of the logical file system: allocation of a new FCB (or re-use of an existing free FCB). A typical FCB might look like this:
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/fcb.png}\\
-	File Control Block (FCB) example~\cite{osc}.
-\end{center}
-
-If a user (application) actually wants to make use of a file, the open system call is needed. Open operates on names, the user comprehensible version. The file system must then check the global open file table to see if the file is already open somewhere in the system. If so, if that file is opened for exclusive access, then the open routine returns with an error. If it is open but for non-exclusive access, then there is no need to search for the file or retrieve it by directory; we just make another reference in the process open file table. If the file is not already open, then it needs to be retrieved; once the file is found, the FCB is copied into the global open file table and the appropriate reference is added to the process table~\cite{osc}.
-
-The process open file table can contain some additional information, like the next section to read or write, the access mode when the file is open, and so on. The open system call returns a pointer to the file table and this is the route through which the application performs all file operations. In UNIX this reference is called a \textit{file descriptor}; in Windows it is called a \textit{file handle}~\cite{osc}.
-
-The opposite operation to opening a file is obviously to close it. When a process closes a file, the entry from the process open file table can be removed. If this is the last reference to the file a process has, then the file can also be removed from the global open file table. Metadata may be updated on close.
-
-\paragraph{Searching with Spotlight.}
-
-A small aside on the subject of metadata.
-
-An example from Mac OS~X: the Spotlight system-wide desktop search. Spotlight was introduced quite some time ago but it was a revelation compared to the previous search options that were slow and did not necessarily include the file content, just the file names. Spotlight runs queries quickly over the metadata of the system. Spotlight examines each file on creation and modification and uses it to update the metadata related to that file. Those items are then added to the Spotlight index which can be queried very rapidly~\cite{spotlight}.
-
-This is a specific case of preparing the data in advance to make searching or exporting operations fast. Another example is in exporting data to Excel. To export this data, there are two possible ways to do it. One is to examine and process the data for the Excel file at the time of the user request. The other is to maintain that data separately, and when the Excel report is asked for, take that data and put it in the Excel file.
-
-Part of the difficulty with maintaining metadata is when to update it. The longer the time between metadata updates, the higher the chance that there will be a user request that gets back out-of-date data. The faster the metadata updates, the more time and processing power is spent creating and updating this metadata.
-
-The diagram below shows how a file is opened and how a read takes place:
-
-\begin{center}
-	\includegraphics[width=0.75\textwidth]{images/file-system-structures.png}\\
-	File System Structures for (a) file open and (b) file read~\cite{osc}.
-\end{center}
-
-\subsection*{Virtual File System}
+\subsection*{File System Implementation}
 
 We mentioned earlier that there are a lot of different file systems, like ext3, ZFS, etc. These may co-exist in the same system, though a partition will be formatted in only one of them. From the user's perspective, however, these operate identically. This is because of an additional layer of abstraction, called the virtual file system (VFS). 
 
@@ -100,14 +37,14 @@ The VFS therefore abstracts away a lot of the details of the underlying file sys
 
 \subsection*{Directory Implementation} 
 
-See the table below for some information about what data may appear in a typical file directory.
+See the table below for some information about what data may appear in a typical file directory. This is just to show that directories are much more complicated than we're going to talk about in this course.
 
 \begin{center}
 	\includegraphics[width=0.75\textwidth]{images/directory.png}\\
 	Information elements of a file directory~\cite{osi}.
 \end{center}
 
-A directory is, after all, not much beyond a set of files. And yet, there is a choice to be made in implementing them: a linear list versus a hash table. Both concepts should be familiar to you from data structures and algorithms.
+The simplest version of a directory is what we'll talk about and that's just a set of files. And yet, there is a choice to be made in implementing them: a linear list versus a hash table. Both concepts should be familiar to you from data structures and algorithms.
 
 The linear list option is certainly the simplest. Creating a new file requires searching the directory to see if there is a matching file name. If not, insert that new entry in the list. Deletion is also simple: search the list for the matching file and remove it; if it is the last reference to that file, we can free up the space. The real disadvantage to linear lists is that searching takes a long time. Searching through a directory can take quite a while, and the problem is compounded if the search is supposed to include the content of the file as well.
 
@@ -162,6 +99,91 @@ Some examples of how the insertion algorithm runs are shown below:
 	\includegraphics[width=0.9\textwidth]{images/b-tree-insert.png}\\
 	Insertion of nodes 90, 45, and 84 into a B-Tree~\cite{osi}.
 \end{center}
+
+\section*{File Allocation Methods}
+
+Much like memory allocation, there is a need to choose a strategy for how to allocate disk space. There are three major ways that we could allocate the disk space to files: contiguous, linked, and indexed; each has its advantages and disadvantages.
+
+\subsection*{Contiguous Allocation}
+The contiguous allocation strategy means that a file occupies a set of contiguous blocks on disk. So a file is allocated, starting at block $b$ and is $n$ blocks in size, the file takes up blocks $b, b+1, b+2, ..., b+(n-1)$. This is advantageous, because if we want to access block $b$ on disk, accessing $b+1$ requires no head movement, so seek time is nonexistent to minimal (if we need to move to another cylinder). 
+
+All that we need to maintain are the values of $b$ and $n$: the start location and length of the file. Both sequential and direct access are very easy: the first block of a file is at $b$. To access a block $i$ at some offset into the file, it is simply at the base address $b$ plus $i$. Checking if the access is valid is also an easy operation: if $i < n$ then it is valid.
+
+See the diagram below to get an example of contiguous allocation:
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/disk-contiguous.png}\\
+	Contiguous allocation of disk space~\cite{osc}.
+\end{center}
+
+This takes us back to a problem we have seen once before: the memory allocation problem. If we need a memory block of size $N$: (1) can we find a contiguous block of $N$ or greater to meet that allocation? and (2) if there is more than one block, which one do we choose? As before, we suffer the problem of external fragmentation, plus a bit of internal fragmentation in the last block of the file. 
+
+There was also talk on the subject of memory allocation of compaction. This was moving memory allocations around in memory to create some larger free spaces that can be allocated. But for languages like C, it was not realistic, because of the impossibility of updating all pointers (unlike Java where we can update all references). We can do compaction on disk, but it takes a very, very long time and is computationally expensive. Doing compaction can be done when the system has nothing else to do (idle priority operation) or on some schedule when it would be minimally disruptive (e.g., middle of the night... mind you... a lot of programmers do most of their work in the middle of the night...).
+
+Another problem, of course, with contiguous allocation is that old clairvoyance issue: how much space is a file going to take? If it is just a copy-paste operation, the copy is the same size as the original, so there is no problem. When a user opens a new document, how does the OS know how big the file is going to be? Is this a 3 page essay or a 300 page thesis? If we allocate too little space, we may be able to tack on space at the end, or that block may be allocated, forcing us to move the file and reallocate it. If the value we choose is too large, then significant space will be wasted for small files (and many files tend to be relatively small)~\cite{osc}. 
+
+\subsection*{Linked Allocation}
+Linked allocation is a solution to the problems of contiguous allocation: instead of a file being all in consecutive blocks, we maintain a linked list of the blocks, and the blocks themselves may be located anywhere on the disk. The directory listing just has a pointer to the first and last blocks (head and tail of the linked list).
+
+If a new file is created, it will be created with size zero and the head and tail pointers are null. When a new block is needed, it can come from anywhere and will just be added to the linked list. Thus, compaction and relocation are not really an issue. Unfortunately, however, accessing block $i$ of a file is no longer as simple as computing an offset from the first block; it requires following $i$ pointers (a pain).
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/disk-linked.png}\\
+	Linked allocation of disk space~\cite{osc}.
+\end{center}
+
+A possible solution to the problem of following so many pointers (and the overhead of maintaining so many) is to group up the blocks into \textit{clusters}, where a cluster is comprised of, say, four blocks. Then we waste less memory maintaining pointers and it improves disk accesses because there is less seeking back and forth to various disk locations~\cite{osc}. 
+
+One variation of linked allocation is the File Allocation Table (FAT), which was used by the MS-DOS operating system (FAT16 and FAT32 were used in Windows before NTFS came in with NT/2000/XP and their descendants). The FAT32 file system hangs on these days as the file system of choice for formatting USB flash drives because it means the data will be readable in Windows, Mac OS X, and Linux. This is primarily because Microsoft has not made the NTFS file system standard public and Windows systems do not support too many other file systems, and Windows has such a big marketshare. So the FAT32 option is used, despite its known problems (and limitations, like 4~GB max file size), because it's the one system everyone can understand. Isn't the state of personal computing so... uplifting?
+
+The FAT allocation scheme works like this: at the beginning of the disk, there is a table to maintain file allocation data (hence the name). The table has one entry for each block and is indexed by block number. It works like a linked list; the directory entry has the first block of the file and the table entry under that block number has the index of the next block. The chain continues until the last block where there is a special end-of-file value. An unused block has a table value of 0. Thus, to allocate a new block, find the first 0-valued entry, and replace the previous end-of-file value with the address of the new block~\cite{osc}. See the example below:
+
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/file-allocation-table.png}\\
+	File Allocation Table (FAT)~\cite{osc}.
+\end{center}
+
+The FAT itself should be cached in memory, otherwise the disk is going to have to seek back to it unbearably often.
+
+\subsection*{Indexed Allocation}
+If we stuck to pure linked allocation, we still have the problem that accessing some part in the middle of the file is a pain because we have to follow and retrieve a lot of pointers to the different blocks. The idea of indexed allocation is to take all the pointers and put them into one location: an index block. So, the first block of the file contains a whole bunch of pointers. To get to block $i$, just go to index $i$ of the index block and we can get the location of block $i$ much more efficiently than we could in linked allocation. All pointers to blocks start as null, and when we add a new block, add its corresponding entry into the index block~\cite{osc}. See the diagram below:
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/disk-indexed.png}\\
+	Indexed allocation of disk space~\cite{osc}.
+\end{center}
+
+Like many of the other systems we have examined, there is a need to make a decision about the size of a block. If a file needs only 1-2 blocks, one whole block is allocated for the pointers which contains only 1-2 entries. That suggests we want the index to be small, but what if we need more pointers than fit into one block? There are a few mechanisms for this~\cite{osc}:
+
+\begin{enumerate}
+	\item \textbf{Linked Scheme}: An index block is a disk block, and we can link together several index blocks. The last entry in the index block is either null or a pointer to the next index block.
+	\item \textbf{Multilevel Index}: A variant of the linked scheme that has multiple levels. The first level block points to the second level block; the second level block points to the actual file data. This can go to as many levels are necessary based on the maximum file size. If a block is 4~KB, we can have 1024 4-byte pointers, so two levels would allow a maximum file size of up to 4~GB.
+	\item \textbf{Combined Scheme}: The all-of-the-above option. This is used in UNIX. Keep the first 15 pointers of the index block in the inode structure; 12 of them point directly to file data. The next three pointers refer to indirect blocks. The 13th is an index block containing the addresses of blocks with data. The 14th points to a double indirect block (addresses of blocks containing addresses of blocks). The 15th points to a triple indirect block\footnote{Yo dawg, we heard you like index blocks...}.
+\end{enumerate}
+
+With that out of the way, we can finally show a visual representation of an inode.
+
+\begin{center}
+	\includegraphics[width=0.6\textwidth]{images/unix-inode.png}\\
+	The UNIX inode. Triple indirection is left to the reader's imagination~\cite{osc}.
+\end{center}
+
+\subsection*{Other Disk Issues}
+As with memory, the system will keep track of the free space available.
+
+Bit vectors work just the way we would expect: create a structure in memory where a bit represents a block. If it is free, the bit is 1; allocated is 0. So a bit vector looks like \texttt{0100110111011111000000...}. The problem with this strategy is, of course, that the bigger the disk, the more overhead is needed to store this bit vector.
+
+The next rather obvious approach is a linked list: the head points to the first free space block, and we can traverse the list to get to the next free block. See the diagram below:
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/disk-linked-list.png}\\
+	Linked free-space list on disk~\cite{osc}.
+\end{center}
+
+Grouping makes this slightly more interesting: the first free block will be used to store the addresses of $n$ free blocks, the first $n-1$ of which are actually free. The last block contains a block with another set of $n$ free blocks. So if we need a large number of free blocks, we can find them quickly, instead of walking through the list one block at a time, which takes a lot of disk accesses. Counting is a slight improvement on this where we also store a number $k$ of free contiguous blocks after each address. So, if block 27 is followed by three consecutive free blocks, instead of having 27, 28, 29, 30 as entries, it will show (27, 4). The entries may be stored in a balanced tree for efficient operations~\cite{osc}.
+
+
+The efficient use of a disk depends on the disk-allocation and directory algorithms. UNIX inodes, for example, are preallocated, so even a disk containing no files has some of its space taken up by the inodes. Preallocation of inodes and distribution of them improves the file system performance, because the UNIX allocation and free-space algorithms keep the file data near the inode, where possible, to reduce seek time~\cite{osc}.
 
 
 \input{bibliography.tex}
