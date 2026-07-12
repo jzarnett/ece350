@@ -12,7 +12,7 @@ Both HDD and SSD data storage benefit from this. For the HDD, the idea of writin
 The approach proposed by the inventors of this strategy is explained in their 1992 paper~\cite{log-structured}, which it should be noted predated SSDs in PCs \textit{at all} by about 5 years and standard adoption by nearly 20. The plan, at a high level, is to write data and metadata into buffers of a given size; when that buffer is full, write it to disk in one sequential write to a big-enough free area. 
 
 
-The LFS approach seems like it works fine as long as everything works fine. But what if something goes wrong when writing to disk... like the power goes out? LFS addresses this by being prepared for such an eventuality and having a recovery strategy. Let's zoom out for a minute and talk about this in general to get started.
+The LFS approach seems like it works fine as long as everything works fine. But what if something goes wrong when writing to disk... like the power goes out? We know that this could happen at any time. LFS addresses this by being prepared for such an eventuality and having a \textit{recovery strategy}. A recovery strategy is exactly what it sounds like, a way to get things back to a consistent state. Let's zoom out for a minute and talk about this in general to get started.
 
 \section*{Consistency Checking and Journalling}
 
