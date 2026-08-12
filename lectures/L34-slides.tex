@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 34 --- Containers, Namespaces, and cgroups}
+\title{Lecture 34 --- Embedded Real-Time Operating Systems}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -17,19 +17,20 @@
 \begin{frame}
 \frametitle{Placeholder}
 
-This lecture is not yet written. The outline lives in the plan file.
+This lecture is not yet written.
 
 Intended sections:
 \begin{enumerate}
-	\item What containers are not
-	\item The seven namespaces
-	\item User namespaces and the UID-mapping trick
-	\item cgroups v2
-	\item Container images and OverlayFS
-	\item Runtimes vs.~engines vs.~orchestrators
-	\item Building a container by hand (live demo)
-	\item Escape hatches and weaknesses
-	\item When to use containers vs.~VMs
+	\item What an RTOS is --- and is not
+	\item Life without an MMU: flat address spaces and the MPU
+	\item Static allocation and why \texttt{malloc} is suspect
+	\item FreeRTOS anatomy: tasks, the tick, and the scheduler
+	\item Priority-based preemptive scheduling in practice
+	\item Synchronization: queues, semaphores, priority inheritance
+	\item Interrupts: deferring work out of the ISR
+	\item Tickless idle and low-power operation
+	\item Zephyr as the modern alternative
+	\item Choosing: embedded RTOS vs.~real-time Linux
 \end{enumerate}
 
 \end{frame}

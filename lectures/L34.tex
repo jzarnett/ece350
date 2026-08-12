@@ -2,25 +2,25 @@
 
 \begin{document}
 
-\lecture{ 34 --- Containers, Namespaces, and cgroups }{\term}{Jeff Zarnett}
+\lecture{ 34 --- Embedded Real-Time Operating Systems }{\term}{Jeff Zarnett}
 
 \section*{Placeholder}
 
-\textit{This lecture has not yet been written. The detailed outline lives in
-the plan file \texttt{let-s-look-at-containers-structured-sprout.md}.}
+\textit{This lecture has not yet been written.}
 
 The intended sections are:
 
 \begin{enumerate}
-	\item What containers are not
-	\item The seven namespaces
-	\item User namespaces and the UID-mapping trick
-	\item cgroups v2
-	\item Container images and OverlayFS
-	\item Runtimes vs.~engines vs.~orchestrators
-	\item Building a container by hand (live demo)
-	\item Escape hatches and weaknesses
-	\item When to use containers vs.~VMs
+	\item What an RTOS is --- and is not
+	\item Life without an MMU: flat address spaces and the MPU
+	\item Static allocation and why \texttt{malloc} is suspect
+	\item FreeRTOS anatomy: tasks, the tick, and the scheduler
+	\item Priority-based preemptive scheduling in practice
+	\item Synchronization: queues, semaphores, priority inheritance
+	\item Interrupts: deferring work out of the ISR
+	\item Tickless idle and low-power operation
+	\item Zephyr as the modern alternative
+	\item Choosing: embedded RTOS vs.~real-time Linux
 \end{enumerate}
 
 \input{bibliography.tex}
