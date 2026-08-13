@@ -262,7 +262,7 @@ void* writer( void* arg ) {
 
 void* reader( void* read ) {
   pthread_rwlock_rdlock( &rwlock );
-  read_data( arg );
+  read_data( read );
   pthread_rwlock_unlock( &rwlock );
 }
 \end{lstlisting}

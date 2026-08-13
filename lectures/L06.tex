@@ -6,7 +6,7 @@
 
 \section*{Concurrency Control}
 
-When discussing concurrency and synchronization in previous courses we talked about two important concepts: the semaphore and the mutex. We used them for multiple scenarios including mutual exclusion (preventing race conditions), making one thread wait for another, or managing space in a buffer with the producer-consumer problem. We'll review the basic theory and usage functions for our four favourite mutual exclusion constructs: the mutex, the semaphore, the readers-writers lock, and the condition variable.
+When discussing concurrency and synchronization in previous courses we talked about two important concepts: the semaphore and the mutex. We used them for multiple scenarios including mutual exclusion (preventing race conditions), making one thread wait for another, or managing space in a buffer with the producer-consumer problem. We'll review the basic theory and usage functions for our four favourite concurrency control constructs: the mutex, the semaphore, the readers-writers lock, and the condition variable.
 
 Yes, you can, to some extent, get the program behaviour that you want with \textit{just} the semaphore. The other sorts of concurrency control constructs will make it easier to accomplish the goals and harder to make a mistake.
 
@@ -21,7 +21,7 @@ The purpose of the concurrency control constructs is to ensure the correctness o
 
 One of them is not real, though: there's no read-after-read dependency, because it doesn't meet the definition we just covered: in read-after-read, none of the accesses are a write so there's no issue. And indeed, if a global variable is never changed then concurrent accesses to it are not a problem. It appears in the table for completeness; otherwise there might be a question about why that box is missing or blank.
 
-The other situations are all easy to imagine. The true dependency is likely the first one we think of when imagining a dependency: writing the result of a previous stage of the calculation must go first because the value will be read as the input to the next stage. The output dependency is also common: we don't want the older version of the weather forecast to overwrite the more up-to-date one. The anti-dependency is perhaps the least likely one to imagine when we talk about hazards, but it is what happens when we cannot overwrite thee contents of some message buffer until that data has been consumed. You can frame other scenarios of program coordination as one or another of these dependencies.
+The other situations are all easy to imagine. The true dependency is likely the first one we think of when imagining a dependency: writing the result of a previous stage of the calculation must go first because the value will be read as the input to the next stage. The output dependency is also common: we don't want the older version of the weather forecast to overwrite the more up-to-date one. The anti-dependency is perhaps the least likely one to imagine when we talk about hazards, but it is what happens when we cannot overwrite the contents of some message buffer until that data has been consumed. You can frame other scenarios of program coordination as one or another of these dependencies.
 
 It's important to remember that all of the forms of concurrency control that we talked about in the previous course are what is called \textit{advisory}. As I like to say in the analogy, they are like seatbelts in a car: they only work if you use them correctly. For example, nothing prevents the program author from accessing shared memory without holding the appropriate lock, and nothing compels them to unlock it when they're finished. They are supposed to. The program doesn't work correctly if they don't. But nothing forces them to. Other programming languages (like Rust!) make it harder to forget to unlock things and forbid access to things protected by a Mutex. But this is C, so, the onus is on the application developer. 
 
@@ -47,9 +47,9 @@ The first function of note is \texttt{pthread\_mutex\_init} which is used to cre
 pthread_mutex_t mymutex = PTHREAD_MUTEX_INITIALIZER;
 \end{lstlisting}
 
-When created, by default, the mutex is unlocked. There are three methods related to using the mutex; two to lock it and one to unlock it, all of which take as a parameter the mutex to (un)lock. The unlock method, \texttt{pthread\_mutex\_unlock} is self-explanatory. As expected, attempting to unlock a mutex that is not currently locked is an error~\cite{pthreads}. Why? This is a binary sort of construct (locked or unlocked), so call to unlock does not mean that two threads that try to lock it will proceed; in this sense it is not like a semaphore.
+When created, by default, the mutex is unlocked. There are three methods related to using the mutex; two to lock it and one to unlock it, all of which take as a parameter the mutex to (un)lock. The unlock method, \texttt{pthread\_mutex\_unlock} is self-explanatory. As expected, attempting to unlock a mutex that is not currently locked is an error~\cite{pthreads}. Why? This is a binary sort of construct (locked or unlocked), so a call to unlock does not mean that two threads that try to lock it will proceed; in this sense it is not like a semaphore.
 
-The intended behaviour is that the thread that locked the mutex is the same the one to unlock it later on. There are scenarios where it's okay to send a locked lock over to another thread and have it take some action and then unlock it, but that's rare and harder to get right. 
+The intended behaviour is that the thread that locked the mutex is the same as the one to unlock it later on. There are scenarios where it's okay to send a locked lock over to another thread and have it take some action and then unlock it, but that's rare and harder to get right. 
 
 The two kinds of lock are \texttt{pthread\_mutex\_lock}, which is blocking, and \texttt{pthread\_mutex\_trylock}, which is nonblocking. The lock function works as you would expect: if the mutex is currently locked, the calling function is blocked until its turn to enter the critical section; if the mutex is unlocked then it changes to being locked and the current thread enters the critical section.
 
@@ -70,7 +70,7 @@ sem_post( sem_t* semaphore )
 
 Of these functions, the only one where the parameters are not obvious is the initialization routine. The parameter \texttt{shared} will be set to either 0 or 1: 1 if the semaphore is to be shared between processes (e.g., using shared memory), 0 otherwise. I'll also take a moment also to point out the importance of getting the initial value correct. If we choose the wrong initial value then our program might get stuck or we might not get the mutual exclusion behaviour we are supposed to have.
 
-In the previous course, the introduction to the semaphore talked about a hypothetical implementation that allowed for the possibility that the mutex could have a maximum value. UNIX semaphores do not give you this option, so if you call \texttt{post} 300 times on the semaphore whose initial value was 5, it doesn't matter if those 300 post calls result in a final value of 305.
+In the previous course, the introduction to the semaphore talked about a hypothetical implementation that allowed for the possibility that the semaphore could have a maximum value. UNIX semaphores do not give you this option, so if you call \texttt{post} 300 times on the semaphore whose initial value was 5, it doesn't matter if those 300 post calls result in a final value of 305.
 
 A thread that waits on that semaphore will decrement the integer by 1; a thread that signals on the semaphore will increment the integer by 1. If a thread attempts to wait on a semaphore and the decrement operation makes the integer value negative, the calling thread is blocked. If, however, the semaphore is, for example, initialized with 5 and the current value is 2, a thread that waits on that general semaphore will not be blocked. Remember that the increment and decrement of the counter are unconditional. Things are a bit different in the mutex, but we didn't need to know so much about that to use it.
 
@@ -80,7 +80,7 @@ When a thread signals a semaphore, it likewise does not know if any other thread
 
 Another possible misconception around semaphores relates to posting on the value when the value is negative. If the semaphore's value is currently -3 and there are 3 threads waiting, a call to \texttt{post} will both increment the value to -2 and unblock one of the threads waiting. Sometimes there is an expectation that the counter must get back to 0 before any waiting thread is allowed to proceed, but it's easy to show that that kind of semantics would result in a deadlock in situations where multiple threads must wait their turn before proceeding.
 
-Unlike the mutex, there's no requirement for the semaphore to be in a certain state before it is destroyed. The previous course talked about the reusable barrier as generally desirable over the non-resuable versions since it meant there was less overhead of destroying and recreating the semaphores. But efficiency (real or imagined!) was the only motivation there; there was no logical error in choosing the other route.
+Unlike the mutex, there's no requirement for the semaphore to be in a certain state before it is destroyed. The previous course talked about the reusable barrier as generally desirable over the non-reusable versions since it meant there was less overhead of destroying and recreating the semaphores. But efficiency (real or imagined!) was the only motivation there; there was no logical error in choosing the other route.
 
 We used the semaphore in all sorts of synchronization problems. It could be used in place of a mutex, sure, but it can also be used to arrange a rendezvous, allow limited concurrency with multiplex, and we could even use its internal value indirectly in the producer-consumer problem. As fun as it was to imagine scenarios involving making pizza and the Rebellion's attempt to escape Lord Vader on Hoth, we won't be examining all the ways we could use it any further.
 
@@ -140,14 +140,14 @@ void* writer( void* arg ) {
 
 void* reader( void* read ) {
   pthread_rwlock_rdlock( &rwlock );
-  read_data( arg );
+  read_data( read );
   pthread_rwlock_unlock( &rwlock );
 }
 \end{lstlisting}
 
 \end{multicols}
 
-We also examined situations where we really did need to enforce writer priority would require us to build our own complicated solution with semaphores and a mutex. There's nothing wrong with that, but it doesn't need to be re-examined here since it's not a system-offered concurrency control mechanism. Or in other words, we won't be examining the details of that in the next topic, since it's just built upon the semaphore and mutex types.
+We also examined situations where we really did need to enforce writer priority: that required us to build our own complicated solution with semaphores and a mutex. There's nothing wrong with that, but it doesn't need to be re-examined here since it's not a system-offered concurrency control mechanism. Or in other words, we won't be examining the details of that in the next topic, since it's just built upon the semaphore and mutex types.
 
 
 \subsection*{The Condition Variable}
@@ -168,7 +168,7 @@ To initialize a \texttt{pthread\_cond\_t} (condition variable type), the functio
 
 Condition variables are always used in conjunction with a mutex. To wait on a condition variable, the function \texttt{pthread\_cond\_wait} takes two parameters: the condition variable and the mutex. This routine should be called only while the mutex is locked. It will automatically release the mutex while it waits for the condition; when the condition is true then the mutex will be automatically locked again so the thread may proceed. The programmer then unlocks the mutex when the thread is finished with it~\cite{pthreads}. Obviously, failing to lock and unlock the mutex before and after using the condition variable, respectively, can result in problems.
 
-One possible scenario where it makes sense to use the condition variable is one in which a thread is partway through some thing and wants to wait until a condition is fulfilled before proceeding. It requires unlocking the mutex and letting other threads proceed, but the condition variable implementation means there's no need exit from this function and restart it and try again -- we can just stop now and continue when it's time.
+One possible scenario where it makes sense to use the condition variable is one in which a thread is partway through some thing and wants to wait until a condition is fulfilled before proceeding. It requires unlocking the mutex and letting other threads proceed, but the condition variable implementation means there's no need to exit from this function and restart it and try again -- we can just stop now and continue when it's time.
 
 In addition to the expected \texttt{pthread\_cond\_signal} function that signals a provided condition variable, there is also \texttt{pthread\_cond\_broadcast} that signals all threads waiting on that condition variable. It's this ``broadcast'' idea that makes the condition variable more interesting than the simple ``signalling'' pattern we covered much earlier on.
 

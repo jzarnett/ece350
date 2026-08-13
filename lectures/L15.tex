@@ -20,7 +20,7 @@ In the last topic, we saw one example of a simple scheduling algorithm: always c
 	\item Lottery
 \end{enumerate}
 
-The OS may will maintain some data about each process and this may be used in making decisions about scheduling, depending on the algorithm~\cite{osi}:
+The OS will maintain some data about each process and this may be used in making decisions about scheduling, depending on the algorithm~\cite{osi}:
 
 \begin{enumerate}
 	\item The time spent waiting to run.
@@ -85,7 +85,7 @@ If some information is available about the total length of execution then we may
 This might work, but you have noticed that the OS does not ask you, when you start a text editor, roughly how long you expect to be. Your boss on co-op may not be so accommodating. This is also a global assessment: how long the whole process takes. It might be better to worry about the length of CPU bursts and make decisions somewhat more locally...
 
 \subsection*{Shortest Job First}
-This strategy, unfortunately, is not given quite the right name, but it's the common name for the scheme. We should call it ``shortest next CPU burst'', but then again, other sciences are not so good at naming things either... the Red Panda is not a Panda at all.
+This strategy, unfortunately, is not given quite the right name, but it's the common name for the scheme. We should call it ``shortest next CPU burst'', but then again, other sciences are not so good at naming things either... the Red Panda is not a Panda at all. Which one had the name first doesn't matter: they're not close relatives.
 
 Right, naming aside, the goal is to choose the process that is likely to have the smallest CPU burst. If two are the same, then FCFS can break the tie (or just choose randomly).  If we have 4 processes, $P_{1}$ through $P_{4}$, whose predicted burst times are 6, 8, 7, and 3 respectively, we should schedule then such that the order would be $P_{4}, P_{1}, P_{3}, P_{2}$:
 

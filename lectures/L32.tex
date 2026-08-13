@@ -15,7 +15,7 @@ At the lowest level, there is the \textit{host}, the underlying hardware system.
 	System models: (a) Nonvirtual machine and (b) Virtual machine~\cite{osc}.
 \end{center}
 
-This is by no means the same thing as \textit{emulation}. When we have virtualization, for example, both Windows and Linux can be running on the same x86\_64 architecture as guests. In the case of the Android emulator running in an x86\_64 machine, the code of the emulator is running on the x86\_64 environment to simulate an Android hardware device that would have a completely different CPU. Thus, an Android app (which would not otherwise run on an Intel/AMD machine) runs in a simulation of a mobile environment. The emulation operation is incredibly slow, unfortunately, as anyone who has tried to use the Android emulator has found out. Sometimes, however, it does not much matter; if you are trying to play a classic game that ran under MS-DOS, emulating an 486 computer does not take much by way of resources and the modern computer can do so with ease.
+This is by no means the same thing as \textit{emulation}. When we have virtualization, for example, both Windows and Linux can be running on the same x86\_64 architecture as guests. In the case of the Android emulator running in an x86\_64 machine, the code of the emulator is running on the x86\_64 environment to simulate an Android hardware device that would have a completely different CPU. Thus, an Android app (which would not otherwise run on an Intel/AMD machine) runs in a simulation of a mobile environment. The emulation operation is incredibly slow, unfortunately, as anyone who has tried to use the Android emulator has found out. Sometimes, however, it does not much matter; if you are trying to play a classic game that ran under MS-DOS, emulating a 486 computer does not take much by way of resources and the modern computer can do so with ease.
 
 Those who run operating systems that are not named ``Microsoft Windows'' are likely to have had the situation where one or more programs that are needed for some purpose (work, school, whatever) function only under Windows. And as the versions of Windows have proliferated and evolved, older programs have sometimes stopped working, necessitating a past version (Windows XP will never, ever die...).
 
@@ -31,7 +31,7 @@ One of the key building blocks of virtualization is the \textit{virtual CPU} (VC
 
 Recall from earlier the concept of user mode and kernel mode; application processes run in user mode and the kernel runs in kernel mode, having access to privileged instructions like I/O instructions and poking around with registers and other hardware. The guest operating system runs in user mode, but it will want to do some things that require kernel mode, so we will need to have virtual user mode and virtual kernel mode. Actions like an I/O request or interrupt that would normally lead to a switch from user to kernel mode needs to cause a transfer from virtual user mode to virtual kernel mode.
 
-The first strategy for implementing this is called \textit{trap-and-emulate}. If the guest attempts a privileged instruction, it will generate a trap (error) because it is in user mode. The VMM should then pick this up and executes, emulating (or simulating, if you prefer) the requested operation.
+The first strategy for implementing this is called \textit{trap-and-emulate}. If the guest attempts a privileged instruction, it will generate a trap (error) because it is in user mode. The VMM should then pick this up and execute, emulating (or simulating, if you prefer) the requested operation.
 
 \begin{center}
 	\includegraphics[width=0.5\textwidth]{images/trap-and-emulate.png}\\
@@ -40,7 +40,7 @@ The first strategy for implementing this is called \textit{trap-and-emulate}. If
 
 Non-privileged instructions just execute natively on the hardware, so they are about as fast as they would be if they were actually being executed outside a virtual machine. Unfortunately, with trap-and-emulate, privileged instructions have this extra overhead, causing the guest to run more slowly than it otherwise would. To get around this problem, hardware designers have come to the rescue again: some CPUs have more than just the two simple modes (user/kernel) and keep track in hardware of virtual user and virtual kernel mode. That relieves the VMM from the responsibility of keeping track of it all in the VCPU~\cite{osc}.
 
-Sadly, some CPUs do not have clear definitions of privileged vs. non-privileged instructions, including the intel x86 architecture (and its descendant, the x86\_64). Without editorializing too much, there were a lot of decisions that went into things like the x86 architecture, C programming language, design of Windows, et cetera, that make no sense if we look at them with what we know today, but they ``seemed like a good idea at the time''. The x86 architecture started back in the early 1970s and we can hardly fault the designers for not anticipating what was going to happen in computing technology 30-40 years later. As a Danish proverb of disputed origin says, ``Making predictions is hard, especially about the future.''
+Sadly, some CPUs do not have clear definitions of privileged vs. non-privileged instructions, including the intel x86 architecture (and its descendant, the x86\_64). Without editorializing too much, there were a lot of decisions that went into things like the x86 architecture, C programming language, design of Windows, et cetera, that make no sense if we look at them with what we know today, but they ``seemed like a good idea at the time''. The x86 architecture started back in the 1970s and we can hardly fault the designers for not anticipating what was going to happen in computing technology 30-40 years later. As a Danish proverb of disputed origin says, ``Making predictions is hard, especially about the future.''
 
 Returning from that small interruption, the x86 has an instruction \texttt{POPF} that illustrates the problem. It loads the flag register from the contents of the stack. If the CPU is in kernel mode, all flags are replaced from the stack; otherwise only some flags are replaced. No trap will be generated if \texttt{POPF} is executed in user mode, so the trap-and-emulate solution will not catch this and react. All instructions that fall into this category are usually referred to as \textit{special instructions} because they require special handling~\cite{osc}.
 
@@ -64,7 +64,7 @@ The short version of what happens under virtualization is: things get complicate
 
 Even if there is only one CPU in the physical machine, virtualization presents one or more virtual CPUs to the guests. The challenge then, is to schedule the virtual CPUs' operations on the physical CPU(s). A thread may be a VMM thread or a guest thread.
 
-A guest system is configured with some number of CPUs and as long as there are enough CPUs in the system to meet the allocation commitments (virtual CPU count is less than $n$), we have no problem. Map each virtual CPU to a physical CPU and we are all set. 
+A guest system is configured with some number of CPUs and as long as there are enough CPUs in the system to meet the allocation commitments (virtual CPU count is less than $n$, where $n$ is the number of physical CPUs), we have no problem. Map each virtual CPU to a physical CPU and we are all set. 
 
 If the resources are fully committed (e.g., there are $n$ virtual CPUs allocated), it gets a bit more interesting. The VMM does not (usually) need too much time on its own, so it can basically ``steal'' cycles here and there. VMM operations run on CPUs that are not busy at the moment, or taking evenly from all the CPUs so as to be ``fair''. 
 
@@ -99,7 +99,7 @@ Containerization gives many of the advantages of this separation of VMs, but wit
 	\includegraphics[width=0.55\textwidth]{images/cvm.png}
 \end{center}
 
-Containers are a very effecting way of allowing virtualization, but a major potential limitation is that container applications can only run on hosts with the same OS and same virtualization features~\cite{osi}.
+Containers are a very effective way of allowing virtualization, but a major potential limitation is that container applications can only run on hosts with the same OS and same virtualization features~\cite{osi}.
 
 
 \input{bibliography.tex}

@@ -101,7 +101,7 @@ Clearly, the operating system will want to avoid wasting effort with I/O request
 This will, naturally, have some limits: requests should presumably get scheduled before too much time has elapsed even if it would be ``inconvenient''. It might also take priority into account, dealing with the I/O requests of a high priority process even if they are not particularly nearby to other requests. Like what we've discussed around scheduling, there are tradeoffs necessary to balance utilization and fairness. In particular, this is important when examining hard disk drive operation. And that will therefore be the next subject we will consider (but in the next course topic). 
 
 \paragraph{Can a System Be Too Responsive?}
-We've discussed the idea already that interrupts are more efficient than polling, you might question if there's such a thing as too responsive. Network traffic, for example, may be the cause of a lot of interrupts and a very high rate of context switches~\cite{osc}.
+We've discussed the idea already that interrupts are more efficient than polling. You might question if there's such a thing as too responsive. Network traffic, for example, may be the cause of a lot of interrupts and a very high rate of context switches~\cite{osc}.
 
 For downloading a file, say, the number of interrupts is probably manageable: as each chunk arrives, the interrupt is triggered, and the chunk is handled. Eventually, all the file is downloaded and there we are. That's not the scenario of concern; the scenario of concern is what happens if I use \texttt{ssh} to log in to one of the ECE servers and then use \texttt{vim} to open the C file I plan to work on.
 

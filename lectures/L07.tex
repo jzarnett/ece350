@@ -29,7 +29,7 @@ boolean test_and_set( int* i ) {
 Because it is done in the single machine instruction, this works no matter how many CPUs are executing the same code in different threads concurrently (and there's some hardware magic around caches and cache coherence, but that's for another course). An example of the code that uses the \texttt{test\_and\_set} routine:
 
 \begin{lstlisting}[language=C]
-while ( !test_and_set( busy ) ) {
+while ( !test_and_set( &busy ) ) {
    /* Wait for my turn */
 }
 /* critical section */
@@ -38,7 +38,7 @@ busy = 0;
 
 So, no matter how many threads are executing the code above concurrently, only one will succeed in actually setting the value to 1 and will break out of the while-loop. And when the thread is finished, it sets the variable back to zero which should allow the next spinning thread to continue.
 
-You will notice here that the assignment of \texttt{busy = 0} doesn't use something like a test-and-clear instruction or similar. If you wanted to use one it would make sense, but you don't really need it: if only one thread is ever in that critical section at a time, only that thread will be modifying the variable \texttt{busy}. Because the other access are atomic they will either succeed or fail in one step -- and either the value is 0 or 1 (it won't be somewhere in between) -- so this is grudgingly okay. That doesn't work for all scenarios, of course, and an analysis tool like Helgrind might call this out as being a possible race condition. So probably we shouldn't do that in reality.
+You will notice here that the assignment of \texttt{busy = 0} doesn't use something like a test-and-clear instruction or similar. If you wanted to use one it would make sense, but you don't really need it: if only one thread is ever in that critical section at a time, only that thread will be modifying the variable \texttt{busy}. Because the other accesses are atomic they will either succeed or fail in one step -- and either the value is 0 or 1 (it won't be somewhere in between) -- so this is grudgingly okay. That doesn't work for all scenarios, of course, and an analysis tool like Helgrind might call this out as being a possible race condition. So probably we shouldn't do that in reality.
 
 \paragraph{Compare-and-Swap.} That works okay for the mutex scenario, but doesn't work for the general, counting, semaphore where the values can be things other than 0 or 1 (locked and unlocked). For that we have the compare-and-swap, or sometimes it's called compare-and-exchange, instruction. Like test-and-set, it is implemented as a hardware instruction that is completed in one cycle and is uninterruptible. As before, it is not implemented like this, but a precise C-language definition looks like this:
 
@@ -116,7 +116,7 @@ A simple counter showing the number of threads in the critical section would not
 
 Let's imagine a scenario where we do not care about priority for writers. So if a writer wants to enter and there's a writer or $n$ readers, the writer is blocked; otherwise it can proceed. If a reader wants to enter and there's a writer, then the reader is blocked, but if there are readers then there's no other issue.
 
-At first we might consider two counters; one for readers and one for writers. This may not be ideal, though, because if the readers counters is 7, is that seven readers currently in the room or seven readers waiting to enter? It's hard to know and we'll need some more accounting.
+At first we might consider two counters; one for readers and one for writers. This may not be ideal, though, because if the readers counter is 7, is that seven readers currently in the room or seven readers waiting to enter? It's hard to know and we'll need some more accounting.
 
 Since we talked about the light bulb analogy for the way of understanding the reader-writer lock, then maybe the best thing is to have a boolean variable that says whether the lights are on. Then a counter could be used to keep track of the number of readers currently in the room. The reader-writers lock can have associated reader and writer queues. 
 
@@ -144,7 +144,7 @@ In the previous course, we discussed the idea of the spinlock and the variant of
 	\end{tabular}
 \end{center}
 
-I think we could say that this validates the idea of how to implement we've discussed is plausible. In this case, flag being 1 indicates the lights are off and flag being 0 means the lights are on. This, like the side of the road we drive on, is one of those choices where you could choose either convention and it would be fine. It's not what I would choose (or did choose in the earlier example) but it doesn't mean this is wrong.
+I think we could say that this validates the idea of how to implement what we've discussed is plausible. In this case, flag being 1 indicates the lights are off and flag being 0 means the lights are on. This, like the side of the road we drive on, is one of those choices where you could choose either convention and it would be fine. It's not what I would choose (or did choose in the earlier example) but it doesn't mean this is wrong.
 
 \subsection*{Condition Variables}
 Condition variables have a lot of similarities, but their semantics are different. Remember that we can have the lost-wakeup problem, but also that the condition variable is always paired with a mutex.

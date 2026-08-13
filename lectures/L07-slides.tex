@@ -68,7 +68,7 @@ boolean test_and_set( int* i ) {
 An example of the code that uses the \texttt{test\_and\_set} routine:
 
 \begin{lstlisting}[language=C]
-while ( !test_and_set( busy ) ) {
+while ( !test_and_set( &busy ) ) {
    /* Wait for my turn */
 }
 /* critical section */

@@ -6,7 +6,7 @@
 
 \section*{Evaluating Scheduling Algorithms}
 
-Although in some cases, like real-time scheduling, it is pretty obvious what algorithms we might want to use, in many cases, it isn't immediately obvious what scheduling routine makes the most sense or gives the best overall performance. This necessarily implies that there is a clear definition of best overall performance. We talked about some ten earlier and acknowledged they're not all equally important in a given system. Some are ignored altogether. That's okay.
+Although in some cases, like real-time scheduling, it is pretty obvious what algorithms we might want to use, in many cases, it isn't immediately obvious what scheduling routine makes the most sense or gives the best overall performance. This necessarily implies that there is a clear definition of best overall performance. We talked about nine earlier and acknowledged they're not all equally important in a given system. Some are ignored altogether. That's okay.
 
 Let's imagine, though, that you've made a decision of what's important in your system. However those are decided, we need to evaluate the algorithms we've discussed in terms of how well they achieve that goal. While it is possible to just have a theoretical discussion about it where we say we think $A$ is better than $B$ but worse than $C$, that's not a very scientific approach. What we'd like to do instead is gather some data and make the decision using it. Given that we don't have specific criteria for a system, this discussion will be restricted more to the idea of how to decide rather than walking through a specific decision. 
 
@@ -77,7 +77,7 @@ Processor utilization for a process $j$ is calculated for an interval $i$ by kee
 $CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$
 \end{center}
 
-And the priority is for process $j$ at interval $i$ is calculated by the formula:
+And the priority for process $j$ at interval $i$ is calculated by the formula:
 
 \begin{center}
 $P_{j}(i) = B_{j} + \dfrac{CPU_{j}}{2} + N_{j}$
@@ -95,10 +95,10 @@ The $CPU$ and $N$ components of the equation are restricted to prevent a process
 	\item User processes
 \end{enumerate}
 
-Yes, unfortunately, user processes get piled at the bottom of the list. The use of the hierarchy should provide for efficient use of I/O devices and tends to penalize processor-bound processes at the expense of I/O bound processes. This is beneficial, because CPU-bound processes should be able to carry on executing when an I/O-bound process waits for the I/O operation to complete, but when an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting. This strategy is reasonably effective for a general-purpose, time-sharing operating system.
+Yes, unfortunately, user processes get piled at the bottom of the list. The use of the hierarchy should provide for efficient use of I/O devices and tends to penalize processor-bound processes to the benefit of I/O bound processes. This is beneficial, because CPU-bound processes should be able to carry on executing when an I/O-bound process waits for the I/O operation to complete, but when an I/O operation is finished, we would like to start the next I/O operation so the I/O device is not waiting. This strategy is reasonably effective for a general-purpose, time-sharing operating system.
 
 \paragraph{Upgrading to SVR4.}
-In UNIX SVR4 the system for a complete overhaul, trying to give the highest priority to ``real-time'' processes, then kernel processes, and then user-mode preferences; its two big differences are (1) more priority levels -- 160 broken down into three types -- and (2) preemption points~\cite{osi}. 
+In UNIX SVR4 the system got a complete overhaul, trying to give the highest priority to ``real-time'' processes, then kernel processes, and then user-mode processes; its two big differences are (1) more priority levels -- 160 broken down into three types -- and (2) preemption points~\cite{osi}. 
 
 Such preemption points are needed, because the original versions of the UNIX kernel were themselves not well-suited to preemption because it was not expected in the design that the kernel's execution could itself be preempted at any time. So preemption points are placed in the code where it would be okay for the kernel to stop execution and do another operation. In practice, this means that all kernel data structures are updated, or there are appropriate locks that would prevent concurrent modification and prevent race conditions~\cite{osi}. 
 
@@ -107,8 +107,7 @@ BSD, the Berkeley Software Distribution, is another form of UNIX, and FreeBSD is
 
 What's new and interesting here is the interactivity scoring mechanism. Interactivity score is intended to identify which threads are user-interactive and which ones are CPU-intensive. Threads that are user-interactive should get a higher priority to run; in this system, lower numbers equal higher priority. Interactivity is judged based on how much the thread in question gets blocked: if it's waiting for the user or network or similar, then it would be considered interactive.
 
-The calculation looks like this~\cite{osi}: We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$ and the sleep time of the thread as $s$. For threads that have more sleep time than run time, the interactivity score is calculated as $(\dfrac{m}{2})(\dfrac{r}{s})$ and for those that have more run time than sleep time:
-  $(\dfrac{m}{2})(1 + \dfrac{r}{s})$. 
+The calculation looks like this: we'll define the maximum interactivity score as $m$, the runtime of the thread as $r$, and the sleep time as $s$. For threads that have more sleep time than run time, the interactivity score is $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$; for those that have more run time than sleep time it is $m - \left(\dfrac{m}{2}\right)\dfrac{s}{r}$; and if the two are equal, it is $\dfrac{m}{2}$. A \textit{lower} score means more interactive: in FreeBSD $m$ is 100, and a thread scoring below 30 is treated as interactive.
   
 This system ensures that threads that sleep more than they run are always in the lower half, and threads that run more than they sleep are in the upper half of their priority bands. The mechanism is a little bit crude -- interactivity is a bit more complex than just whether the threads get blocked. One might expect that the solution is something like whether the program interacts with the console or UI fields, but users are good at gaming the system like this and doing unnecessary writes to the console to make the program appear more interactive than it is. So a crude method provides less reward for gaming the system, so to speak.
 

@@ -94,7 +94,7 @@ This would require either (1) checking every available block ($\Theta(n)$ runtim
 \paragraph{Worst fit.}
 The problem with best fit is that the leftover bits of memory are likely to be too small to be useful. Rather than trying to find the smallest block that is of size $N$ or greater, choose the largest block of free memory. When the block is split, the remaining free block is, hopefully, large enough to be useful. 
 
-As with best fit, we must either (1) check each available block; or (2) keep the block sorted by size, though decreasing size this time. A max heap is appropriate, or a binomial or Fibonacci heap could also be appropriate~\cite{mte241}.
+As with best fit, we must either (1) check each available block; or (2) keep the blocks sorted by size, though decreasing size this time. A max heap is appropriate, or a binomial or Fibonacci heap could also be appropriate~\cite{mte241}.
 
 \paragraph{Quick fit.}
 Though not a solution on its own, quick fit is an optimization. If memory requests of a certain size are known to be common, e.g., requests for 1~MB, it might be ideal to keep a separate list of blocks that are of perhaps 1-1.1~MB in size, so that if the request for 1~MB does come in, it can be satisfied immediately and quickly. 
