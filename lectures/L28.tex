@@ -100,9 +100,9 @@ We're sure that this works. Why? Let's enumerate all the possibilities for this:
 	
 	\item If the crash happens during step 3, an incomplete entry is found in the log. Delete it from the log; the volume is in a consistent state.
 	
-	\item If the crash happens between step 3 and 4, there is an entry in the log that has not been applied. There will be nothing to undo but the system will attempt that anyway. Delete the log from the file. The volume is in a consistent state after this.
+	\item If the crash happens between step 3 and 4, there is an entry in the log that has not been applied. There will be nothing to undo but the system will attempt that anyway. Delete the log entry from the file. The volume is in a consistent state after this.
 	
-	\item If the crash happens during step 4, the log changes are partially applied. Use the log file to undo them. Delete the log from the file. The volume has been restored to a consistent state.
+	\item If the crash happens during step 4, the log changes are partially applied. Use the log file to undo them. Delete the log entry from the file. The volume has been restored to a consistent state.
 	
 	\item If the crash happens after step 4, all changes were already written to disk, so there's nothing to do on a restart.
 \end{itemize}

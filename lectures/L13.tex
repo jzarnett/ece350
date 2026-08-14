@@ -62,7 +62,7 @@ Thrashing~\cite{osc}.
 
 The solution is simple, actually; to increase CPU utilization we need to stop the thrashing which means we need fewer programs in memory at a time. What this really tells us is that CPU usage alone is not a sufficient indicator of whether more or fewer processes need to be running right now. It also matters \textit{why} the CPU utilization is low. Another reason that might cause low CPU usage is, as you may recall, deadlock. 
 
- What if we stop using a global replacement policy and instead force local replacement? This limits some of the damage; if Process $P_{1}$ is thrashing,it cannot steal pages from $P_{2}$ and we do not get a cascade where all processes are constantly fighting over who has how many pages. But, if $P_{1}$ is spending all its time paging to and from disk, any other process that wants to use the disk (whether to swap or to interact with files) is going to have to spend more time waiting for the disk to be free.  
+ What if we stop using a global replacement policy and instead force local replacement? This limits some of the damage; if Process $P_{1}$ is thrashing, it cannot steal pages from $P_{2}$ and we do not get a cascade where all processes are constantly fighting over who has how many pages. But, if $P_{1}$ is spending all its time paging to and from disk, any other process that wants to use the disk (whether to swap or to interact with files) is going to have to spend more time waiting for the disk to be free.  
  
 We could decide whether we need to start or suspend programs not just based on CPU usage, but also on the number of page faults that occur in a given period of time. If there are too many page faults, it indicates we have too much going on. That is a reactive solution, however, and might only engage after a fair amount of time and effort has been wasted in thrashing. It would be better to be proactive and deal with this before thrashing has started.
  
@@ -82,13 +82,13 @@ The take-away from this graph is that yes, locality is real. Given that, we can 
 
 \subsection*{The Working-Set Model}
 
-A potential solution is the working-set model as described in~\cite{osc}. We retain the last $n$ pages in memory as they represent the locale of the program. Assuming that most memory accesses are local, the most recent $n$ pages will be the most frequently used. In the textbook descriptions, this $n$ is usually called $\Delta$,the working set window. Pages that have been recently used are in the working set. If a page has not been accessed recently, it will drop out of the working set after $\Delta$ time units since its last reference. 
+A potential solution is the working-set model as described in~\cite{osc}. We retain the last $n$ pages in memory as they represent the locale of the program. Assuming that most memory accesses are local, the most recent $n$ pages will be the most frequently used. In the textbook descriptions, this $n$ is usually called $\Delta$, the working set window. Pages that have been recently used are in the working set. If a page has not been accessed recently, it will drop out of the working set after $\Delta$ time units since its last reference. 
 
 Suppose the window is defined as being ten accesses. Any page that was accessed in the last ten requests will then be considered part of the working set. If the next ten memory accesses are all in page $k$, then after those further ten accesses, the working set will contain only $k$. So the size of the working set will change over time and can be anywhere from 1 to $\Delta$ pages.
 
 If $\Delta$ is too small, the working set will not encompass the entire locale. If it is too large, it will cover multiple locales. Underestimating the size of the locale is bad, because it will mean more page faults being caused. Overestimating is also bad, because it means fewer processes will be allowed to run.
 
-If the working set of every process is summed up, we will get the total number of frames each process would ``like'' to have. If this sum exceeds the $(m-k)$ available frames in the system, at least one process is going to be unhappy because it does not have as many frames as it will need. And like unhappy workers who go on strike, unhappy process start thrashing.
+If the working set of every process is summed up, we will get the total number of frames each process would ``like'' to have. If this sum exceeds the $(m-k)$ available frames in the system, at least one process is going to be unhappy because it does not have as many frames as it will need. And like unhappy workers who go on strike, unhappy processes start thrashing.
 
 Once a value of $\Delta$ is determined, the OS will monitor the working set of each process and use that to figure out if the system is currently overloaded. If it is, the OS will pick a victim and suspend it to prevent thrashing. If the system is underloaded (frame supply exceeds demand), more processes can be started to run.
 

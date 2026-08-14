@@ -12,7 +12,7 @@ Let's imagine, though, that you've made a decision of what's important in your s
 
 \paragraph{Deterministic Modelling.}
 
-Deterministic modelling looks a lot like writing test scenarios for a lab project. The test scenario has some inputs and some outputs and then we can evaluate the outputs to check for both correctness and to assess the performance.  Why correctness? It's usually assumed that whatever algorithm that we are talking about is correct in its implementation, but evaluation of correctness in this context may mean things like processes do not starve.
+Deterministic modelling looks a lot like writing test scenarios for a lab project. The test scenario has some inputs and some outputs and then we can evaluate the outputs to check for correctness and to assess the performance.  Why correctness? It's usually assumed that whatever algorithm that we are talking about is correct in its implementation, but evaluation of correctness in this context may mean things like processes do not starve.
 
 Simple test cases will create all processes to run at the beginning and then put them into the ready queue. An example of a simple test case looks like this, where all five processes arrive at time 0 in this order~\cite{osc}:
 
@@ -45,7 +45,7 @@ That leads us to queueing theory! It is, as the saying goes, literally the theor
 
 The basic problem with queueing theory analysis is that it is mathematically complex and not suitable for every kind of scheduling algorithm; it also tends to force modelling things like request arrival times in ways that are easier to implement but not necessarily accurate~\cite{osc}.
 
-Okay, queuing theory is too advanced for this course and we'll have to save it for a future one. It typically shows up as a graduate-level topic, but somehow, hints of it find their way into fourth year courses here and there. You know the one. Yes. ECE~459. Of course it is. 
+Okay, queueing theory is too advanced for this course and we'll have to save it for a future one. It typically shows up as a graduate-level topic, but somehow, hints of it find their way into fourth year courses here and there. You know the one. Yes. ECE~459. Of course it is. 
 
 \paragraph{Simulations and Emulation.}
 Whatever modelling approach we choose, deterministic or statistical, we would get more accurate evaluations of the system by running a simulation. The simulation, if designed appropriately, will account for more things like clock interrupts and context switch times.
@@ -103,7 +103,7 @@ In UNIX SVR4 the system got a complete overhaul, trying to give the highest prio
 Such preemption points are needed, because the original versions of the UNIX kernel were themselves not well-suited to preemption because it was not expected in the design that the kernel's execution could itself be preempted at any time. So preemption points are placed in the code where it would be okay for the kernel to stop execution and do another operation. In practice, this means that all kernel data structures are updated, or there are appropriate locks that would prevent concurrent modification and prevent race conditions~\cite{osi}. 
 
 \paragraph{FreeBSD.}
-BSD, the Berkeley Software Distribution, is another form of UNIX, and FreeBSD is one of its descendants. FreedBSD has a scheduling process that's quite similar to that of SVR4. There are more priority levels than SVR4 -- 256 rather than 160 -- and they are subdivided into five categories rather than just three. This implementation is intended to support multiprocessor systems better than the traditional UNIX approaches.
+BSD, the Berkeley Software Distribution, is another form of UNIX, and FreeBSD is one of its descendants. FreeBSD has a scheduling process that's quite similar to that of SVR4. There are more priority levels than SVR4 -- 256 rather than 160 -- and they are subdivided into five categories rather than just three. This implementation is intended to support multiprocessor systems better than the traditional UNIX approaches.
 
 What's new and interesting here is the interactivity scoring mechanism. Interactivity score is intended to identify which threads are user-interactive and which ones are CPU-intensive. Threads that are user-interactive should get a higher priority to run; in this system, lower numbers equal higher priority. Interactivity is judged based on how much the thread in question gets blocked: if it's waiting for the user or network or similar, then it would be considered interactive.
 

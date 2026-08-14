@@ -33,7 +33,7 @@ A first thought would be to change the logic a bit such that instead of tight po
 \paragraph{Interrupts.}
 Interrupts are something we've spent a ton of time talking about, but remember that this will operate on the basis of there being some sort of interrupt request line (hardware) and when the CPU sees the signal that indicates the presence of an interrupt, the interrupt handler is executed to deal with it~\cite{osc}. The interrupt handler will do whatever it's supposed to do and then clear the interrupt signal.
 
-This description is fully correct, but overlooks some of the complexity around interrupts. For one thing, not all interrupts are equally important -- incoming phone call is not as urgent as a fire alarm. The other part is that interrupts should be something the CPU can (mostly) turn off it that makes sense. 
+This description is fully correct, but overlooks some of the complexity around interrupts. For one thing, not all interrupts are equally important -- an incoming phone call is not as urgent as a fire alarm. The other part is that interrupts should be something the CPU can (mostly) turn off it that makes sense. 
 
 The interrupt approach helps to deal with the problem of not responding in time to the availability of data: when the interrupt is triggered, take the data from the device and put it in memory somewhere. This does not mean that the data has to be processed immediately, and it might actually be preferable to delay handling it until enough data has arrived. But as long as the data is in memory it won't get overwritten unexpectedly. 
 
@@ -43,7 +43,7 @@ Direct Memory Access or DMA is based on the idea that it's preferable to hand of
 When the I/O operation is completed, the DMA controller will notify the CPU with an interrupt; but one thing that may not be obvious from the description is that the DMA controller might slow down the CPU a little bit because it's using the bus and that can make the CPU wait~\cite{osc}. That's still probably less than if it was an interrupt-based system. 
 
 \subsection*{Application I/O Interface}
-The use of DMA and interrupts are intended to increase the efficiency of the system, because we know that most devices are very slow when compared to the speed of the CPU and even memory~\cite{osi}. A lot of the efficiency gains, though, are based on what hardware is available so not necessarily something we can control when developing an operating system. Yes, the hardware is useless if the operating system does not use it, but the OS cannot compensate for the lack of a DMA module.
+The use of DMA and interrupts is intended to increase the efficiency of the system, because we know that most devices are very slow when compared to the speed of the CPU and even memory~\cite{osi}. A lot of the efficiency gains, though, are based on what hardware is available so not necessarily something we can control when developing an operating system. Yes, the hardware is useless if the operating system does not use it, but the OS cannot compensate for the lack of a DMA module.
 
 Ideally, when a general-purpose operating system is written, it will accept new devices being added to the system without editing/reinstalling/recompiling the code. Your experience with object oriented programming gives you some familiarity with the solution of how we should accomplish this goal. We want to abstract away the details of the hardware, to the extent we can, and provide a uniform \textit{interface} to interact with. 
 

@@ -15,7 +15,7 @@ But if the bug is in the kernel itself? That requires changing the kernel's main
 
 In practice, this is a little bit like the kernel doing a surgery on itself. There is a precedent of sorts in the real world: a Soviet doctor who was stuck in Novolazarevskaya Station, Antarctica needed to do a surgery to remove his own appendix\footnote{ \url{https://en.wikipedia.org/wiki/Leonid_Rogozov} }. That was perhaps a little risky, but what choice did he have? It was 1961 in Antarctica. Still, it's doable if we adhere to some restrictions and do it well.
 
-The basic plan has a few steps. Step one is validating that we can even make this change at all; changes to functions is fine, but data structures cannot be changed on the fly. Then, prepare the patch; making the compiled binary code that we intend to replace some part of the existing kernel. Then we need to make sure that it's safe to make the swap (details below in the implementation description) and execute the replacement. After that, future system calls then run the new code. This high-level view makes it seem easy, but the challenge is in the details, particularly the part about making sure it's safe to make the swap.
+The basic plan has a few steps. Step one is validating that we can even make this change at all; changes to functions are fine, but data structures cannot be changed on the fly. Then, prepare the patch; making the compiled binary code that we intend to replace some part of the existing kernel. Then we need to make sure that it's safe to make the swap (details below in the implementation description) and execute the replacement. After that, future system calls then run the new code. This high-level view makes it seem easy, but the challenge is in the details, particularly the part about making sure it's safe to make the swap.
 
 The good news is that many patches are relatively straightforward in terms of the size of the change. In fact, the Kernel docs around this say: ``Many fixes do not change the semantic of the modified functions. For example, they add a \texttt{NULL} pointer or a boundary check, fix a race by adding a missing memory barrier, or add some locking around a critical section. Most of these changes are self contained and the function presents itself the same way to the rest of the system.''\footnote{ \url{https://docs.kernel.org/livepatch/livepatch.html} } In other words, we're changing a few lines within the function, but the function's main logic, purpose, signature, return type, etc. do not change. 
 
@@ -35,7 +35,7 @@ There's a little nuance about how to find the place to patch in the compiled ker
 
 In any event, recognizing that we want the ability for a patch to be a different size than the original binary code (without resorting to any weird trickery where we rewrite more than just the function we want to change), there's a better way. We can redirect execution instead of overwriting the old version.
 
-That's the job of \texttt{ftrace}, the kernel tracing infrastructure\footnote{ \url{https://docs.kernel.org/trace/ftrace-uses.html} }. The original purpose of this was, as the name suggests, was to be able to record the execution flow of the kernel. This is a debugging and programming-for-performance technique that lets us both understand what functions call what other functions, but also how long things take. The \texttt{ftrace} implementation allows the user to attach callbacks to a function. For performance or debugging purposes, you would want to be taking notes about the execution state.
+That's the job of \texttt{ftrace}, the kernel tracing infrastructure\footnote{ \url{https://docs.kernel.org/trace/ftrace-uses.html} }. The original purpose of this was, as the name suggests, to be able to record the execution flow of the kernel. This is a debugging and programming-for-performance technique that lets us both understand what functions call what other functions, but also how long things take. The \texttt{ftrace} implementation allows the user to attach callbacks to a function. For performance or debugging purposes, you would want to be taking notes about the execution state.
 
 Normally, those callbacks would be observation-based and not change the function being observed. But the key insight here is that \texttt{ftrace} can register ANY hook you like, including one that redirects control flow. That does not break any rule, because there are few restrictions on what can be in the callback. The \texttt{ftrace} docs do talk about restrictions on them about the fact that they can get called from anywhere and the risk of recursion resulting in an infinite loop or stack overflow. But nothing prevents the redirection of control flow. So it's legal, even if it might not have been intended by the people who created \texttt{ftrace}.
 
@@ -69,7 +69,7 @@ Only one patch can be in the process of being applied at a given time and there 
 
 \paragraph{Loading.} Loading sounds like it's what happens when you bring the module into the kernel, and it is, but it triggers the enabling step immediately in its initialization. It happens this way for some internal reasons, but primarily in case an error in enabling happens, which results in rejecting the load of the module. 
 
-\paragraph{Enabling.} Enabling begins application of the patch and the new version starts to get used. Running tasks are moved over to the new version according the consistency model rules until they're all moved.
+\paragraph{Enabling.} Enabling begins application of the patch and the new version starts to get used. Running tasks are moved over to the new version according to the consistency model rules until they're all moved.
 
 \paragraph{Disabling.} Disabling starts the reverse of the process of enabling, just as the name would lead you to believe. The previous version starts to get used and tasks move from the new version to the old one until they're all migrated. The ability to reverse a patch lowers the risk, to some degree, since we can always validate and see what happens. 
 
@@ -163,7 +163,7 @@ Looking at this briefly, we have, in order.
 	\item The new function written that is meant to replace an existing one
 	\item The mapping that says what the old and new functions are
 	\item The mapping that says what module we are applying the patch to (here, it's the core of the kernel)
-	\item Registering the model as the patch owner
+	\item Registering the module as the patch owner
 	\item Initialization that kicks off the application of the patch
 	\item The removal. Does nothing here; there's nothing to clean up except sending execution back to the old name
 	\item The module configuration stuff at the bottom that the kernel needs to recognize and accept a module
@@ -173,9 +173,9 @@ Looking at this briefly, we have, in order.
 \subsection*{Shadow Variables}
 The live patching implementation also allows something that the \texttt{kpatch} approach did not: changing kernel data structures! Well. Sort of changing them. It's more like, what if we gave them companions. Let's go through the documentation\footnote{ \url{https://docs.kernel.org/livepatch/shadow-vars.html} }.
 
-Shadow variables allow attaching the these extra companion objects to the existing data structures. So we're not really changing the originals, but we do get to put more things in the associated object. It's permitted to have multiple shadow variables attached to the same parent. 
+Shadow variables allow attaching these extra companion objects to the existing data structures. So we're not really changing the originals, but we do get to put more things in the associated object. It's permitted to have multiple shadow variables attached to the same parent. 
 
-This implies a need to link these things. A shadow object has some identifier that tells us what the parents is; the kernel must also have a hash table to match.
+This implies a need to link these things. A shadow object has some identifier that tells us what the parent is; the kernel must also have a hash table to match.
 
 This is still C, after all, so there's a need to allocate the shadow variable structure and deallocate them explicitly. The patch code will create the shadow objects with a function call to do so; to accommodate the existing structures before the patch was applied, a lazy load-or-create approach is needed. To get rid of the shadow object, that's also something to do explicitly when the parent is deallocated, but getting rid of all created shadow objects is also necessary when unloading the patch if that happens. 
 

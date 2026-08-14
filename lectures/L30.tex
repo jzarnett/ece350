@@ -60,7 +60,7 @@ A failure is the term we use when the response (outcome) deviates from the speci
 \end{itemize}
 
 \paragraph{Fault Prevention.} 
-Although it's tempting to jump straight to the idea of fault tolerance, which is about how to carry on in the face of the problem, it's even better if we can prevent the problem from occurring in the first place. That leads us to fault avoidance, which is some combination of some of the following steps~\cite{mte241}:
+Although it's tempting to jump straight to the idea of fault tolerance, which is about how to carry on in the face of the problem, it's even better if we can prevent the problem from occurring in the first place. That leads us to fault prevention, which is some combination of some of the following steps~\cite{mte241}:
 
 \begin{enumerate}
 	\item Make sure you understand the physical environment and protect the system from physical damage through appropriate shielding, waterproofing, etc.;
@@ -91,7 +91,7 @@ Some of the things we covered much earlier in the course, or in an earlier cours
 	\item \textbf{Checkpoints, Transactions, Rollback}: These were covered in the concurrency course and can be used to recover from failures, transient or otherwise. 
 \end{itemize}
 
-As for hardware failure, we already learned some of the important elements about fault tolerance through discussing the various RAID levels. In that topic we covered the idea of having backups or mirrored/striped volumes which gave is information redundancy: there's more than one copy of the data so the loss of one copy does not result in the permanent loss of data. 
+As for hardware failure, we already learned some of the important elements about fault tolerance through discussing the various RAID levels. In that topic we covered the idea of having backups or mirrored/striped volumes which gave us information redundancy: there's more than one copy of the data so the loss of one copy does not result in the permanent loss of data. 
 
 Most likely you covered some ideas of information redundancy in other courses around communication. Checksums, parity bits, error correcting codes, etc. all allow for detecting and possibly correcting errors through the use of data redundancy.
 
@@ -112,7 +112,7 @@ The idea of temporal redundancy introduces the problem of time and that it is no
 
 It's easy to imagine scenarios where independent systems who don't agree on what time it is will misbehave. Suppose the primary system is supposed to take some action at exactly 08:00 and this action takes 0.5 seconds to complete and it should signal completion. If the action is not completed within 1 second, the backup system will assume that the primary has failed and it will perform the action. If their clocks disagree by 1 second, then the backup system will do the action again unnecessarily (or perhaps cause an error by doing so). Is that example a little bit silly? Yes, but if you've ever been in a video call with delay and it's really frustrating because you each keep talking over one another (``you go ahead'', ''no, after you...''), you have experienced the pain of what happens when we don't agree on what time it is.
 
-Time zones also matter, but I'm going to recommend using UTC because it doesn't have weird things like Daylight Savings Time where you can get a jump in the time forward or back. And back is worse because it means a certain minute appears to happen more than once (defeating our normal expectation of linear time). That can really be a problem if an action that is supposed to be taken once per day is taken twice or skipped. UTC also avoids issues where the California system thinks it's Monday and the Singapore system thinks it's Tuesday. UTC might be weird, though, if your application is running on a Mars Rover; at that point you might as well use Stardates (Captain's Log, Stardate 46119.1...).
+Time zones also matter, but I'm going to recommend using UTC because it doesn't have weird things like Daylight Saving Time where you can get a jump in the time forward or back. And back is worse because it means a certain minute appears to happen more than once (defeating our normal expectation of linear time). That can really be a problem if an action that is supposed to be taken once per day is taken twice or skipped. UTC also avoids issues where the California system thinks it's Monday and the Singapore system thinks it's Tuesday. UTC might be weird, though, if your application is running on a Mars Rover; at that point you might as well use Stardates (Captain's Log, Stardate 46119.1...).
 
 
 Clocks frequently use quartz for synchronization, but there is always drift and measurement error; a quartz clock will typically vary by about half a second per day, so the idea of systems being off by a full second is quite reasonable if System A is fast by 0.5s and System B is slow by 0.5s~\cite{mte241}.

@@ -42,7 +42,7 @@ If the file is stored as compactly on disk as it can be, it is \textit{sequentia
 
 What if instead the data was randomly distributed on the disk and not sequential? The average seek and rotational delay times don't change. Reading one sector takes 0.016~ms. So each read of a sector will take a total of 8.016~ms ($4 + 4 + 0.016$). There are 2~500 sectors so the total is $2~500 \times 8.016 =$ 20~040~ms. 
 
-20~000~ms - twenty full seconds to read 1.28~MB of data? Yes. Seriously. This speed would be considered utterly unacceptable by the users. So it is clear that the order in which sectors are read from the disk makes a huge difference. This suggests that decisions about how to store data on disk is extremely important. Not only is the placement important, but how we schedule the reads and writes.
+20~000~ms - twenty full seconds to read 1.28~MB of data? Yes. Seriously. This speed would be considered utterly unacceptable by the users. So it is clear that the order in which sectors are read from the disk makes a huge difference. This suggests that decisions about how to store data on disk are extremely important. Not only is the placement important, but how we schedule the reads and writes.
 
 \subsection*{Disk Scheduling}
 We should introduce a final metric, the \textit{bandwidth}: the total number of bytes transferred, divided by the total time between the request for service and completion of the transfer. This is a measure of how much data is effectively transferred in a period of time. This is one of the measures we would like to improve, as well as the access time.
@@ -82,7 +82,7 @@ Using the same example as before, the closest request to the start position of 5
 	SSTF disk scheduling~\cite{osc}.
 \end{center}
 
-This routine is unfortunately subject to starvation. Suppose the disk head is at position 14. While is is there, a new request at 24 arrives, making the request at 98 wait. If enough low-numbered requests arrive to arrive during execution, a request at a high number may be put off, potentially indefinitely. The more requests occur, the more likely starvation is.
+This routine is unfortunately subject to starvation. Suppose the disk head is at position 14. While is is there, a new request at 24 arrives, making the request at 98 wait. If enough low-numbered requests arrive during execution, a request at a high number may be put off, potentially indefinitely. The more requests occur, the more likely starvation is.
 
 Though the SSTF algorithm is an improvement, it is not optimal. In the example, we would reduce the total amount of movement to 208 cylinders if we did the move from 53 to 37, even though it is not the closest, and then to 14, before moving to 65, 67, 98, 122, 124, and 183~\cite{osc}.
 
@@ -91,7 +91,7 @@ This algorithm provides for some spatial locality. If there are a number of requ
 \subsubsection*{SCAN Scheduling}
 In the SCAN algorithm, instead of a ``zig-zag'' pattern where we might move in one direction and then immediately double back to another, such as 25 then 32, then 17, we move in one direction at a time until it reaches the ``end'' of the disk. After that, the direction is reversed. The SCAN algorithm is sometimes called the elevator algorithm, because it works like an elevator in a building; first all requests going up are serviced, then the elevator reverses direction and services all requests going down~\cite{osc}.
 
-Let us assume the current direction of the head (starting at 53) is moving towards 0. So the algorithm will go to: 37, 14, then reverse direction and go to 65, 67, 98, 122, 124, and 183. If a request arrives just in front of the head (e.g, 129 arrives before 124 is serviced), it will be serviced virtually right away; if it is just after where the head has been (e.g., 123 after 124 has been serviced) it will wait until the direction reverses again. 
+Let us assume the current direction of the head (starting at 53) is moving towards 0. So the algorithm will go to: 37, 14, then reverse direction and go to 65, 67, 98, 122, 124, and 183. If a request arrives just in front of the head (e.g., 129 arrives before 124 is serviced), it will be serviced virtually right away; if it is just after where the head has been (e.g., 123 after 124 has been serviced) it will wait until the direction reverses again. 
 
 \begin{center}
 	\includegraphics[width=0.5\textwidth]{images/disk-scan.png}\\
