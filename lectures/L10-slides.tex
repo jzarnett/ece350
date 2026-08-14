@@ -220,7 +220,7 @@ Not just how many GB of memory are in the physical machine.
 \begin{frame}
 \frametitle{Page Tables}
 
-Now that we have multiple segments for each process and they are no longer contiguous, it is insufficient to have a base address and a limit.
+Now that we have multiple pages for each process and they are no longer contiguous, it is insufficient to have a base address and a limit.
 
 Each process needs a page table, to keep track of which pages are located where in memory. 
 
@@ -649,7 +649,7 @@ We must look in the full page table, which unfortunately is slower because it re
 
 The TLB idea is a specific instance of the strategy of caching. 
 
-Much earlier, when talking about the basics of computer hardware, we mentioned that memory comes at different levels and and different speeds. 
+Much earlier, when talking about the basics of computer hardware, we mentioned that memory comes at different levels and different speeds. 
 
 Caching is a critical idea in computers and operating systems. 
 

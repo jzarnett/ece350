@@ -255,7 +255,7 @@ Or with $m$ processes, each process gets 1/$m$ of the CPU time.
 
 The system must keep track of how much CPU time each process has received. 
 
-It then considers the how this value compares to the ideal. 
+It then considers how this value compares to the ideal. 
 
 If a process has a value of 0.5, it had only half the CPU it ``should'' have received. 
 
@@ -292,7 +292,7 @@ The process that holds that ticket gets that resource.
 
 This system provides clarity; if a process has priority $p$, what does that mean? 
 
-If a process has a fraction $f$ of the total tickets, then we can expect that process to get about $f$\% of the resource. 
+If a process has a fraction $f$\% of the total tickets, then we can expect that process to get about $f$\% of the resource. 
 
 When a process is created or terminates this may increase or decrease the number of tickets, or result in their redistribution.
 
@@ -676,7 +676,7 @@ As far as the operating system is concerned, a quad-core chip is made of four lo
 \begin{frame}
 \frametitle{Multicore Processors}
 
-On a cache miss the CPU core can spend a lot of time (50\%?) of its time waiting for that read to take place.
+On a cache miss the CPU core can spend a lot of time (50\%?) waiting for that read to take place.
 
   We might refer to periods of time where there is computation as a compute cycle, and time spent waiting for memory as a \alert{memory stall}. 
   
