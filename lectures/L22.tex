@@ -2,26 +2,71 @@
 
 \begin{document}
 
-\lecture{ 22 --- Kernel Modules and eBPF --- Extending the Kernel }{\term}{Jeff Zarnett}
+\lecture{ 22 --- Kernel Modules and eBPF}{\term}{Jeff Zarnett}
 
-\section*{Placeholder}
+\section*{New Functionality}
+In the introduction, we understood that a modern general-purpose operating system needs to be able to adapt and change. That referenced the idea of supporting new devices (and we'll talk about that in the upcoming device drivers topic). However, it is sometimes desirable to add arbitrary kernel functionality, not just support for new hardware. This could be system calls, yes, but it could also be new functionality.
 
-\textit{This lecture has not yet been written. The detailed outline lives in
-the plan file \texttt{let-s-look-at-containers-structured-sprout.md}.}
+Modern kernels permit the ability to load and unload pieces of functionality through the use of \textit{modules}, which are exactly what they sound like: self-contained chunks of code that can become part of the kernel. The additional code can be loaded at boot up, or dynamically on request, and unloaded (disabled) if no longer needed.
 
-The intended sections are:
+One increasingly-popular usage of kernel modules is anti-cheating software in online games. Fortnite's own anti-cheating pages\footnote{ \url{https://www.fortnite.com/competitive/rules-guidelines/rules-library/new-fortnite-anti-cheat-pc-requirements-and-latest-legal-action?region=NAC} } say that they use Easy Anti-Cheat's kernel-level protection. Why would a game, of all things, need to load a kernel module to reduce cheating?! 
 
-\begin{enumerate}
-	\item Why extend the kernel?
-	\item Loadable Kernel Modules --- anatomy
-	\item Why LKMs are dangerous
-	\item Module trust, signing, and the BYOVD problem
-	\item eBPF as the modern alternative
-	\item The eBPF verifier
-	\item Maps and the kernel/user boundary
-	\item Where eBPF is going
-	\item Monolithic vs.~microkernel revisited
-\end{enumerate}
+The answer is, as you probably guessed, because the kernel has access to everything in the system. Regardless of how you feel about the ethics of cheating in online multiplayer games, some players are \textit{extremely} dedicated to winning at all costs, through any means. If that's something the game wants to hinder -- and they probably do, because competitive games are not very much fun when other players cheat -- then they need to use every mechanism available to the would-be cheaters. Fight fire with fire, as it were.
+
+It's tempting to get into all the different ways players can cheat, but that is a bit of a side-track to the topic. It's easy enough for a regular process to detect tampering with the game files; something running as administrator can find out things like whether another process is sending input commands to auto-aim. But users can and would use kernel-level cheats, so the detection needs to be in the kernel as well. 
+
+I truly do not know how Fortnite works, but let's imagine a hypothetical example here. Sometimes, games send the player more data than is actually shown on the screen. So your local game client knows the location of a nearby enemy, even if that enemy is behind a wall and is not shown to you as the player. With a kernel-level cheating driver, you can intercept network traffic and use that information to show the info that you are not ``supposed'' to see -- even in a separate window -- giving you an advantage because you know where the enemy player is. Detecting that in user mode or as a system administrator would not work; but if the anti-cheat kernel module can examine loaded kernel modules, it could find the existence of something inspecting network traffic.
+
+Kernel modules are specific to a given kernel. This is a part of the reason why it can be difficult to play games on Linux: if the game requires a kernel-level anti-cheating module be loaded, the authors would need to develop and maintain a Linux version of the module. Are they likely to do that? It's not very common... And if they don't, but let players use a Linux version without anti-cheat, the inevitable result is that the cheaters all go over to Linux and use that. 
+
+Of course, there are numerous other reasons for kernel modules aside from just anti-cheating. Let's move on to the mechanics: how do we create and load them?
+
+\subsection*{Creating Modules}
+
+Writing kernel modules comes with a number of differences compared to what we may be used to. For example, the kernel defines a \texttt{linux/printk.h} header that lets us use the \texttt{pr\_info()} macro to print, something we would normally do with \texttt{printf} because the kernel must be able to run without the standard C library~\cite{corbet2005linux}. Similarly, if you need to allocate memory, there are kernel-specific functions like \texttt{kmalloc} to accomplish what you want -- a regular \texttt{malloc} will not work. 
+
+Rather like a C program needing a \texttt{main()} function, a kernel module has an initialization function that is run on loading the module and a cleanup function that is run to clean up when an unload is taking place, so that the module can be unloaded cleanly; these used to be called \texttt{init\_module()} and \texttt{cleanup\_module()} but more modern versions of the kernel permit you to call them anything as long as they are registered with the macros~\cite{pomerantz2000lkmpg}. 
+
+The intention of these functions is to do whatever setup and cleanup are necessary for the module to run correctly. This can be no-op if there is nothing to do, but usually there is something. If, for example, memory was allocated in the initialization, deallocate it in the cleanup. Good programming practice would also acknowledge the possibility that loading can fail partway through initialization; if that is the case, undoing anything that's previously done before the failure should take place.
+
+Let's look at the hello-world module from~\cite{pomerantz2000lkmpg}:
+\begin{lstlisting}[language=C]
+#include <linux/init.h> /* Needed for the macros */
+#include <linux/module.h> /* Needed by all modules */
+#include <linux/printk.h> /* Needed for pr_info() */
+
+static int __init hello_2_init(void)
+{
+    pr_info("Hello, world 2\n");
+    return 0;
+}
+
+static void __exit hello_2_exit(void)
+{
+    pr_info("Goodbye, world 2\n");
+}
+
+module_init(hello_2_init);
+module_exit(hello_2_exit);
+
+MODULE_LICENSE("GPL");
+\end{lstlisting}
+
+A more complex kernel module must account for concurrency and use concurrency-control constructs like a mutex to ensure that the internal state of the kernel data structures remains consistent. As with memory allocation, there are kernel-specific functions to use in place of the ones in user-space.
+
+It sounds like we now have a clear pathway to add a system call. In discussing how they worked much earlier on, we said that an integer identifier was put in a predefined location and the trap instruction invoked, which activated the OS. The OS then looks at the identifier and uses that to make a determination of what system call handler to run. So if you want to add a new system call, we just need to bring the new code into the kernel and then update the mapping table so that the new number has a corresponding handler function to run. You might think it's straightforward to replace one, too: bring in the new code and then update the mapping table so the existing number points to the new function instead of the old one.
+
+Except, as collateral damage from a security mitigation, the kernel maintainers broke the ability to add or replace system calls via this table-update approach in version 6.9~\cite{pomerantz2000lkmpg}. There is simply no longer such a table in memory that we could alter in x86, and on other architectures it's immutable. That was never a truly supported pathway so breaking it was always a risk. But it did used to work! 
+
+If we want to tinker with system calls, then we can of course do that by making the code change and rebuilding the kernel, and rebooting to load it. Just not dynamically with module loading like that. Later on, we'll learn about how to replace a system call while the kernel is running, when discussing live-patching in the reliability topic.
+
+\subsection*{You Sure About This?}
+Should we implement something as a kernel module? It is truly dangerous to do so. The kernel has effectively unlimited ability to do anything in the system and a kernel module that has a vulnerability in it is a target for attackers. While some sort of anti-cheat mechanism is meant to be hard to defeat and is probably designed with security in mind, that is not a given for any module.
+
+Of course, malicious intent is not necessary for a kernel module to be the root cause of a problem. On July 19, 2024, an update to a kernel module from CrowdStrike -- a cybersecurity company of all things -- caused a huge number of Windows machines to experience the Blue Screen of Death and be unable to boot up normally. This was hugely disruptive to numerous industries, including air travel. CrowdStrike published a root cause analysis of what went wrong, if you want to read the details\footnote{ \url{https://www.crowdstrike.com/content/dam/crowdstrike/www/en-us/wp/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf} }. But there was an out-of-bounds memory read (trying to read element 21 of a 20-element collection). What would normally be a segmentation fault in a regular application... brings down the whole system when it's a kernel module.
+
+\section*{eBPF}
+If we agree that writing kernel modules is both difficult and risky, an alternative approach is worth pursuing: eBPF. The official documentation says that eBPF is no longer an acronym for anything.
 
 \input{bibliography.tex}
 
