@@ -17,7 +17,7 @@ It's tempting to get into all the different ways players can cheat, but that is 
 
 I truly do not know how Fortnite works, but let's imagine a hypothetical example here. Sometimes, games send the player more data than is actually shown on the screen. So your local game client knows the location of a nearby enemy, even if that enemy is behind a wall and is not shown to you as the player. With a kernel-level cheating driver, you can intercept network traffic and use that information to show the info that you are not ``supposed'' to see -- even in a separate window -- giving you an advantage because you know where the enemy player is. Detecting that in user mode or as a system administrator would not work; but if the anti-cheat kernel module can examine loaded kernel modules, it could find the existence of something inspecting network traffic.
 
-Kernel modules are specific to a given kernel. This is a part of the reason why it can be difficult to play games on Linux: if the game requires a kernel-level anti-cheating module be loaded, the authors would need to develop and maintain a Linux version of the module. Are they likely to do that? It's not very common... And if they don't, but let players use a Linux version without anti-cheat, the inevitable result is that the cheaters all go over to Linux and use that. 
+Kernel modules are specific to a given kernel. This is a part of the reason why it can be difficult to play games on Linux: if the game requires a kernel-level anti-cheating module be loaded, the authors would need to develop and maintain a Linux version of the module. Are they likely to do that? It's not very common... And if they don't, but let players use a Linux version without anti-cheat, the inevitable result is that the cheaters all go over to Linux and use that. From the point of view of players who are not cheating, does it matter what OS the cheaters are using? 
 
 Of course, there are numerous other reasons for kernel modules aside from just anti-cheating. Let's move on to the mechanics: how do we create and load them?
 
@@ -54,16 +54,39 @@ MODULE_LICENSE("GPL");
 
 A more complex kernel module must account for concurrency and use concurrency-control constructs like a mutex to ensure that the internal state of the kernel data structures remains consistent. As with memory allocation, there are kernel-specific functions to use in place of the ones in user-space.
 
-It sounds like we now have a clear pathway to add a system call. In discussing how they worked much earlier on, we said that an integer identifier was put in a predefined location and the trap instruction invoked, which activated the OS. The OS then looks at the identifier and uses that to make a determination of what system call handler to run. So if you want to add a new system call, we just need to bring the new code into the kernel and then update the mapping table so that the new number has a corresponding handler function to run. You might think it's straightforward to replace one, too: bring in the new code and then update the mapping table so the existing number points to the new function instead of the old one.
+\paragraph{System Call Changes.} It sounds like we now have a clear pathway to add a system call. In discussing how they worked much earlier on, we said that an integer identifier was put in a predefined location and the trap instruction invoked, which activated the OS. The OS then looks at the identifier and uses that to make a determination of what system call handler to run. So if you want to add a new system call, we just need to bring the new code into the kernel and then update the mapping table so that the new number has a corresponding handler function to run. You might think it's straightforward to replace one, too: bring in the new code and then update the mapping table so the existing number points to the new function instead of the old one.
 
 Except, as collateral damage from a security mitigation, the kernel maintainers broke the ability to add or replace system calls via this table-update approach in version 6.9~\cite{pomerantz2000lkmpg}. There is simply no longer such a table in memory that we could alter in x86, and on other architectures it's immutable. That was never a truly supported pathway so breaking it was always a risk. But it did used to work! 
 
 If we want to tinker with system calls, then we can of course do that by making the code change and rebuilding the kernel, and rebooting to load it. Just not dynamically with module loading like that. Later on, we'll learn about how to replace a system call while the kernel is running, when discussing live-patching in the reliability topic.
 
+\paragraph{Upkeep.} Earlier, it was mentioned that modules are specific to a given kernel. That means a specific kernel version (e.g., 6.9), not just the Linux kernel in general or even major versions (as in semantic versioning). This is because the kernel itself has no stable internal API. Yes, Linus Torvalds gets extremely mad if a change breaks a user program, but internally the kernel data structures, functions and their signatures, and everything else can change arbitrarily at any time. This is frustrating for developers of modules, and is another reason why game devs do not pursue a Linux anti-cheat module: every kernel update might require major changes to the module.
+
+A helpful kernel post from Greg Kroah-Hartman\footnote{ \url{https://docs.kernel.org/process/stable-api-nonsense.html} } gives some reasons why the internals are not stable:
+
+\begin{enumerate}
+	\item \textbf{Binary Interface.} The compiled binary of the kernel does not remain consistent from build to build for a few reasons:
+		\begin{itemize}
+			\item Changes to the C compiler can result in different binary output.
+			\item Build options can change what \texttt{struct}s look like or what function implementation blocks appear, and memory alignment.
+			\item The kernel runs on different architectures (e.g., x86\_64, arm).
+		\end{itemize}
+	\item {Source Interfaces.} The API of the kernel can change too. This is a design decision that gives a high degree of freedom to kernel developers to do things:
+		\begin{itemize}
+			\item Fix a bug or improve a design decision without needing to support backwards-compatibility.
+			\item Retire an old implementation in favour of a new and ostensibly better implementation, also without worrying about backwards-compatibility.
+			\item Address security issues without having the same constraints about breaking things we discussed in the introduction to the course.
+		\end{itemize}
+\end{enumerate}
+
+That post gives a specific example about changing the USB interface from synchronous streams to asynchronous ones, permitting increased throughout of USB devices. 
+
+The fact that these internal interfaces and data structures can change at any time pushes contributors, sometimes at least, to try to get their code included into the kernel source itself, rather than loaded as a module. If that's the case, any kernel developer making a change or refactor will have to also change your code as well. Otherwise, the kernel won't compile or the tests fail. Still, the standards for contributing to the kernel are very high and things that are very niche are unlikely to be accepted.
+
 \subsection*{You Sure About This?}
 Should we implement something as a kernel module? It is truly dangerous to do so. The kernel has effectively unlimited ability to do anything in the system and a kernel module that has a vulnerability in it is a target for attackers. While some sort of anti-cheat mechanism is meant to be hard to defeat and is probably designed with security in mind, that is not a given for any module.
 
-Given that modules loaded into the kernel get the highest level of access, knowing what is being loaded is necessary. Linux offers the ability to cryptographically sign modules to verify that they come from the source that they claim to come from. Whether users actually check the signatures or just override and say install anyway is a different matter. It is possible to configure the kernel to reject unsigned modules as a measure of security. 
+Recognizing that modules loaded into the kernel get the highest level of access, knowing what is being loaded is necessary. Linux offers the ability to cryptographically sign modules to verify that they come from the source that they claim to come from. Whether users actually check the signatures or just override and say install anyway is a different matter. It is possible to configure the kernel to reject unsigned modules as a measure of security. 
 
 Of course, malicious intent is not necessary for a kernel module to be the root cause of a problem. On July 19, 2024, an update to a kernel module from CrowdStrike -- a cybersecurity company of all things -- caused a huge number of Windows machines to experience the Blue Screen of Death and be unable to boot up normally. This was hugely disruptive to numerous industries, including air travel. CrowdStrike published a root cause analysis of what went wrong, if you want to read the details\footnote{ \url{https://www.crowdstrike.com/content/dam/crowdstrike/www/en-us/wp/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf} }. But there was an out-of-bounds memory read (trying to read element 21 of a 20-element collection). What would normally be a segmentation fault in a regular application... brings down the whole system when it's a kernel module.
 
@@ -72,17 +95,70 @@ Was the CrowdStrike driver signed? Yes! Microsoft also has the ability to sign k
 \section*{eBPF}
 If we agree that writing kernel modules is both difficult and risky, an alternative approach is worth pursuing: eBPF. The official documentation says that eBPF is no longer an acronym for anything. The promise of this, according to its documentation, is to extend what the kernel can do without changing the source or loading modules. The hope is that this can be done in a way that permits accomplishing the actual goals without the risk of security or other issues above.
 
-The eBPF approach is to execute a program at designated hooks inside the kernel; each program gets some verification to check for issues~\cite{ebpf}. What are hooks? When the kernel is executing, if it passes a certain point, such as the start of a system call or entry/exit of a function, then that can be the trigger to run the eBPF program. 
+The eBPF approach is to execute a program at designated hooks inside the kernel; each program gets some verification to check for issues~\cite{ebpf}. What are hooks? When the kernel is executing, if it passes a certain point, such as the start of a system call or entry/exit of a function, then that can be the trigger to run the eBPF program. That code runs and then the kernel function executes as normal afterwards.
 
 The eBPF documentation talks about how an eBPF program is written but that's too low-level for us to get into. We write the code using a C-like language and it gets turned into byte code; the byte code is what gets loaded into eBPF. Byte code is an intermediate representation that will be compiled after verification. 
 
 Verification is interesting! The eBPF verifier does a static (compile time) analysis of the byte code to determine if it is ``safe'' to run; if it passes then it goes to a just-in-time compiler and the output is the machine code that actually runs~\cite{ebpf}. The documentation summarizes the verification as saying that it checks three things (1) if the process loading program has the capabilities (as in, privileges) needed to execute it; (2) that the program does not crash or cause any other harm; (3) that the program runs to completion (no infinite loop).
 
-The paper~\cite{ebpf} goes into a lot more of how to actually make that work. The first step is that verifier must build a control-flow graph and ensure that there are no infinite loops or loops whose termination conditions cannot be determined, and that the program always exits normally. Then it tries to do a more exhaustive execution probe of the code, exploring all paths through the code. It also checks for resource usage and permits a program to hold only a single spin-lock at a time, which ensures a deadlock cannot occur (remember why?). The details of verification are much more complex than we want to go into here (even if it's cool), but suffice it to say that an eBPF program goes through this verification process to make sure it is safe to load it. 
+The paper~\cite{ebpf} goes into a lot more of how to actually make that work. The first step is that verifier must build a control-flow graph and ensure that there are no infinite loops or loops whose termination conditions cannot be determined, and that the program always exits normally. Then it tries to do a more exhaustive execution probe of the code, exploring all paths through the code. It also checks for resource usage and permits a program to hold only a single spin-lock at a time, which ensures a deadlock cannot occur (remember why?). The details of verification are much more complex than we want to go into here (even if it's cool), but suffice it to say that an eBPF program goes through this verification process to make sure it is safe to load it.
 
 You would be right to question whether the verification actually demonstrates that the code is safe. Any verification process is also software, and software has bugs. So the verifier can make mistakes too, and may say yes to a program that has a problem or no to one that should be approved. Still, the existence of verification suggests at least a higher chance of staying out of trouble.
 
 The documentation of eBPF compares the utility of this tool as being like Javascript in the browser: it permits a website to be as dynamic and app-like as you want, because Javascript can run arbitrary code, but it's in a sandbox of sorts, and the website can update itself whenever it is ready rather than needing a browser update. 
+
+After verification is completed, there's the compilation process. The compilation process is just-in-time (on the fly) and it involves an optimization pass that removes dead or unreachable code before turning it into the binary~\cite{ebpf}. Why would there be dead code? The answer has to do with portability.
+
+\paragraph{Portability.} The kernel module discussion covers clearly that upkeep of a kernel module is challenging because the kernel internals can change at any time. Programs loaded via eBPF also have this problem, if they look at kernel data structures or use kernel functions. If the name of the structure has changed, for example, the eBPF program will be looking at the wrong thing. 
+
+The proposed solution is called eBPF CO-RE (Compile Once, Run Everywhere). Usually, when talking about portability, it means different operating systems (e.g., code that works in Linux and macOS). The cross-OS challenge is one we have avoided by saying that the code examples in the course (and its prerequisite) are meant to run under Linux. Writing an eBPF program that supports different kernel versions is, fortunately, not as complicated as that.
+
+Here's an example of the simple case, where the meaning of a variable has changed and there are simply if-else blocks to handle the differences~\cite{ebpf-co-re}:
+\begin{lstlisting}[language=C]
+extern u32 LINUX_KERNEL_VERSION __kconfig;
+extern u32 CONFIG_HZ __kconfig;
+
+u64 utime_ns;
+
+if (LINUX_KERNEL_VERSION >= KERNEL_VERSION(4, 11, 0))
+    utime_ns = BPF_CORE_READ(task, utime);
+else
+    /* convert jiffies to nanoseconds */
+    utime_ns = BPF_CORE_READ(task, utime) * (1000000000UL / CONFIG_HZ);
+\end{lstlisting}
+
+We can, of course, extend this approach to the idea of calling a different function based on the kernel version. If the function \texttt{work2()} has been introduced in some new kernel version, then we can start using that and use \texttt{work1()} in the old version, right? Yes, except that if \texttt{work1()} has been removed from the kernel in the current version, the if-else logic still contains a reference to \texttt{work1()} and the compiler will not find it and that should fail the compilation. This is why the eBPF approach does the optimization pass to remove dead code: for kernel version $x$ that uses \texttt{work2()} and has no \texttt{work1()}, the optimizer will see the if-branch referencing \texttt{work1()} is dead and remove it, meaning it doesn't appear in the byte code that gets compiled and there is no problem.
+
+A more complicated scenario is where the structures in the kernel themselves have changed. The eBPF CO-RE approach is to have what they call \textit{flavours}. Consider this example~\cite{ebpf-co-re}:
+
+\begin{lstlisting}[language=C]
+/* up-to-date thread_struct definition matching newer kernels */
+struct thread_struct {
+    ...
+    u64 fsbase;
+    ...
+};
+
+/* legacy thread_struct definition for <= 4.6 kernels */
+struct thread_struct___v46 { /* ___v46 is a "flavor" part */
+    ...
+    u64 fs;
+    ...
+};
+
+extern int LINUX_KERNEL_VERSION __kconfig;
+...
+struct thread_struct *thr = ...;
+u64 fsbase;
+if (LINUX_KERNEL_VERSION < KERNEL_VERSION(4, 7, 0))
+    fsbase = BPF_CORE_READ((struct thread_struct___v46 *)thr, fs);
+else
+    fsbase = BPF_CORE_READ(thr, fsbase);
+\end{lstlisting}
+
+The source explains that the three underscores in the type name identifies this a flavour of a structure; the flavour part is ignored by the library so that definition will still match to the underlying type when running. The alternative to this flavour approach would be lots of \texttt{\#ifdef} kind of blocks, which is what we usually see in (allegedly-)portable C code. That would be messy and make it hard to have it be truly compile-once.
+
+There is more complexity to the eBPF CO-RE approach, but we'll stop here. 
 
 \paragraph{Game On.} This topic opened by looking at anti-cheat kernel modules, so the obvious example of using eBPF is also gaming-related: the \texttt{scx\_lavd} (Latency-criticality Aware Virtual Deadline) scheduling algorithm\footnote{ \url{ https://sched-ext.com/docs/scheds/rust/scx_lavd } }. This is a scheduler that is optimized specifically for gaming by improving interactivity, developed specifically for the Steam Deck gaming platform.
 
