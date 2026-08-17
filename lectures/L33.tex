@@ -4,23 +4,30 @@
 
 \lecture{ 33 --- Trusted Computing}{\term}{Jeff Zarnett}
 
-\section*{Placeholder}
+\section*{Whose PC is it Anyway?}
+In the discussion of kernel modules, we learned that online multiplayer games use kernel-level anti-cheat mechanisms. Even that is sometimes not sufficient from the view of game developers. In 2025, for example. Activision/Blizzard announced that they would require TPM 2.0 and Secure Boot to play Call of Duty. These things are hardware-based functionality that are ostensibly about security, though as we will see, things are slightly more complex.
 
-\textit{This lecture has not yet been written. The detailed outline lives in
-the plan file \texttt{let-s-look-at-containers-structured-sprout.md}.}
 
-The intended sections are:
+The focus on hardware-level protection of what is allowed to run on the computer started around the year 2000 with the publication of the version 1.0 specification of Trusted Computing. It is \textit{not at all} a coincidence that this conversation started at a time where the hot topic amongst the megacorporations was ``stopping music piracy''.
 
-\begin{enumerate}
-	\item The chain-of-trust problem
-	\item Secure boot vs.~measured boot
-	\item The TPM
-	\item Linux lockdown and runtime integrity
-	\item Threat model shift in the cloud
-	\item Process-level enclaves --- Intel SGX
-	\item VM-level confidential computing --- SEV-SNP and TDX
-	\item What the OS gives up
-\end{enumerate}
+History lesson on this: in June of 1999, the application Napster launched, which was a peer-to-peer music sharing service that let people download copies of mp3 music files shared by other users, without paying. This made a number of big media conglomerates 10 out of 10 angry, because they argued that every downloaded (pirated) copy was a lost sale and therefore they were losing millions upon millions of dollars. I personally don't think this is true, but there were a lot of lawsuits and things got ugly. The big players were looking for something called Digital Rights Management (DRM): the ability to stop you from doing things they do not want you to do with the media that you purchased. 
+
+To quote a simple explainer: ``TC provides a computing platform on which you can't tamper with the application software, and where these applications can communicate securely with their authors and with each other. The original motivation was digital rights management (DRM): Disney will be able to sell you DVDs that will decrypt and run on a TC platform, but which you won't be able to copy. The music industry will be able to sell you music downloads that you won't be able to swap. They will be able to sell you CDs that you'll only be able to play three times, or only on your birthday.''~\cite{tc}.
+
+From what we already discussed, we can see why a hardware-level solution is necessary if the goal is to meaningfully enforce these restrictions. If I, as the user, control the kernel -- up to and including live-patching it -- I can do things like intercept encryption keys (and use those to decrypt the file) or redirect the data stream of the video and audio from the viewing window to a file (or send it over the internet). If the computer will refuse to boot a kernel that is not ``approved'' by the authorities (and such an approved kernel would, naturally, forbid any sort of live-patching) it is much more difficult to work around the restrictions that the content companies (or others) want to impose\footnote{With that said, people almost always FIND a way.}.
+
+There are further concerns that this could go beyond 
+
+%\begin{enumerate}
+%	\item The chain-of-trust problem
+%	\item Secure boot vs.~measured boot
+%	\item The TPM
+%	\item Linux lockdown and runtime integrity
+%	\item Threat model shift in the cloud
+%	\item Process-level enclaves --- Intel SGX
+%	\item VM-level confidential computing --- SEV-SNP and TDX
+%	\item What the OS gives up
+%\end{enumerate}
 
 \input{bibliography.tex}
 
