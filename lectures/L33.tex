@@ -14,9 +14,19 @@ History lesson on this: in June of 1999, the application Napster launched, which
 
 To quote a simple explainer: ``TC provides a computing platform on which you can't tamper with the application software, and where these applications can communicate securely with their authors and with each other. The original motivation was digital rights management (DRM): Disney will be able to sell you DVDs that will decrypt and run on a TC platform, but which you won't be able to copy. The music industry will be able to sell you music downloads that you won't be able to swap. They will be able to sell you CDs that you'll only be able to play three times, or only on your birthday.''~\cite{tc}.
 
+It's not in the article, because that is from 2003 and a great many things have gotten worse now, but the current state of DRM is that it allows the corporation to alter the deal at any time. In 2026, for example, Sony deleted movies (including \textit{Terminator 2: Judgement Day}) that customers paid for, removing it from their accounts with no refund or compensation~\cite{ps-delete-movie}. Yes, yes, they say things like ``you are purchasing a \textit{license} to watch the movie under limited circumstances'' and there are more terms buried in the legalese about their right to do this when their licensing deal with the movie studio ends, but whether or not it is technically legal does not diminish the danger here: they \textit{can} do this and the consumer has no way to stop it.
+
 From what we already discussed, we can see why a hardware-level solution is necessary if the goal is to meaningfully enforce these restrictions. If I, as the user, control the kernel -- up to and including live-patching it -- I can do things like intercept encryption keys (and use those to decrypt the file) or redirect the data stream of the video and audio from the viewing window to a file (or send it over the internet). If the computer will refuse to boot a kernel that is not ``approved'' by the authorities (and such an approved kernel would, naturally, forbid any sort of live-patching) it is much more difficult to work around the restrictions that the content companies (or others) want to impose\footnote{With that said, people almost always FIND a way.}.
 
-There are further concerns that this could go beyond 
+There are further concerns outlined in~\cite{tc} that this could go beyond just preventing people from watching media or copying software, and that 
+
+At least at present, if verification fails, the computer is not useless: it's just in an ``untrusted'' state, and that restricts access to certain things. 
+
+\paragraph{Less-Corporate-Overlod Reasons.} While I do think the primary motivation for the trusted computing platform really is to take the power out of your hands as the owner of the machine and let the megacorporations decide what you are ``allowed'' to do, there are practical security-focused reasons for trusted computing and secure boot.
+
+Gaming provides one example. If you want to be sure that the other players are not cheating, the kernel-level anti-cheat module can be backstopped by the trusted computing platform: if the kernel (and its extensions) are not all ``approved'', that means the anti-cheat module cannot guarantee the integrity of the system (because, potentially, some cheating kernel extension is loaded) and will therefore decline the request to start the game.
+
+Another security benefit is defeating low-level compromises of the system that the OS itself may struggle to detect.
 
 %\begin{enumerate}
 %	\item The chain-of-trust problem
