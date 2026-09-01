@@ -63,7 +63,7 @@ Now it is time to go behind the scenes of how the file system lives up to the in
 
 Let us take a look at the layers of the file system's design, from~\cite{osc}.
 
-\paragraph{The File System.} The file system user interface is intended for the convenience of the user and for application programmers. This is the level we have just examined in the previous topic; the more interesting part is what happens when we need to fulfill the promises that the file system makes.
+\paragraph{The File System.} The file system user interface is intended for the convenience of the user and for application programmers. This is the level we have examined in the previous course; the more interesting part is what happens when we need to fulfill the promises that the file system makes.
 
 \paragraph{I/O Control.} At the I/O control level, we are dealing with device drivers and interrupt handlers to transfer data. The inputs are fairly high-level commands, along the lines of ``read block 1234''. Its outputs are hardware specific-instructions to the hardware controller. Usually this is by writing bit patterns in the I/O controller memory.
 

@@ -23,7 +23,7 @@ Of course, there are numerous other reasons for kernel modules aside from just a
 
 \subsection*{Creating Modules}
 
-Writing kernel modules comes with a number of differences compared to what we may be used to. For example, the kernel defines a \texttt{linux/printk.h} header that lets us use the \texttt{pr\_info()} macro to print, something we would normally do with \texttt{printf} because the kernel must be able to run without the standard C library~\cite{corbet2005linux}. Similarly, if you need to allocate memory, there are kernel-specific functions like \texttt{kmalloc} to accomplish what you want -- a regular \texttt{malloc} will not work. 
+Writing kernel modules comes with a number of differences compared to what we may be used to. For example, the kernel defines a \texttt{linux/printk.h} header that lets us use the \texttt{pr\_info()} macro to print -- something we would normally do with \texttt{printf} -- because the kernel must be able to run without the standard C library~\cite{corbet2005linux}. Similarly, if you need to allocate memory, there are kernel-specific functions like \texttt{kmalloc} to accomplish what you want -- a regular \texttt{malloc} will not work. 
 
 Rather like a C program needing a \texttt{main()} function, a kernel module has an initialization function that is run on loading the module and a cleanup function that is run to clean up when an unload is taking place, so that the module can be unloaded cleanly; these used to be called \texttt{init\_module()} and \texttt{cleanup\_module()} but more modern versions of the kernel permit you to call them anything as long as they are registered with the macros~\cite{pomerantz2000lkmpg}. 
 
@@ -60,7 +60,7 @@ Except, as collateral damage from a security mitigation, the kernel maintainers 
 
 If we want to tinker with system calls, then we can of course do that by making the code change and rebuilding the kernel, and rebooting to load it. Just not dynamically with module loading like that. Later on, we'll learn about how to replace a system call while the kernel is running, when discussing live-patching in the reliability topic.
 
-\paragraph{Upkeep.} Earlier, it was mentioned that modules are specific to a given kernel. That means a specific kernel version (e.g., 6.9), not just the Linux kernel in general or even major versions (as in semantic versioning). This is because the kernel itself has no stable internal API. Yes, Linus Torvalds gets extremely mad if a change breaks a user program, but internally the kernel data structures, functions and their signatures, and everything else can change arbitrarily at any time. This is frustrating for developers of modules, and is another reason why game devs do not pursue a Linux anti-cheat module: every kernel update might require major changes to the module.
+\paragraph{Upkeep.} Earlier, it was mentioned that modules are specific to a given kernel. That means a specific kernel version (e.g., 6.9), not just the Linux kernel in general or even major versions (the kernel does not follow semantic versioning). This is because the kernel itself has no stable internal API. Yes, Linus Torvalds gets extremely mad if a change breaks a user program, but internally the kernel data structures, functions and their signatures, and everything else can change arbitrarily at any time. This is frustrating for developers of modules, and is another reason why game devs do not pursue a Linux anti-cheat module: every kernel update might require major changes to the module.
 
 A helpful kernel post from Greg Kroah-Hartman\footnote{ \url{https://docs.kernel.org/process/stable-api-nonsense.html} } gives some reasons why the internals are not stable:
 
@@ -71,7 +71,7 @@ A helpful kernel post from Greg Kroah-Hartman\footnote{ \url{https://docs.kernel
 			\item Build options can change what \texttt{struct}s look like or what function implementation blocks appear, and memory alignment.
 			\item The kernel runs on different architectures (e.g., x86\_64, arm).
 		\end{itemize}
-	\item {Source Interfaces.} The API of the kernel can change too. This is a design decision that gives a high degree of freedom to kernel developers to do things:
+	\item \textbf{Source Interfaces.} The API of the kernel can change too. This is a design decision that gives a high degree of freedom to kernel developers to do things:
 		\begin{itemize}
 			\item Fix a bug or improve a design decision without needing to support backwards-compatibility.
 			\item Retire an old implementation in favour of a new and ostensibly better implementation, also without worrying about backwards-compatibility.
@@ -79,7 +79,7 @@ A helpful kernel post from Greg Kroah-Hartman\footnote{ \url{https://docs.kernel
 		\end{itemize}
 \end{enumerate}
 
-That post gives a specific example about changing the USB interface from synchronous streams to asynchronous ones, permitting increased throughout of USB devices. 
+That post gives a specific example about changing the USB interface from synchronous streams to asynchronous ones, permitting increased throughput of USB devices. 
 
 The fact that these internal interfaces and data structures can change at any time pushes contributors, sometimes at least, to try to get their code included into the kernel source itself, rather than loaded as a module. If that's the case, any kernel developer making a change or refactor will have to also change your code as well. Otherwise, the kernel won't compile or the tests fail. Still, the standards for contributing to the kernel are very high and things that are very niche are unlikely to be accepted.
 
@@ -88,9 +88,9 @@ Should we implement something as a kernel module? It is truly dangerous to do so
 
 Recognizing that modules loaded into the kernel get the highest level of access, knowing what is being loaded is necessary. Linux offers the ability to cryptographically sign modules to verify that they come from the source that they claim to come from. Whether users actually check the signatures or just override and say install anyway is a different matter. It is possible to configure the kernel to reject unsigned modules as a measure of security. 
 
-Of course, malicious intent is not necessary for a kernel module to be the root cause of a problem. On July 19, 2024, an update to a kernel module from CrowdStrike -- a cybersecurity company of all things -- caused a huge number of Windows machines to experience the Blue Screen of Death and be unable to boot up normally. This was hugely disruptive to numerous industries, including air travel. CrowdStrike published a root cause analysis of what went wrong, if you want to read the details\footnote{ \url{https://www.crowdstrike.com/content/dam/crowdstrike/www/en-us/wp/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf} }. But there was an out-of-bounds memory read (trying to read element 21 of a 20-element collection). What would normally be a segmentation fault in a regular application... brings down the whole system when it's a kernel module.
+Of course, malicious intent is not necessary for a kernel module to be the root cause of a problem. On July 19, 2024, an update to a kernel module configuration from CrowdStrike -- a cybersecurity company of all things -- caused a huge number of Windows machines to experience the Blue Screen of Death and be unable to boot up normally. This was hugely disruptive to numerous industries, including air travel. CrowdStrike published a root cause analysis of what went wrong, if you want to read the details\footnote{ \url{https://www.crowdstrike.com/content/dam/crowdstrike/www/en-us/wp/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf} }. But there was an out-of-bounds memory read (trying to read element 21 of a 20-element collection). What would normally be a segmentation fault in a regular application... brings down the whole system when it's a kernel module.
 
-Was the CrowdStrike driver signed? Yes! Microsoft also has the ability to sign kernel extensions and the one that caused the incident was signed. There could not be a clearer indication that the signing of a module simply proves where it comes from and is not a guarantee of quality or correctness.
+Was the CrowdStrike driver signed? Yes! Microsoft also has the ability to sign kernel extensions and the one that caused the incident was signed. The configuration change itself is unverified but it does get imported by something that is. There could not be a clearer indication that the signing of a module simply proves where it comes from and is not a guarantee of quality or correctness.
 
 \section*{eBPF}
 If we agree that writing kernel modules is both difficult and risky, an alternative approach is worth pursuing: eBPF. The official documentation says that eBPF is no longer an acronym for anything. The promise of this, according to its documentation, is to extend what the kernel can do without changing the source or loading modules. The hope is that this can be done in a way that permits accomplishing the actual goals without the risk of security or other issues above.
@@ -99,13 +99,13 @@ The eBPF approach is to execute a program at designated hooks inside the kernel;
 
 The eBPF documentation talks about how an eBPF program is written but that's too low-level for us to get into. We write the code using a C-like language and it gets turned into byte code; the byte code is what gets loaded into eBPF. Byte code is an intermediate representation that will be compiled after verification. 
 
-Verification is interesting! The eBPF verifier does a static (compile time) analysis of the byte code to determine if it is ``safe'' to run; if it passes then it goes to a just-in-time compiler and the output is the machine code that actually runs~\cite{ebpf}. The documentation summarizes the verification as saying that it checks three things (1) if the process loading program has the capabilities (as in, privileges) needed to execute it; (2) that the program does not crash or cause any other harm; (3) that the program runs to completion (no infinite loop).
+Verification is interesting! The eBPF verifier does a static (compile time) analysis of the byte code to determine if it is ``safe'' to run; if it passes then it goes to a just-in-time compiler and the output is the machine code that actually runs~\cite{ebpf}. The documentation summarizes the verification as saying that it checks three things: (1) if the process loading program has the capabilities (as in, privileges) needed to execute it; (2) that the program does not crash or cause any other harm; (3) that the program runs to completion (no infinite loop).
 
 The paper~\cite{ebpf} goes into a lot more of how to actually make that work. The first step is that verifier must build a control-flow graph and ensure that there are no infinite loops or loops whose termination conditions cannot be determined, and that the program always exits normally. Then it tries to do a more exhaustive execution probe of the code, exploring all paths through the code. It also checks for resource usage and permits a program to hold only a single spin-lock at a time, which ensures a deadlock cannot occur (remember why?). The details of verification are much more complex than we want to go into here (even if it's cool), but suffice it to say that an eBPF program goes through this verification process to make sure it is safe to load it.
 
 You would be right to question whether the verification actually demonstrates that the code is safe. Any verification process is also software, and software has bugs. So the verifier can make mistakes too, and may say yes to a program that has a problem or no to one that should be approved. Still, the existence of verification suggests at least a higher chance of staying out of trouble.
 
-The documentation of eBPF compares the utility of this tool as being like Javascript in the browser: it permits a website to be as dynamic and app-like as you want, because Javascript can run arbitrary code, but it's in a sandbox of sorts, and the website can update itself whenever it is ready rather than needing a browser update. 
+The documentation of eBPF compares the utility of this tool as being like JavaScript in the browser: it permits a website to be as dynamic and app-like as you want, because JavaScript can run arbitrary code, but it's in a sandbox of sorts, and the website can update itself whenever it is ready rather than needing a browser update. 
 
 After verification is completed, there's the compilation process. The compilation process is just-in-time (on the fly) and it involves an optimization pass that removes dead or unreachable code before turning it into the binary~\cite{ebpf}. Why would there be dead code? The answer has to do with portability.
 
@@ -156,7 +156,7 @@ else
     fsbase = BPF_CORE_READ(thr, fsbase);
 \end{lstlisting}
 
-The source explains that the three underscores in the type name identifies this a flavour of a structure; the flavour part is ignored by the library so that definition will still match to the underlying type when running. The alternative to this flavour approach would be lots of \texttt{\#ifdef} kind of blocks, which is what we usually see in (allegedly-)portable C code. That would be messy and make it hard to have it be truly compile-once.
+The source explains that the three underscores in the type name identify this as a flavour of a structure; the flavour part is ignored by the library so that definition will still match to the underlying type when running. The alternative to this flavour approach would be lots of \texttt{\#ifdef} kind of blocks, which is what we usually see in (allegedly-)portable C code. That would be messy and make it hard to have it be truly compile-once.
 
 There is more complexity to the eBPF CO-RE approach, but we'll stop here. 
 

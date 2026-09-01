@@ -4,24 +4,14 @@
 
 \lecture{ 34 --- Embedded Real-Time Operating Systems }{\term}{Jeff Zarnett}
 
-\section*{Placeholder}
+\section*{Time, Yes, Time Indeed}
 
-\textit{This lecture has not yet been written.}
+The course introduction already introduced the premise of real-time operating systems, and the discussion of real-time scheduling algorithms made it abundantly clear that a typical desktop operating system is not a suitable choice for a real-time system. It is also common for the real-time systems running the most life-and-safety critical things to be embedded; that is, they run on microcontrollers or tiny microprocessors. There's accordingly no capacity on the system to run all the extra parts of the operating system that are not needed. The scheduling topic also said that a real-time system lives and dies on scheduling. That's true, largely, because the wrong scheduling choices guarantee failure. Meeting deadlines in a real-time system, though, is a weakest-link kind of problem: if any one of the things to be done takes ``too long'', the deadline is missed.
 
-The intended sections are:
+ To get specific, we are going to discuss \textit{FreeRTOS}, which is exactly what it says on the label, a free real-time operating system; the project describes itself as a collection of libraries that includes a kernel and the necessary additional functionality~\cite{freertos}. For anything but a system that does exactly one thing at all times, we likely need very little motivation for why we should use an operating system rather than just run everything without one. But if you need some: no need to rewrite things like memory management, scheduling, drivers, or power management. You know... just the things we talked about in the course so far.
+ 
+ 
 
-\begin{enumerate}
-	\item What an RTOS is --- and is not
-	\item Life without an MMU: flat address spaces and the MPU
-	\item Static allocation and why \texttt{malloc} is suspect
-	\item FreeRTOS anatomy: tasks, the tick, and the scheduler
-	\item Priority-based preemptive scheduling in practice
-	\item Synchronization: queues, semaphores, priority inheritance
-	\item Interrupts: deferring work out of the ISR
-	\item Tickless idle and low-power operation
-	\item Zephyr as the modern alternative
-	\item Choosing: embedded RTOS vs.~real-time Linux
-\end{enumerate}
 
 \input{bibliography.tex}
 
