@@ -107,7 +107,7 @@ In the simplest form, the page table is just a standard table. This structure is
 \end{enumerate}
 
 \paragraph{Hierarchical Paging.}
-Rather than have one big table, we have multiple levels in the page table; this means the page table can be broken up and need not be contiguous in memory. Suppose we have a two level system. If the page number is $p$, the first $k$ bits indicate the \textit{outer page}. The outer page then contains some information about where the \textit{inner pages} are. The remaining $p-k$ bits identify the inner page. After the inner page is identified, the displacement $d$ is then calculated from the inner page~\cite{osc}.
+Rather than have one big table, we have multiple levels in the page table; this means the page table can be broken up and need not be contiguous in memory. Suppose we have a two level system. If the page number is $p$ bits, the first $k$ bits indicate the \textit{outer page}. The outer page then contains some information about where the \textit{inner pages} are. The remaining $p-k$ bits identify the inner page. After the inner page is identified, the displacement $d$ is then calculated from the inner page~\cite{osc}.
 
 \paragraph{Hashed Page Tables.} 
 Instead of the page table being an array of entries, turn it into a hash table. There is a hash function to assign pages to ``buckets'' and each bucket is implemented as a linked list. Then each element of the list is examined to find the matching page.

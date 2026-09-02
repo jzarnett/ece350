@@ -46,7 +46,7 @@ There are seven basic levels that have broad acceptance in industry (RAID 0 thro
 This isn't entirely insane: you could say that using, say, an external hard drive for backups is like this. Or if you have two internal SSDs, copying important files from one to another to guard against data loss. But okay, let's get on with the actual RAID levels, shall we?
 
 \paragraph{RAID 0: What Redundancy?}
-The first option to consider is RAID 0: disk striping. This just splits the data and files across multiple disks, so Disk 1 will have block 0, Disk 2 block 2, Disk 3 block 3... 
+The first option to consider is RAID 0: disk striping. This just splits the data and files across multiple disks, so Disk 1 will have block 0, Disk 2 block 1, Disk 3 block 2... 
 
 The major advantage of the RAID 0 configuration is that it is faster! Writes can be done in parallel: e.g., writing a file that has many blocks to a RAID 0 array of $n$ disks can be done at a speed of $n$ blocks at a time, which increases the parallelism by a factor of $n$. The same is true for reading, it can also be sped up by a factor of $n$. So throughput for reads and writes goes way up.
 

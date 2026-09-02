@@ -94,7 +94,7 @@ As usual, when making a decision, we could just decide randomly, but we know tha
 
 \paragraph{Deadlines.} This is more of a concern for real-time systems that have specific deadlines. If I am watching a movie with a Blu-Ray player, the player needs to read data from the disk, decrypt and decode it, and display it to the screen within a certain period of time, otherwise the video quality is degraded. Meeting the deadlines may be the most important thing in the system.
 
-\paragraph{Predictability.} It is desirable if a given job runs in a fairly consistent amount of time. If a task normally takes $x$ minutes, and right now it is taking way longer, somewhere between $x$ and $2x$ minutes, the user may fear the process is stuck and might terminate it. Users are very impatient.
+\paragraph{Predictability.} It is desirable if a given job runs in a fairly consistent amount of time. If a task normally takes $x$ minutes, and right now it is taking longer, somewhere between $x$ and $2x$ minutes, the user may fear the process is stuck and might terminate it. Users are very impatient.
 
 \paragraph{Throughput.} Scheduling policy should try to maximize the number of threads that complete in a given amount of time. This is our way of figuring out how much work is being accomplished. Much will depend here on the nature of the threads, but we would always like to get more done in the same amount of time. If I am in line to renew my drivers' license, if the Service Ontario office has a high throughput, more people will get their requests finished in the day. If it has a low throughput, I may be waiting there all day. Which would never happen. Oh no.
 

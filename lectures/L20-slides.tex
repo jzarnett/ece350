@@ -116,7 +116,9 @@ Big improvement over the previous scheduling algorithm ($O(n)$).
 
 It also worked a lot better for SMP systems, because it introduced processor affinity and load balancing. 
 
-Since version 2.6.23 of the kernel, however, a new scheduling algorithm has replaced the $O(1)$ scheduler; it is called the \alert{Completely Fair Scheduler} (CFS).
+Since version 2.6.23 of the kernel, however, a new scheduling algorithm replaced the $O(1)$ scheduler; it is called the \alert{Completely Fair Scheduler} (CFS).
+
+In turn, it was replaced by EEVDF (Earliest Eligible Virtual Deadline First) -- we'll skip it.
 
 \begin{center}
 	\includegraphics[width=0.5\textwidth]{images/rankofmaster.jpg}
@@ -266,14 +268,14 @@ The CFS, written by Ingo Moln\'ar, is not $O(1)$, unfortunately.
 
 It uses a red-black tree to model the ready queue, where processes are inserted based on a linear ordering of execution time. 
 
-The leftmost group in this tree is therefore the task that has spent the least amount of time executing and that is what will be scheduled next. 
+The leftmost node in this tree is therefore the task that has spent the least amount of time executing and that is what will be scheduled next. 
 
 \end{frame}
 
 \begin{frame}
 \frametitle{The CFS}
 
-Because a red-black tree remains balanced, the time to access the leftmost group will be $O($ln$(n))$.
+Because a red-black tree remains balanced, the time to access the leftmost node will be $O($ln$(n))$.
 
 Caching could be used to make access to the next task faster.
 
@@ -331,9 +333,7 @@ The linear ordering of execution time, called \texttt{vruntime} in the earlier d
 
  This is a way of keeping track of how much time a task has been executing. 
  
- As with a lot of history keeping, there is a decay factor so that more recent history is more highly weighed in the calculation. 
- 
- Higher priority processes' history decays faster; lower priority processes' history decays more slowly. 
+ Higher priority processes' \texttt{vruntime} accumulates slower; lower priority processes' \texttt{vruntime} accumulates faster.
  
 
 \end{frame}

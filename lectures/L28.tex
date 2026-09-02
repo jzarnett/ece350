@@ -21,7 +21,7 @@ Okay, infinite write size is not possible and we've identified that a buffer siz
 
 Here's the formula for calculating the size of the buffer~\cite{OSTEP}: $D = \dfrac{F}{1-F} \times R_{peak} \times T_{position}$. In this formula, $D$ is the buffer size; $F$ is our target (e.g., 90\% so it'll be 0.9); $R_{peak}$ is the peak disk transfer rate, and $T_{position}$ is the seek and rotational latency cost of moving to the starting point of writing. 
 
-It is clear from the formula that faster disks, both in terms of write speed and positioning time, result in a larger buffer, as does a larger target percentage. There's a temptation to push it to the limit and look for $F$ to be 0.99 or 0.999. And yet, we probably should not do that. 
+It is clear from the formula that higher peak transfer rates and slower seek plus rotational latency (positioning time) result in a larger buffer, as does a larger target percentage. There's a temptation to push it to the limit and look for $F$ to be 0.99 or 0.999. And yet, we probably should not do that. 
 
 We introduced a new problem, here. If the system crashes (or loses power) when we have a large buffer that's mostly full, we could lose a lot of progress.  We know that this could happen at any time. LFS addresses this by being prepared for such an eventuality and having a \textit{recovery strategy}. A recovery strategy is exactly what it sounds like, a way to get things back to a consistent state. Let's zoom out for a minute and talk about this in general,  because the idea of a recovery strategy needs a deeper look.
 

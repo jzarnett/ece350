@@ -458,7 +458,7 @@ Insertion into the B-Tree is more complicated:
 	\item Search the tree for the key. If it is not found, then we are at least looking at the block where it would be if it were there.
 	\item If this node has fewer than $2d-1$ keys (that is, it is not full), insert the key into this node in the proper sequence. The algorithm terminates.
 	\item If the node is full, split this node around the median key into two new nodes with $d-1$ keys each. Promote the median key to the higher level. If the new key is less than the median key, insert it in the left-hand new node; otherwise into the right.
-	\item The promoted node is inserted into the parent node in order, splitting the parent if the parent is already full.
+	\item The promoted key is inserted into the parent node in order, splitting the parent if the parent is already full.
 	\item If the process of promotion reaches the root node and the root is full, then splitting and promotion occurs and the height of the tree increases by 1.
 \end{enumerate}
 

@@ -42,10 +42,6 @@ To figure out if it's possible to schedule things, there's a test. It turns out 
 
 Remember, though, if it's not possible to guarantee that all deadlines can be fulfilled, it doesn't mean that the tasks are certain to fail to meet their deadlines. Task times are always worst-case, and so things might actually be fine in reality.
 
-\paragraph{Deadline-Monotonic.} A variant of this is deadline-monotonic scheduling, in which case priority is assigned based on deadlines. The task with the shortest deadline is assigned the highest priority. It's not that different or interesting, but it is possible to come up with some scenarios that Rate-Monotonic would not find a good solution and Deadline-Monotonic would.
-
-Just to avoid any confusion, although the names sound similar, there is a clear distinction between Deadline-Monotonic and Earliest-Deadline-First. In DM scheduling, the priorities of tasks are fixed based on a calculation of their period; in EDF there are dynamically-changing priorities based on how far from its deadline a task is. 
-
 \subsection*{Aperiodic Servers}
 Let's return to the idea of aperiodic tasks in the earliest-deadline-first approach. A task with a soft deadline is challenging to schedule here, because it's hard for the scheduler to know whether a task is soft- or hard-real time. One possibility is to say that aperiodic or soft-deadline tasks are always lower in priority than any firm- or hard-real time task, but that may not be optimal. 
 
