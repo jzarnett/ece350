@@ -50,7 +50,7 @@ The linear list option is certainly the simplest. Creating a new file requires s
 
 Alternatively, we could use a hash table. The hash is computed based on the file name, and of course there will need to be some strategy for dealing with hash collisions. Still, neither of these is satisfactory; what we really want is a more complex structure: a tree.
 
-An AVL tree might be good as a way of storing ordered data, but it does not match well with the block system of a hard drive. Instead, we will examine a B-Tree, a balanced, ordered tree.. 
+An AVL tree might be good as a way of storing ordered data, but it does not match well with the block system of a hard drive. Instead, we will examine a B-Tree, a balanced, ordered tree. 
 
 Each node should occupy one block, so each node can contain a lot of information. File and directory information is linearly ordered, but a block does not need to be full. If a leaf node gets full, we can split it into two half-full blocks. Keeping the tree balanced means it takes about the same amount of time to find an item wherever it is.
 
@@ -88,7 +88,7 @@ Insertion into the B-Tree is more complicated, because of the rules that keep th
 \begin{enumerate}
 	\item Search the tree for the key. If it is not found, then we are at least looking at the block where it would be if it were there.
 	\item If this node has fewer than $2d-1$ keys (that is, it is not full), insert the key into this node in the proper sequence. The algorithm terminates.
-	\item If the node is full, split this node around the median key into two new nodes with $d-1$ keys each. Promote the median key to the higher level. If the new node is less than the key, insert it in the left-hand new node; otherwise into the right.
+	\item If the node is full, split this node around the median key into two new nodes with $d-1$ keys each. Promote the median key to the higher level. If the new key is less than the median key, insert it in the left-hand new node; otherwise into the right.
 	\item The promoted node is inserted into the parent node in order, splitting the parent if the parent is already full.
 	\item If the process of promotion reaches the root node and the root is full, then splitting and promotion occurs and the height of the tree increases by 1.
 \end{enumerate}

@@ -92,7 +92,7 @@ If the working set of every process is summed up, we will get the total number o
 
 Once a value of $\Delta$ is determined, the OS will monitor the working set of each process and use that to figure out if the system is currently overloaded. If it is, the OS will pick a victim and suspend it to prevent thrashing. If the system is underloaded (frame supply exceeds demand), more processes can be started to run.
 
-Now we should examine how this solution works. The page fault rate of a process tends to vary over time. At the beginning, there will be a bunch of page faults as the program starts up. Then once established in its first locale, the rate will drop. When it come time to move to a new locale, the page fault rate rises until the program is ``settled'' in that new locale. See the graphic below:
+Now we should examine how this solution works. The page fault rate of a process tends to vary over time. At the beginning, there will be a bunch of page faults as the program starts up. Then once established in its first locale, the rate will drop. When it comes time to move to a new locale, the page fault rate rises until the program is ``settled'' in that new locale. See the graphic below:
 
 \begin{center}
 	\includegraphics[width=0.5\textwidth]{images/workingset.png}

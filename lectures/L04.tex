@@ -88,7 +88,7 @@ That covers the mandatory switches but there are those where the operating syste
 When we get to scheduling, we'll also consider things like wanting to prevent monopolization of the CPU through various mechanisms that force threads to take turns. One possible way to do so is a timer interrupt, where an interrupt is generated after a period of time, and that's a prompt to consider if a switch should occur.
 
 \subsection*{Keeping Track}
-At steady state, the operating system will have to keep track of the various resources in some sort of tables or other data structures such as memory tables, I/O tables, file tables, and process tables~\cite{osi}. We will get into the details of how memory, I/O, and files are managed in later topics. But they are pretty much exactly what they sound like. But let's cover these at a high level now.
+At steady state, the operating system will have to keep track of the various resources in some sort of tables or other data structures such as memory tables, I/O tables, file tables, and process tables~\cite{osi}. We will get into the details of how memory, I/O, and files are managed in later topics. But they are pretty much exactly what they sound like. Let's cover these at a high level now.
 
 Memory tables track the state of memory, both the memory that's free and what is in use. The operating system needs memory for itself to do its job, such as containing the process control blocks, buffers, etc. And unlike a user process that can ask the OS to allocate and deallocate memory for it, the OS has to do this the ``hard'' way. But in addition to that, the OS needs to keep track of some attributes of memory, including the protection rules and whether any sections of memory are shared~\cite{osi}. 
 

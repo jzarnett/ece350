@@ -82,7 +82,7 @@ Using the same example as before, the closest request to the start position of 5
 	SSTF disk scheduling~\cite{osc}.
 \end{center}
 
-This routine is unfortunately subject to starvation. Suppose the disk head is at position 14. While is is there, a new request at 24 arrives, making the request at 98 wait. If enough low-numbered requests arrive during execution, a request at a high number may be put off, potentially indefinitely. The more requests occur, the more likely starvation is.
+This routine is unfortunately subject to starvation. Suppose the disk head is at position 14. While it is there, a new request at 24 arrives, making the request at 98 wait. If enough low-numbered requests arrive during execution, a request at a high number may be put off, potentially indefinitely. The more requests occur, the more likely starvation is.
 
 Though the SSTF algorithm is an improvement, it is not optimal. In the example, we would reduce the total amount of movement to 208 cylinders if we did the move from 53 to 37, even though it is not the closest, and then to 14, before moving to 65, 67, 98, 122, 124, and 183~\cite{osc}.
 

@@ -28,7 +28,7 @@ The CPU has what are referred to as P-States and C-States. P is for ``performanc
 
 So, we have two levers available to reduce power consumption. Performance level and turning things off.
 
-\paragraph{P-States.} The first is the performance level setting, which says what clock speed we want to run the CPU at. This works because, to a first approximation, the power consumption of the CPU is linear with respect to frequency and quadratic with respect to voltage (the source writes it as $P ~\alpha~f V^{2}$ which is oversimplifying but directionally correct). A small amount of hardware knowledge helps in explaining why.
+\paragraph{P-States.} The first is the performance level setting, which says what clock speed we want to run the CPU at. This works because, to a first approximation, the power consumption of the CPU is linear with respect to frequency and quadratic with respect to voltage (the source writes it as $P ~\propto~f V^{2}$ which is oversimplifying but directionally correct). A small amount of hardware knowledge helps in explaining why.
 
 Your first-year electromagnetism course includes the formula $P = V\times I$ so increasing the voltage very obviously would increase the power consumption. The less-obvious component of this is that increasing the frequency is going to require a higher voltage to drive the components faster. This is, not coincidentally, why CPU clock speeds today are about the same as they were in 2005 (yes, Intel had a 3.8 GHz processor then!): going faster requires more voltage and more power and it quickly becomes a huge problem in terms of heat, power draw, error rates, and battery life. So CPU manufacturers have stopped chasing higher clock speeds.
 

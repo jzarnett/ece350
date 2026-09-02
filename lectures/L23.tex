@@ -33,7 +33,7 @@ A first thought would be to change the logic a bit such that instead of tight po
 \paragraph{Interrupts.}
 Interrupts are something we've spent a ton of time talking about, but remember that this will operate on the basis of there being some sort of interrupt request line (hardware) and when the CPU sees the signal that indicates the presence of an interrupt, the interrupt handler is executed to deal with it~\cite{osc}. The interrupt handler will do whatever it's supposed to do and then clear the interrupt signal.
 
-This description is fully correct, but overlooks some of the complexity around interrupts. For one thing, not all interrupts are equally important -- an incoming phone call is not as urgent as a fire alarm. The other part is that interrupts should be something the CPU can (mostly) turn off it that makes sense. 
+This description is fully correct, but overlooks some of the complexity around interrupts. For one thing, not all interrupts are equally important -- an incoming phone call is not as urgent as a fire alarm. The other part is that interrupts should be something the CPU can (mostly) turn off if that makes sense. 
 
 The interrupt approach helps to deal with the problem of not responding in time to the availability of data: when the interrupt is triggered, take the data from the device and put it in memory somewhere. This does not mean that the data has to be processed immediately, and it might actually be preferable to delay handling it until enough data has arrived. But as long as the data is in memory it won't get overwritten unexpectedly. 
 

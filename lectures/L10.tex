@@ -6,7 +6,7 @@
 
 \section*{Memory Segmentation}
 
-Though you've been repeatedly told that memory is a linear array of bytes, you have also likely been told that there's the stack and the heap, libraries and instructions. Both of these are true; they are simply views of memory at two different levels of abstraction. Each of the elements such as the stack, the heap, the standard C library, et cetera, is known as \textit{segments}.
+Though you've been repeatedly told that memory is a linear array of bytes, you have also likely been told that there's the stack and the heap, libraries and instructions. Both of these are true; they are simply views of memory at two different levels of abstraction. Each of the elements such as the stack, the heap, the standard C library, et cetera, is known as a \textit{segment}.
 
 Programmers do not necessarily give much thought to whether variables are allocated on the stack or the heap, or where program instructions appear in memory. In many cases it does not matter, though C programmers are well advised to know the difference. Not knowing the difference is the cause of many errors in concurrent programming, like stack allocating a variable and passing it to another thread and it goes out of scope while still needed by another thread.
 
@@ -107,7 +107,7 @@ In the simplest form, the page table is just a standard table. This structure is
 \end{enumerate}
 
 \paragraph{Hierarchical Paging.}
-Rather than have one big table, we have multiple levels in the page table; this means the page table can be broken up and need not be contiguous in memory. Suppose we have a two level system. If the page number is $p$, the first $k$ bits indicate the \textit{outer page}. The outer page then contains some information about where the \textit{inner pages} are. The remaining $n-k$ bits identify the inner page. After the inner page is identified, the displacement $d$ is then calculated from the inner page~\cite{osc}.
+Rather than have one big table, we have multiple levels in the page table; this means the page table can be broken up and need not be contiguous in memory. Suppose we have a two level system. If the page number is $p$, the first $k$ bits indicate the \textit{outer page}. The outer page then contains some information about where the \textit{inner pages} are. The remaining $p-k$ bits identify the inner page. After the inner page is identified, the displacement $d$ is then calculated from the inner page~\cite{osc}.
 
 \paragraph{Hashed Page Tables.} 
 Instead of the page table being an array of entries, turn it into a hash table. There is a hash function to assign pages to ``buckets'' and each bucket is implemented as a linked list. Then each element of the list is examined to find the matching page.
