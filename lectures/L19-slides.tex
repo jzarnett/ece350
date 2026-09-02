@@ -225,7 +225,7 @@ Processor utilization for a process $j$ is calculated for an interval $i$ with m
 $CPU_{j}(i) = \dfrac{CPU_{j}(i - 1)}{2}$
 \end{center}
 
-And the priority is for process $j$ at interval $i$ is calculated by the formula:
+And the priority for process $j$ at interval $i$ is calculated by the formula:
 
 \begin{center}
 $P_{j}(i) = B_{j} + \dfrac{CPU_{j}}{2} + N_{j}$
@@ -316,12 +316,12 @@ Interactivity scoring mechanism: which are user-interactive?
 \begin{frame}
 \frametitle{Scoring Mechanism}
 
-We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$ and the sleep time of the thread as $s$. 
+We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$, and the sleep time of the thread as $s$. 
 
-More sleep time than run time? The interactivity score is calculated as $(\dfrac{m}{2})(\dfrac{r}{s})$
+More sleep time than run time? The interactivity score is calculated as $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$
 
 For those that have more run time than sleep time:
-  $(\dfrac{m}{2})(1 + \dfrac{r}{s})$. 
+  $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$
 
 \end{frame}
 

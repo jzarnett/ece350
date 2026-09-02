@@ -107,7 +107,7 @@ pthread_mutex_destroy( pthread_mutex_t *mutex )
 
 When created, by default, the mutex is unlocked. 
 
-The intended behaviour is that the thread that locked the mutex is the same the one to unlock it later on. 
+The intended behaviour is that the thread that locked the mutex is the same one to unlock it later on. 
 
 \end{frame}
 
@@ -231,7 +231,7 @@ As for whether readers or writers get priority, the specification says this is i
 
 If possible, for threads of equal priority, a writer takes precedence over a reader. 
 
-We also examined situations where we really did need to enforce writer priority would require us to build our own complicated solution with semaphores and a mutex.
+We also examined situations where we really did need to enforce writer priority that required us to build our own complicated solution with semaphores and a mutex.
 
 \end{frame}
 

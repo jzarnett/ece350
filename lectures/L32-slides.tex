@@ -202,7 +202,7 @@ So we will need to have virtual user mode and virtual kernel mode.
 
 If the guest attempts a privileged instruction, it will generate a trap (error) because it is in user mode. 
 
-The VMM should then pick this up and executes, emulating (or simulating, if you prefer) the requested operation.
+The VMM should then pick this up and execute, emulating (or simulating, if you prefer) the requested operation.
 
 \end{frame}
 
@@ -357,7 +357,7 @@ A thread may be a VMM thread or a guest thread.
 
 A guest system is configured with some number of CPUs.
 
-As long as there are enough CPUs in the system to meet the allocation commitments (virtual CPU count is less than $n$), we have no problem. 
+As long as there are enough CPUs in the system to meet the allocation commitments (virtual CPU count is less than $n$, the number of CPU cores available), we have no problem. 
 
 
 Map each virtual CPU to a physical CPU and we are all set. 
