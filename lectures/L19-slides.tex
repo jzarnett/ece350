@@ -318,10 +318,9 @@ Interactivity scoring mechanism: which are user-interactive?
 
 We'll define the maximum interactivity score as $m$, the runtime of the thread as $r$, and the sleep time of the thread as $s$. 
 
-More sleep time than run time? The interactivity score is calculated as $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$
+More sleep time than run time? The interactivity score is calculated as: $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$
 
-For those that have more run time than sleep time:
-  $\left(\dfrac{m}{2}\right)\dfrac{r}{s}$
+For those that have more run time than sleep time: $m - \left(\dfrac{m}{2}\right)\dfrac{s}{r}$
 
 \end{frame}
 
