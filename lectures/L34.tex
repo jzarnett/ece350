@@ -10,7 +10,11 @@ The course introduction already introduced the premise of real-time operating sy
 
  To get specific, we are going to discuss \textit{FreeRTOS}, which is exactly what it says on the label, a free real-time operating system; the project describes itself as a collection of libraries that includes a kernel and the necessary additional functionality~\cite{freertos}. For anything but a system that does exactly one thing at all times, we likely need very little motivation for why we should use an operating system rather than just run everything without one. But if you need some: no need to rewrite things like memory management, scheduling, drivers, or power management. You know... just the things we talked about in the course so far.
  
- 
+\paragraph{Scheduling.} The scheduling unit introduced several real-time scheduling algorithms, and yet FreeRTOS uses something else: Fixed Priority Preemptive Scheduling; which can be with or without time slicing~\cite{freertos}. 
+
+Okay, it does also offer co-operative scheduling, which you might recall was in Mac OS 9 and earlier.
+
+\paragraph{Inter-Process Communication.} 
 
 
 \input{bibliography.tex}

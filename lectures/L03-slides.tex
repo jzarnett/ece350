@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 3 --- The Execution Model: Stack, Heap, and the Process Address Space}
+\title{Lecture 3 --- The Execution Model}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -15,22 +15,478 @@
 \end{frame}
 
 \begin{frame}
-\frametitle{Placeholder}
+\frametitle{So You Want to Run a C Program}
 
-This lecture is not yet written. The outline lives in the plan file.
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/hero.jpg}
+\end{center}
 
-Intended sections:
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Run What Exactly?}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/carlsagan.jpg}
+\end{center}
+
+First: compiling, linking, loading. Only then, can a process run.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Compiling}
+
+C programs are compiled: the compiler turns the source code into a binary.
+
+Most programs we write in this course are so short they fit in one file.\\
+\quad Real programs are much bigger and spread across many files.
+
+Need a way for \texttt{A()} in one file to call function \texttt{B()} in another file, where those two files get compiled into separate units.
+
+Strategy: leave a note! \\
+\quad ``When we figure out where \texttt{B()} is, put its address here.''
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Oh no, more pthreads}
+ECE~252: use the \texttt{pthread} library and the standard C library.
+
+They are not copy-pasted into the source. 
+
+Compiler leaves slightly different kind of note:\\
+\quad ``At load time, figure out the address of \texttt{write()}, and put its address here.''
+
+(You can copy-paste library code in. That's \alert{static linking}. Not recommended.)
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Linking}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/link.jpg}
+\end{center}
+
+Building the connections between the different parts of the program, is the post-compilation step called \alert{linking}. 
+
+Bring the different parts of the program together to create a cohesive program.\\
+\quad Resolve the notes earlier.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Resolving Notes}
+
+Compile-time linking resolves the first kind of note.
+
+The second kind of note is only solved when launching the process.
+
+Example of type 1: \texttt{gcc} says undefined reference to function \texttt{do\_tihng()} when clearly you meant it to be \texttt{do\_thing()}.
+
+If the linker cannot resolve all notes, no valid executable produced.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Loading}
+To run an executable, we need to take the program and turn it into a process.
+
+We learned about processes and process control blocks in ECE~252. 
+
+\texttt{fork()} makes an exact copy of a running process (new PCB).
+ 
+\texttt{execve()} replaces the executable with a different one. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{What does \texttt{execve()} do?}
+
+Step 1: throw away all the things that are to be replaced.\\
+\quad The executable program, memory, other resources (with exceptions).
+
+Survives: process ID, open file descriptors.
+
+Then it's a blank canvas. The OS can load it.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{How Hard Can It Be?}
+
+The executable comes with setup instructions (kind of like IKEA furniture).
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/kallax.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{ELF}
+
+We'll discuss the \alert{Executable and Linkable Format} (ELF).
+
+Windows, macOS, and other operating systems have their own formats which will differ in some ways.
+
+The different parts of the program that need to be put together are \alert{sections}.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{ELF}
+
+
+\begin{center}
+	\includegraphics[width=0.6\textwidth]{images/elf.png}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Executable Format: Sections}
+
+\begin{itemize}
+	\item The \textbf{ELF Header}
+	\item The \texttt{.text} 
+	\item The \texttt{.rodata}
+	\item The \texttt{.data}
+	\item The \texttt{.bss} 
+	\item The \texttt{.symtab}
+	\item The \texttt{.rel.text}
+	\item The \texttt{.rel.data}
+	\item The \texttt{.debug}
+	\item The \texttt{.strtab}
+	\item The \textbf{Section header table}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Ready to Start}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/checklist.jpg}
+\end{center}
+
+There is much more complexity to how a program is linked against libraries and other dynamically-decided locations than we will have time for right now.
+
+Four sections need to get loaded into memory for the process to get started: \texttt{.text, .rodata, .data, .bss}.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Put it Where}
+
+
+Each of the four sections to be loaded needs to be put at some memory address.
+
+Exactly where can vary, but they have to be in memory to run. 
+
+The four are meant to be loaded with permissions; i.e., the \texttt{.text} is executable but cannot be written, to prevent accidentally changing the executable code.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Stack \& Heap}
+
+We also need to put the stack and heap into memory as well. 
+
+These start out as just regions of memory that contain whatever garbage was present in RAM, and then they are available as areas for running the process. 
+
+Remember that these are not allocated with something like \texttt{malloc()}!
+
+\end{frame}
+
+\begin{frame}
+\frametitle{It is Decided}
+
+From the operating system's point of view, it can simply declare an area of memory to be the heap for a given process. 
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/declare.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{More Threads}
+
+The process starts with just the one thread running, but the process can ask for new threads to be created. 
+
+That happens after the process has started running, of course, and will require a new stack for each new thread created. 
+
+The basic idea is the same, though, it just happens later.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Can We Start Now?}
+
+And once we've got things loaded, it's possible to call the process ready to run!
+
+Execution can begin when the scheduler chooses that process. 
+
+Execution actually starts slightly before \texttt{main()} with some setup work (and there's a corresponding cleanup after the end of \texttt{main()}).
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Calling Conventions}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/callit.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Calling Conventions}
+
+The program counter register points to the next statement that the CPU will execute, which is necessary but not sufficient to represent the state of execution.
+
+Function calls keep track of the path in the program.
+
+When \texttt{compute()} calls \texttt{load()}, we use the stack to track the execution state.
+
+We want the \texttt{load()} function to successfully return the result back to the caller.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Stack and Heap}
+
+Knowing the difference between stack and heap means that you can manage memory correctly and avoid memory leaks, crashes, and other bad outcomes.
+
+Variables local to a function appear in the stack (or in registers).
+
+Things allocated dynamically with \texttt{malloc()} are in the heap.
+
+The stack for program execution is the same as the one for these variables.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Stack Frame}
+When  \texttt{load()} is called, a new \alert{stack frame} must be created.
+
+In addition to the local storage for that function, the stack frame is used for passing arguments, storing the return information, and is used to save registers.
+
+Growth direction may vary.
+
+Function return: pop something off the stack.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Arguments}
+
+Function arguments can be passed via the stack or registers.
+
+32-bit x86 used the stack.
+
+In the 64-bit x86 architecture, registers enter the picture. They're faster!
+
+There's rules about the order of register filling.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Save It}
+
+If function \texttt{A()} is calling \texttt{B()}, the registers for \texttt{A()} are likely being used for something.
+
+There is further complexity about which registers are saved by the caller and which are saved by the callee.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Transferring Control}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/weather-report.jpg}
+\end{center}
+
+Start the new function: update the program counter.
+
+The assembly instruction to go to that destination not only transfers control, but it also writes down the return location.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{We're Coming Back}
+
+The return information includes where execution goes back to, when the current function ends. 
+
+Imagine the function call looks like \texttt{int b = get\_open\_balance();}. 
+
+\texttt{return 0;} at the end of the function sends 0 back to the caller.\\
+\quad Send it back via a register if possible.
+
+Execution resumes in the caller.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Side Track: Stack Smashing}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/badgey1.jpg}
+\end{center}
+
+Given that the return location is just sitting there in the stack frame, it is vulnerable to malicious actors.
+
+Attacker goal: redirect execution via changing that address.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Side Track: Stack Smashing}
+One way that a malicious actor can do this is a \alert{stack smashing} attack.
+
+The goal here is to write too much data into a stack-allocated buffer.
+
+The program must be vulnerable.
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/badgey2.jpg}
+\end{center}
+
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Mitigation Strategies}
+
 \begin{enumerate}
-	\item The process address space
-	\item Anatomy of a stack frame
-	\item Calling conventions (System V AMD64 ABI)
-	\item How \texttt{execve} builds the initial stack
-	\item Per-thread stacks and guard pages
-	\item Two stacks per task --- user and kernel
-	\item Per-thread non-stack state: signals and TLS
-	\item Security mechanisms on the stack (forward to L05)
+	\item \alert{Address Space Layout Randomization}
+	\item \alert{Stack Canary}
+	\item \alert{NX Processor Feature}
 \end{enumerate}
 
 \end{frame}
+
+
+\begin{frame}
+\frametitle{Fixes One Part of It}
+
+These mitigations specifically stop the redirection of control flow to the attacker's desired location. 
+
+
+It is still possible to use a stack-smashing attack to crash the process by changing the return address to something invalid.
+
+This can be used to execute a denial-of-service attack, though, by repeatedly crashing the process.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Interrupts}
+
+ In ECE~252, we discussed interrupts, starting with sending signals. 
+ 
+ The canonical first example introduces a handler for \texttt{SIGINT} that changes a boolean \texttt{quit} to be true.
+ 
+ 
+Some signals like \texttt{SIGINT} are \alert{asynchronous}.
+
+As previously discussed, there are also synchronous signals. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Special Delivery}
+
+Recall that the signal is delivered by the operating system to the process. 
+
+Signal handlers need a stack frame.\\
+\quad The kernel must push one onto the stack.
+
+There is special unwinding code at the end of the interrupt.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Other Interrupts}
+
+Many interrupts arise from hardware and are handled by the kernel with its own interrupt handling code.
+
+The kernel may choose, if appropriate, to use signals as the way of notifying the user process of what happened. 
+
+Example: close the lid of the laptop.
+
+
+Even \texttt{SIGINT} has some hardware interrupt behind it!
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Where Were We?}
+
+Hardware interrupt handlers do not end with normal \texttt{return} statements, but often something like \texttt{rti}, \texttt{rte}, or \texttt{iret}. 
+
+Why?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Where Were We?}
+
+ The \texttt{return} statement does not work; its semantics (as discussed earlier) terminate the current function and return control to the calling function. 
+ 
+ An interrupt handler should instead send execution back to where it was before the interrupt took place. There is no calling function to go back to.  
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{The Life Cycle}
+
+We have a reasonably good idea of how to run a program and how it executes. 
+
+That only works, however, when the operating system itself is running. 
+ 
+Let us consider a day in the life of the operating system next.
+
+
+\end{frame}
+
+
+
 
 \end{document}
