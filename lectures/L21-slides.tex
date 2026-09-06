@@ -268,7 +268,7 @@ Discussion question: should we go fast temporarily and get to the idle state soo
 \begin{frame}
 \frametitle{Race to Idle}
 
-You can imagine this as $t_1 \times e_1$ (``race to idle'') vs $t_2 \times e_2$ ( ``slowdown'').
+You can imagine this as $t_1 \times e_1$ (``race to idle'') vs $t_2 \times e_2$ (``slowdown'').
 
 \begin{center}
 	\includegraphics[width=0.4\textwidth]{images/tortoise-hare.jpg}
@@ -330,7 +330,7 @@ The idle task may contain the \texttt{HLT} (halt) instruction which puts it in C
 	\includegraphics[width=0.5\textwidth]{images/gotosleep.jpg}
 \end{center}
 
-Send it only if we don't be using the core for a while.
+Send it only if we won't be using the core for a while.
 
 \end{frame}
 
@@ -350,7 +350,7 @@ Interrupts send a core back into C0.
 \begin{frame}
 \frametitle{But How}
 
-Kernel docs: ``The role of the governor is to find an idle state most suitable for the conditions at hand.''. 
+Kernel docs: ``The role of the governor is to find an idle state most suitable for the conditions at hand.''
 
 The description of each idle state, from the view of the governor, involves two figures: target residency and worst-case exit latency. 
 
@@ -388,7 +388,7 @@ Once an estimate is reached, then the governor can look at the list of idle stat
 \begin{frame}
 \frametitle{Big Cores and Little Cores}
 
-A twist on SMP that is common in mobile devices: heterogeneous CPU topology,\\
+A twist on SMP that is common in mobile devices: heterogeneous CPU topology.\\
 \quad We have cores of different size and power.
 
 \begin{center}
@@ -522,7 +522,7 @@ If there is a dollar price per gigabyte, it might be the user's preference to re
 
 Timers are usually not super precise in mobile systems either; some amount of fuzziness permits lining things up. 
 
-This means that if a wake-up was meant to happen at time $x$ and then the system would go back to idle and then immediately wake up at $x+\epsilon$?
+This means that if a wake-up was meant to happen at time $x$ and then the system would go back to idle and then immediately wake up at $x+\epsilon$.
 
 The OS will nudge the first timer back a bit so both wake-ups happen together. 
 
