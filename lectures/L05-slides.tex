@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 5 --- Access Control: DAC, MAC, Capabilities, and Sandboxing}
+\title{Lecture 5 --- Access Control}
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -14,23 +14,597 @@
   \titlepage
 \end{frame}
 
+
+
 \begin{frame}
-\frametitle{Placeholder}
+\frametitle{Security Always}
 
-This lecture is not yet written. The outline lives in the plan file.
+Security \& Protection cannot be left for the end.
 
-Intended sections:
-\begin{enumerate}
-	\item Discretionary access control (DAC)
-	\item Setuid and least privilege
-	\item Linux capabilities
-	\item Mandatory access control (MAC)
-	\item Syscall sandboxing --- seccomp-bpf
-	\item Landlock
-	\item Composition --- a browser tab's sandbox
-	\item The LSM framework
-\end{enumerate}
+We know why we need protection, and we have already had an introduction to the differences between policy and mechanism.
+
+Right now, we will focus on access control.
 
 \end{frame}
+
+
+\begin{frame}
+\frametitle{Least Privilege}
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/magicword.jpg}
+\end{center}
+
+Every actor should be given only the most limited set of privileges necessary to accomplish its goals.
+
+This is not a new idea: it was popularized in 1975!
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Least Privilege}
+It minimizes the damage caused if something goes wrong.
+
+
+We understand from learning about processes (and threads) already, that if there's an invalid memory access, the process is terminated.
+
+That's better than permitting the access to proceed and change or access memory that belongs to another process (or the OS).
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Feeling Entitled?}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/whoiam.jpg}
+\end{center}
+
+It's frustrating to get a ``no'' answer.
+
+The access control policy can be unpleasant to experience in this form, but -- if I can \texttt{ssh} into the machine, what other things can I see?
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Replit Did What}
+
+\begin{center}
+	\includegraphics[width=0.7\textwidth]{images/replit.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Discretionary Access Control}
+
+Discretionary access control is used to refer to situations where the owner of something decides who may have access to it.
+
+Let's talk about files to start with.
+
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{File Permissions}
+
+	Files usually have some permissions associated with them:
+
+	\begin{enumerate}
+		\item Read
+		\item Write
+		\item Execute
+		\item Append (write at the end of the file)
+		\item Delete
+		\item List (view the attributes of the file)
+	\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Access Control: UNIX-Style}
+
+	These are used often in UNIX(-like) systems.
+
+	Each file has an owner and a group.
+
+	Permissions can be assigned for the:
+	\begin{itemize}
+		\item Owner
+		\item Group
+		\item Everyone
+	\end{itemize}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Access Control: UNIX-Style}
+
+
+	There are three basic permissions:
+
+	\begin{itemize}
+		\item Read
+		\item Write
+		\item Execute
+	\end{itemize}
+
+	Permissions are represented by 10 bits:\\
+	\quad 1 indicates true and 0 indicates false.
+
+	First bit is the directory bit.
+
+	Next three are read, write, execute for the owner.\\
+	Then read, write, execute for the group.\\
+	Finally, read, write, execute for everyone.
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Access Control: UNIX-Style}
+
+
+	The permissions can be shown in a human-readable format.
+
+	The order is always the same, and so a dash (\texttt{-}) appears if a bit is zero (permission does not exist).
+
+	The character \texttt{d} is used to indicate a directory.
+
+	\texttt{r} to indicate read access.
+
+	\texttt{w} to indicate write access.
+
+	\texttt{x} to indicate execute access.
+
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Access Control: UNIX-Style Example}
+
+
+	Example: \texttt{-rwxr{-}{-}{-}{-}{-}}
+
+	This means:
+	\begin{itemize}
+		\item not a directory;
+		\item the owner can read, write, and execute;
+		\item other members of the group can read it only
+		\item everyone else has no access to the file (cannot read, write, or execute).
+	\end{itemize}
+
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Access Control: UNIX-Style}
+
+
+	Permissions can also be written in octal (base 8): \\
+	\quad r = 4, w = 2, and x = 1.
+
+	Start with 0, and then add the value of the  permissions that are present, using zero where permissions are absent.
+
+	Example: \texttt{750} \mnote{meaning that the owner has read, write and execute access (0 + 4 + 2 + 1 = 7); group members have read and execute access (0 + 4 + 0 + 1 = 5); everyone else has no access to it at all.}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\texttt{setuid} and \texttt{setgid}}
+
+These are advanced concepts and very easy to get wrong.
+
+A research paper argues that these are poorly designed, lack appropriate documentation, and are the causes of many security vulnerabilities.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\texttt{setuid}}
+
+\texttt{setuid}: it runs a program with the file owner's user ID rather than that of the person who invoked the program. 
+
+The most basic example that is easy to motivate is the password change utility.
+
+The password change utility is owned by \texttt{root}.
+
+This mechanism is all-or-nothing.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{That's Not the Least}
+
+Going all the way to \texttt{root} privileges is not at all the principle of least privilege.
+
+A better solution would instead give just the powers needed and no more. 
+
+You may edit this password, but cannot delete important system files...
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\texttt{sudo}}
+
+Does \texttt{sudo} remove the need for \texttt{setuid}?
+
+No! \texttt{sudo} uses the \texttt{setuid} mechanism.
+
+What \texttt{sudo}, a user-space program, brings to the party is the \texttt{sudoers} file.\\
+\quad This is a policy document.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Capabilities}
+
+The kernel's solution is called \textit{capabilities}: decompose the privileges of \texttt{root} so that a program gets only what it needs to do the job.
+
+There are many capabilities in the kernel!
+
+Example: a process that gets the permission to use \texttt{CAP\_NET\_BIND\_SERVICE} is permitted to bind a privileged port.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Not All Paths Foreseen}
+
+Of course, not everything an administrator can do has an associated capability.
+
+\texttt{CAP\_SYS\_ADMIN} is seen as some sort of catch-all/fallback option. 
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\texttt{setgid}}
+The \texttt{setgid} call is analogous to setting the user ID, except it sets the group ID instead. 
+
+This can have the same goal: ensure that the execution of the process runs with the permissions of ``someone else'' rather than the invoker.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\texttt{setgid}}
+
+System administrators can write announcements (like ``system is shutting down at 23:00 for maintenance'') using the \texttt{wall} command.
+
+This uses the group ID necessary to write to everyone's terminal; not \texttt{root}. 
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Access Control: UNIX-Style}
+
+
+The obvious shortcoming: very coarse grained.
+
+Another strategy used by Windows NT.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Access Control: ACLs}
+
+
+Files are protected by Access Control Lists.
+
+Each file can have as many security descriptors as we like.
+
+Descriptor lists the permissions a user/group has.
+
+Permissions are more than just \texttt{rwx}.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Access Control: ACLs}
+
+
+In NTFS, you can see the security descriptors for a file: right click it in Explorer, properties dialog, choose the security tab. 
+
+The descriptors have two checkboxes: allow and deny. 
+
+Deny takes precedence over allow.
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Access Control: ACLs}
+
+
+Permissions can start out at \alert{default deny}, in which case only the users explicitly granted access may access the file.
+
+Alternative: \alert{default permit} in which case everyone has access, minus those users whose privileges are explicitly denied. 
+
+Default deny is obviously more secure.
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Access Control: ACLs}
+
+
+Represent an access control list as a set of tuples:
+\begin{verbatim}
+	(alice, read)
+	(bob, read)
+	(charlie, read)
+	(charlie, write)
+	(bob, execute)
+\end{verbatim}
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Mandatory Access Control}
+
+Discretionary access control is a perfectly good and usable model, but is not perfect by any means.
+
+Mandatory access control policies are called that because they allow administrators to define a set of hard rules that cannot be overridden. 
+
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Mandatory Access Control}
+
+This means that even if you own a file as a user, it does not mean you can do anything you want with it. 
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/requestdenied.jpg}
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Mandatory Access Control}
+
+There are two major reasons for this: one is that we might want to stop users from doing things that hurt themselves or break rules.
+
+The second is putting restrictions on the \texttt{root} user permissions generally lessens the impact of any failure or compromise.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Users Hurting Themselves?}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/stupid.jpg}
+\end{center}
+
+Users copy-paste code they don't understand into scripts and run it and say ``yes whatever shut up go away'' to warning dialog boxes!
+
+
+... or AI agents can go off-track.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Users Breaking Rules}
+
+\begin{center}
+	\includegraphics[width=0.5\textwidth]{images/grimes.jpg}
+\end{center}
+
+Nothing in DAC stops a user who has top-secret clearance from reading a document labelled top-secret and then copying that content to the \texttt{/tmp} directory where it can be seen by people who do not have clearance.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Users Breaking Rules}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/prison.jpg}
+\end{center}
+
+DAC could not stop this. But MAC can!
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Restricting Root Access}
+
+Restricting what \texttt{root} can do is also a goal of mandatory access control: it limits the damage that can be done if an attacker acquires elevated privileges. 
+
+Red Hat gives an example involving a web server and a database server that co-exist on the same system, yet cannot access one another's files. 
+
+Why would this help?
+\end{frame}
+
+
+\begin{frame}
+\frametitle{SELinux}
+
+We are going to talk about one specific implementation of MAC in Linux: SELinux.
+
+This is not the only approach; there's a credible alternative called AppArmor used in Ubuntu Linux, but we will not talk about it for time reasons. 
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{SELinux}
+SELinux brings in mandatory access controls as well as rules that go beyond the UNIX permissions scheme. 
+
+The intention was to make something that is flexible enough to permit configuration, but still provides the mandatory access control guarantees needed.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Labels}
+
+The policy approach for SELinux is based on labelling.
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/labelmaker.jpg}
+\end{center}
+
+The labels and types are then referenced in building up the rules.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{SELinux Goals}
+
+1. Restricting each process to the bare minimum of what it needs.
+
+2. No all-powerful root account that is vulnerable to takeover or exploitation.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Everything Has Its Cost}
+
+Suffice it to say that the enhanced security requires enforcement, which takes work.
+
+It does slow down execution of the system calls. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Cancel or Allow?}
+
+ One of the most common experiences people have with SELinux is finding it to be too complicated to set up correctly, resulting in just... turning it off. 
+ 
+ \begin{center}
+	\includegraphics[width=0.4\textwidth]{images/safetyprotocol.jpg}
+\end{center}
+ 
+Designing these so that people don't just turn them off because they're annoying is the subject of a grad course: ``ECE 750T38: Usable Security and Privacy''.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Android Managed}
+
+To end that discussion less negatively, Android has been using SELinux (with it turned on, obviously!) for many years (according to the Android docs, since 5.0).
+
+It has generally been a seamless experience for users. 
+
+This is partly down to differing expectations of applications on mobile devices versus those on a server, but it is nevertheless a success story.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Syscall Filtering}
+
+Remember: system calls are offered from the kernel to userspace programs.
+
+It's dangerous to let a process have the ability to call these things even if we think it never will. 
+
+Example: web server with delete-file permission denied.\\
+\quad Kernel doc example is a syscall with a vulnerability.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{BPF}
+
+Kernel implementation uses Berkeley Packet Filter.
+
+Its original usage was for socket filtering, but can be turned inward.
+
+It uses rules to filter system calls by their number and arguments. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Landlock}
+
+Being unable to delete things entirely might be too restrictive.
+
+What if we could apply more specific restrictions? \alert{Landlock}.
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Landlock Example}
+
+\begin{lstlisting}[language=C]
+attr.handled_access_net =
+        LANDLOCK_ACCESS_NET_BIND_TCP |
+        LANDLOCK_ACCESS_NET_CONNECT_TCP;
+
+int ruleset_fd = landlock_create_ruleset(&attr, sizeof(attr), 0);
+struct landlock_net_port_attr port_bind = {0};
+port_bind.port = port;
+port_bind.allowed_access = LANDLOCK_ACCESS_NET_BIND_TCP;
+if (landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT, &port_bind, 0)) {
+    perror("Failed to add a network rule with landlock_add_rule.\n");
+    exit(1);
+}
+
+if (landlock_restrict_self(ruleset_fd, restrict_flags)) {
+    perror("Failed to enforce landlock ruleset with landlock_restrict_self");
+    exit(1);
+}
+close(ruleset_fd);
+\end{lstlisting}
+
+Permit \texttt{bind()} on the one specific port using the rule about binding. 
+
+Forbid all use of connect by having NO rule permitting the use of \texttt{connect()}.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Security is Like an Onion}
+
+\begin{center}
+	\includegraphics[width=0.4\textwidth]{images/shrek.jpg}
+\end{center}
+
+The Landlock approach can, of course, be combined with others that we've seen.
+
+Use all of them to restrict privileges as much as we can!\\
+\quad And benefit from lower impact of security breaches or rogue users/agents!
+
+\end{frame}
+
+
+
+
 
 \end{document}
