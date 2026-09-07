@@ -1,6 +1,6 @@
 \input{configuration}
 
-\title{Lecture 28 --- File Allocation Methods }
+\title{Lecture 28 --- Log-Structured File Systems and File Consistency }
 
 \author{Jeff Zarnett \\ \small \texttt{jzarnett@uwaterloo.ca}}
 \institute{Department of Electrical and Computer Engineering \\
@@ -17,338 +17,134 @@
 
 
 \begin{frame}
-\frametitle{Allocation of Disk Space}
+\frametitle{Log-Structured File Systems}
 
-There is a need to choose a strategy for how to allocate disk space. 
+The key idea behind a log-structured file system: make all writes sequential.
+
+ For reads, this is not possible, because any data could be requested at any time.\\
+ \quad But for writes, that's within our control. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Log-Structured File Systems}
+
+Both HDD and SSD data storage benefit from this. 
+
+HDD: Minimize seek time.
+
+SSD: Avoid attempting to overwrite in-place.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Log-Structured File Systems}
+
+This ideas was proposed in 1992!
+
+The plan, at a high level, is to write data and metadata into buffers of a given size.
+
+When that buffer is full, write it to disk in one sequential write to a big-enough free area.
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Finding It Again}
+
+How will we find things again in the future? 
+
+The file itself can be moving, after all, as we write more data to it. 
+
+There must exist some sort of mapping, which is called the \alert{inode map} that is kept up to date.
+
+Yes, but finding the map starts to become a problem.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Finding the Map}
+
+The solution is called the \alert{checkpoint region} -- a clearly-noted fixed location on disk that is the location of the pointers to the latest pieces of the inode map
+
+That's the way to find everything else.
+
+As you can imagine, this must also contain information on what's free alongside what is allocated.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Writing Sequentially}
+
+Writing sequentially, we know, sort of makes no sense in the SSD world because any write location is as good as any other. 
+
+The main benefit of such a system is that this strategy is already designed for the no-overwrite logic.
+
+The TRIM command can be used to indicate what's reached its time to die. 
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Writing Sequentially}
+
+Writing sequentially is the kind of thing that benefits from a certain economy of scale on HDDs.
+
+If we had multiple blocks to go together, we'd write $A, A+1, A+2, A+3...$ in one shot and we'd avoid both seek and rotational latency penalties for 3 of the 4.
+
+In the limit, we could amortize rotational latency to be negligible.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Writing Sequentially}
+
+Okay, infinite write size is not possible and we've identified that a buffer size of 1 block doesn't meet our goals either because the intention is to amortize the cost. 
 
 \begin{center}
-	\includegraphics[width=0.4\textwidth]{images/jones.jpg}
+	\includegraphics[width=0.4\textwidth]{images/narrows.png}
 \end{center}
 
-There are three major ways that we could allocate the disk space to files:\\
-\quad Contiguous, linked, and indexed; each has its advantages and disadvantages.
+Having narrowed it down to somewhere between 1 and infinity is not helpful.
 
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Contiguous Allocation}
-Contiguous: a file occupies a set of contiguous blocks on disk. 
-
-So a file is allocated, starting at block $b$ and is $n$ blocks in size, the file takes up blocks $b, b+1, b+2, ..., b+(n-1)$. 
-
-This is advantageous, because if we want to access block $b$ on disk, accessing $b+1$ requires no head movement, so seek time is nonexistent to minimal.
-
-\end{frame}
 
 \begin{frame}
-\frametitle{Contiguous Allocation}
+\frametitle{Set a Target}
 
-All that we need to maintain are $b$ and $n$: the start location and length of the file. 
+If we target, let's say, 90\% of the maximum effective rate, that allows setting the buffer size to a specific number. 
 
-Both sequential and direct access are very easy: the first block of a file is at $b$. 
-
-To access a block $i$ at some offset into the file, it's at the base address $b$ plus $i$. 
-
-Checking if the access is valid is also an easy operation: if $i < n$ then it is valid.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Contiguous Allocation}
+There's nothing magical about 90\% as a target -- but it is reasonable enough. 
 
 \begin{center}
-	\includegraphics[width=0.6\textwidth]{images/disk-contiguous.png}
-\end{center}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Contiguous Allocation}
-
-This takes us back to a problem we have seen once before: the memory allocation problem. 
-
-If we need a memory block of size $N$:\\
-\quad (1) can we find a contiguous block of $N$ or greater to meet that allocation?\\
-\quad (2) if there is more than one block, which one do we choose? 
-
-As before, we suffer the problem of external fragmentation, plus a bit of internal fragmentation in the last block of the file. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Contiguous Allocation and Compaction}
-
-There was also talk on the subject of memory allocation of compaction. 
-
-This was moving memory allocations around in memory to create some larger free spaces that can be allocated. 
-
-But for languages like C, it was not realistic, because of the impossibility of updating all pointers (unlike Java where we can update all references). 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Compaction}
-
-We can do compaction on disk, but it's slow and computationally expensive. 
-
-Doing compaction can be done when the system has nothing else to do (idle priority operation) or on some schedule when it would be minimally disruptive.
-
-The middle of the night...?
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Contiguous Allocation}
-
-Another problem: how much space is a file going to take? 
-
-If it is just a copy-paste operation, the copy is the same size as the original. 
-
-When a user opens a new document, how big will it be? 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Contiguous Allocation}
-
-
-If we allocate too little space, we may be able to tack on space at the end, or that block may be allocated, forcing us to move the file and reallocate it. 
-
-If the value we choose is too large, then significant space will be wasted for small files (and many files tend to be relatively small).
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Linked Allocation}
-
-Linked allocation is a solution to the problems of contiguous allocation.
-
-Instead of a file being all in consecutive blocks, we maintain a linked list of the blocks, and the blocks themselves may be located anywhere on the disk. 
-
-The directory listing just has a pointer to the first and last blocks (head and tail of the linked list).
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Linked Allocation}
-
-If a new file is created, it will be created with size zero and the head and tail pointers are null.
-
- When a new block is needed, it can come from anywhere and will just be added to the linked list. 
- 
- Thus, compaction and relocation are not really an issue. 
- 
- Unfortunately, however, accessing block $i$ of a file is no longer as simple as computing an offset from the first block; it requires following $i$ pointers (a pain).
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Linked Allocation}
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/disk-linked.png}
+$D = \dfrac{F}{1-F} \times R_{peak} \times T_{position}$
 \end{center}
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Linked Allocation}
-
-A possible solution to the problem of following so many pointers (and the overhead of maintaining so many) is to group up the blocks into \alert{clusters}.
-
-A cluster is comprised of, say, four blocks. 
-
-Then we waste less memory maintaining pointers and it improves disk accesses because there is less seeking back and forth to various disk locations.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{File Allocation Table (FAT)}
-
-One variation of linked allocation is the File Allocation Table (FAT).
-
-Used in Windows before NTFS came in with Windows NT/2000/XP/7/8...
-
-FAT32 hangs on these days for USB Flash Drives.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{File Allocation Table}
-
-
-At the beginning of the disk, there is a table to maintain file allocation data. 
-
-The table has one entry for each block and is indexed by block number. 
-
-It works like a linked list; the directory entry has the first block of the file and the table entry under that block number has the index of the next block. 
-
-The chain continues until the last block; there is a special end-of-file value. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{File Allocation Table}
-
-An unused block has a table value of 0. 
-
-Thus, to allocate a new block, find the first 0-valued entry, and replace the previous end-of-file value with the address of the new block.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{File Allocation Table}
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/file-allocation-table.png}
-\end{center}
-
-The FAT itself should be cached in memory, otherwise the disk is going to have to seek back to it unbearably often.
-
-\end{frame}
-
 
 
 \begin{frame}
-\frametitle{Indexed Allocation}
+\frametitle{New Problem}
 
-If we stuck to pure linked allocation, we still have the problem that accessing some part in the middle of the file is a pain.
+We introduced a new problem, here. 
 
-We have to follow and retrieve a lot of pointers to the different blocks. 
+If the system crashes (or loses power) when we have a large buffer that's mostly full, we could lose a lot of progress.  
 
-The idea of indexed allocation is to take all the pointers and put them into one location: an index block. 
+We know that this could happen at any time. LFS addresses this by being prepared for such an eventuality and having a \alert{recovery strategy}. 
 
-
-\end{frame}
-
-
-
-\begin{frame}
-\frametitle{Indexed Allocation}
-
-So, the first block of the file contains a whole bunch of pointers. 
-
-To get to block $i$, just go to index $i$ of the index block and we can get the location of block $i$ much more efficiently than we could in linked allocation. 
-
-All pointers to blocks start as null, and when we add a new block, add its corresponding entry into the index block.
+A recovery strategy is exactly what it sounds like, a way to get things back to a consistent state.
 
 \end{frame}
 
-\begin{frame}
-\frametitle{Indexed Allocation}
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/disk-indexed.png}
-\end{center}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Block Size}
-
-Like many of the other systems we have examined, there is a need to make a decision about the size of a block. 
-
-If a file needs only 1-2 blocks, one whole block is allocated for the pointers which contains only 1-2 entries. 
-
-That suggests we want the index to be small, but what if we need more pointers than fit into one block? There are a few mechanisms for this.
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Block Size}
-
-What if we need more pointers than fit into one block?
-
-\begin{enumerate}
-	\item \textbf{Linked Scheme}
-	\item \textbf{Multilevel Index}
-	\item \textbf{Combined Scheme}
-\end{enumerate}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{UNIX inodes}
-
-We can finally show a visual representation of an inode.
-
-\begin{center}
-	\includegraphics[width=0.6\textwidth]{images/unix-inode.png}
-\end{center}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Free Space Management}
-
-As with memory, the system will keep track of the free space available.
-
-Bit vectors work just the way we would expect: create a structure in memory where a bit represents a block. 
-
-If it is free, the bit is 1; allocated is 0. 
-
-So a bit vector looks like \texttt{0100110111011111000000...}. 
-
-The problem with this strategy is, of course, that the bigger the disk, the more overhead is needed to store this bit vector.
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Free Space Management}
-
-The next rather obvious approach is a linked list: the head points to the first free space block, and we can traverse the list to get to the next free block. 
-
-\begin{center}
-	\includegraphics[width=0.4\textwidth]{images/disk-linked-list.png}
-\end{center}
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Grouping}
-
-Grouping: the first free block will be used to store the addresses of $n$ free blocks, the first $n-1$ of which are actually free. 
-
-The last block contains a block with another set of $n$ free blocks. 
-
-So if we need a large number of free blocks, we can find them quickly, instead of walking through the list one block at a time, which takes a lot of disk accesses. 
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Counting}
-
-Counting is a slight improvement on this where we also store a number $k$ of free contiguous blocks after each address. 
-
-So, if block 27 is followed by three consecutive free blocks, instead of having 27, 28, 29, 30 as entries, it will show (27, 4). 
-
-The entries may be stored in a balanced tree for efficient operations.~
-
-
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Preallocation}
-
-The efficient use of a disk depends on the disk-allocation/directory algorithms. 
-
-UNIX inodes, for example, are preallocated, so even a disk containing no files has some of its space taken up by the inodes. 
-
-Preallocation \& distribution of inodes improves the file system performance.
-
-UNIX allocation and free-space algorithms keep the file data near the inode, where possible, to reduce seek time.
-
-
-\end{frame}
 
 \begin{frame}
 \frametitle{Consistency Checking and Journalling}
