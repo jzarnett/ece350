@@ -42,7 +42,7 @@ SSD: Avoid attempting to overwrite in-place.
 \begin{frame}
 \frametitle{Log-Structured File Systems}
 
-This ideas was proposed in 1992!
+This idea was proposed in 1992!
 
 The plan, at a high level, is to write data and metadata into buffers of a given size.
 
@@ -69,7 +69,7 @@ Yes, but finding the map starts to become a problem.
 \begin{frame}
 \frametitle{Finding the Map}
 
-The solution is called the \alert{checkpoint region} -- a clearly-noted fixed location on disk that is the location of the pointers to the latest pieces of the inode map
+The solution is called the \alert{checkpoint region} -- a clearly-noted fixed location on disk that is the location of the pointers to the latest pieces of the inode map.
 
 That's the way to find everything else.
 
@@ -142,6 +142,14 @@ If the system crashes (or loses power) when we have a large buffer that's mostly
 We know that this could happen at any time. LFS addresses this by being prepared for such an eventuality and having a \alert{recovery strategy}. 
 
 A recovery strategy is exactly what it sounds like, a way to get things back to a consistent state.
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Recovery Strategy}
+
+Let's zoom out for a bit and take a look at a specific kind of recovery for file systems.
 
 \end{frame}
 
@@ -248,7 +256,7 @@ As a side benefit, we can sometimes re-order the writes to get better performanc
 \begin{frame}
 \frametitle{ZFS Approach}
 
-The approach in the Solaris ZFS approach is similar, but not identical. 
+The approach in the Solaris ZFS is similar, but not identical. 
 
 Blocks are never overwritten with new data.\\
 \quad Instead, a transaction writes all data and metadata to new blocks. 

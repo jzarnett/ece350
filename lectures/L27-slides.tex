@@ -281,7 +281,7 @@ There are three major ways that we could allocate the disk space to files:\\
 \frametitle{Contiguous Allocation}
 Contiguous: a file occupies a set of contiguous blocks on disk. 
 
-So a file is allocated, starting at block $b$ and is $n$ blocks in size, the file takes up blocks $b, b+1, b+2, ..., b+(n-1)$. 
+So if a file is allocated, starting at block $b$ and is $n$ blocks in size, the file takes up blocks $b, b+1, b+2, ..., b+(n-1)$. 
 
 This is advantageous, because if we want to access block $b$ on disk, accessing $b+1$ requires no head movement, so seek time is nonexistent to minimal.
 
@@ -574,7 +574,7 @@ Counting is a slight improvement on this where we also store a number $k$ of fre
 
 So, if block 27 is followed by three consecutive free blocks, instead of having 27, 28, 29, 30 as entries, it will show (27, 4). 
 
-The entries may be stored in a balanced tree for efficient operations.~
+The entries may be stored in a balanced tree for efficient operations.
 
 
 

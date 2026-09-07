@@ -143,7 +143,7 @@ So physical locations move! Implications:
 
 
 \begin{frame}
-\frametitle{Flash Translation Layer}
+\frametitle{Consequences}
 
 1. The level of indirection is called \alert{FTL (Flash Translation Layer)}.
 
@@ -170,7 +170,7 @@ A read of logical page $N$ is mapped directly to a physical page $N$ and a write
 \begin{frame}
 \frametitle{FTL Organization}
 
-We know this bad: slow to erase.
+We know this is bad: slow to erase.
 
 The current approach used by SSDs is called \alert{log-structured}.
 
@@ -221,7 +221,7 @@ Its purpose is for the operating system to inform the SSD what data is no longer
 \begin{frame}
 \frametitle{TRIM}
 
-The command is needed because many file systems work similar to C's approach to deallocation of memory.
+The command is needed because many file systems work similarly to C's approach to deallocation of memory.
 
 When a file is deleted, it is just marked as no-longer in use but the actual data is not explicitly deleted/cleared. 
 
@@ -259,7 +259,7 @@ This is synchronous and can cause latency spikes.
 \begin{frame}
 \frametitle{Implementing the Interface}
 
-Now it is time to go behind the scenes of how the file system lives up to the interface we have just finished discussing. 
+Now it is time to go behind the scenes of how the file system lives up to the interface.
 
 The implementation is somewhat complicated, and to keep the size of the problem manageable we will worry about storing files on hard disks.
 
@@ -303,7 +303,7 @@ Recall also that disks operate on blocks which, in their physical representation
 
 There are a million different file systems (UFS, HFS+, ZFS, NTFS, ext3, FAT32...) 
 
-They are all significantly different, there are some general principles. 
+They are all significantly different, but there are some general principles. 
 
 A file system will need to keep track of the total number of blocks, the number and locations of free blocks, the directory structure, and the files themselves.
 
@@ -361,7 +361,7 @@ There are several structures that are likely to be in memory for performance rea
 
 Creating a new file is the job of the logical file system. 
 
-Allocation of a new FCB (or re-use of an existing free FCB)
+Allocation of a new FCB (or re-use of an existing free FCB).
 
 \begin{center}
 	\includegraphics[width=0.4\textwidth]{images/fcb.png}
