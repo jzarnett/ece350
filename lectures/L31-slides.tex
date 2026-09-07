@@ -190,7 +190,7 @@ But the key insight here is that \texttt{ftrace} can register ANY hook you like,
 \begin{frame}
 \frametitle{A Clever Solution}
 
-\texttt{ftrace} has restrictions: they can get called from anywhere and must avoid the risk of recursion resulting in an infinite loop or stack overflow. 
+\texttt{ftrace} has restrictions: callbacks can get called from anywhere and must avoid the risk of recursion resulting in an infinite loop or stack overflow. 
 
 \begin{center}
 	\includegraphics[width=0.5\textwidth]{images/macgyver.jpg}
@@ -227,7 +227,7 @@ Let old requests finish in the old system, then pull the plug on the old one whe
 
 
 \begin{frame}
-\frametitle{ \texttt{kpatch} }
+\frametitle{\texttt{kpatch}}
 
 The \texttt{kpatch} approach is a little more disruptive and feels more like surgery or Java's (older) garbage collection mechanism.
 
@@ -411,9 +411,9 @@ It's permitted to have multiple shadow variables attached to the same parent.
 \frametitle{Companion Objects}
 A shadow object has some identifier that tells us what the parent is; the kernel must also have a hash table to match.
 
-We need to allocate the shadow variable structure and deallocate them explicitly.
+We need to allocate the shadow variable structures and deallocate them explicitly.
 
-This matters when the original  is deallocated, but also when unloading the patch.
+This matters when the original is deallocated, but also when unloading the patch.
 
 \end{frame}
 
